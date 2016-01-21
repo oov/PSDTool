@@ -1,0 +1,104 @@
+@charset "UTF-8";
+body {
+   line-height: 1.8;
+}
+.psdtool-sampleimg {
+   margin-right: 8px;
+}
+#dropzone {
+   min-height: 16rem;
+   border: 1px dashed transparent;
+   background-color: #fff;
+}
+#dropzone.psdtool-drop-active {
+   border: 1px dashed #4bf;
+   background-color: #def;
+}
+#main {
+   position: absolute;
+   left: 0;
+   top: 0;
+   width: 100vw;
+   height: 100vh;
+   overflow: hidden;
+}
+#side-container {
+   background: #fff;
+   position: absolute;
+   left: 0;
+   top: 0;
+   width: 20vw;
+   height: 100vh;
+   overflow: auto;
+}
+#preview-container {
+   background: #ccc;
+   position: absolute;
+   left: 20vw;
+   top: 0;
+   padding: 0;
+   margin: 0;
+   width: 80vw;
+   height: 100vh;
+   overflow: auto;
+   box-sizing: border-box;
+   border-left: 1px solid #888;
+}
+#preview-container canvas {
+   margin: auto;
+   display: block;
+   background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAAQMAAAD58POIAAAABlBMVEXMzMz////TjRV2AAAAKElEQVRIx2P4z4AKGQZIgGGQOGQ0PEbDYzQ8RsNjNDxGw2M0PGguAAAGkPwuYonmZAAAAABJRU5ErkJggg==");
+   border: 1px solid #888;
+}
+#invert {
+   margin: 0;
+   padding: 4px;
+   font-weight: normal;
+}
+#invert, .psdtool-layer-name {
+   user-select: none;
+   -moz-user-select: none;
+   -webkit-user-select: none;
+   -ms-user-select: none;
+}
+.psdtool-layer-name {
+   background: #f8f8f8;
+   border: 1px solid #ddd;
+   display: block;
+   font-weight: normal;
+   margin-bottom: -1px;
+   padding: 4px;
+   white-space: nowrap;
+}
+#invert input, .psdtool-layer-name input {
+   margin: 0;
+   vertical-align: middle;
+}
+.psdtool-folder > ul {
+   transition: opacity 0.25s;
+   opacity: 1;
+}
+.psdtool-folder.psdtool-hidden > ul {
+   opacity: 0.25;
+}
+.psdtool-thumbnail {
+   border: 1px solid #ddd;
+   vertical-align: middle;
+   width: 24px;
+   height: 24px;
+}
+#layer-tree {
+   padding-left: 0;
+}
+#layer-tree ul {
+   padding-left: 16px;
+}
+#layer-tree li {
+   list-style-type: none;
+}
+#invert input, .psdtool-layer-name input, #layer-tree .psdtool-icon, #layer-tree .psdtool-thumbnail {
+   margin-right: 0.5rem;
+}
+#layer-tree .psdtool-icon {
+   margin-right: 0.75rem;
+}

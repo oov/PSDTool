@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSDTool</title>
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/main.css" rel="stylesheet">
+
+<body data-invert-caption="左右反転" data-invert-title="左右反転は髪型、アクセサリー、文字など本来反転していけない部分も反転してしまうため、使用には注意が必要です。">
+	<div class="container">
+		<h1>
+			PSDTool
+			<small>Photoshop 形式のファイルを読み込む奴</small>
+		</h1>
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-sm-6">
+					<label for="inputfile">*.psd ファイルを選択して開く</label>
+					<div id="dropzone">
+						<input type="file" id="inputfile" accept=".psd">
+						<p>この辺にファイルをドロップして読み込むこともできます。</p>
+					</div>
+				</div>
+				<div class="col-sm-6">
+					<label for="samplefile">サンプルファイルで試す</label>
+					<div>
+						<img src="img/sample.png" width="140" height="240" class="psdtool-sampleimg img-thumbnail pull-left" alt="">
+						<button class="btn btn-default" id="samplefile" data-filename="im5467479.psd">サンプルファイルで試す</button>
+						<small>
+							<p>
+								このイラストは<a href="https://twitter.com/hrowl">水梟る</a>さんが投稿されている 「<a href="http://seiga.nicovideo.jp/seiga/im5467479">さとうささら立ち絵集5</a>」を 許可をいただいて PSDTool 用のサンプルファイルとして使用させて頂いています。
+							</p>
+							<p>
+								「<a href="http://satosasara.com/">さとうささら</a>」はトーク・ソング対応音声合成ソフトウェア「<a href="http://cevio.jp/">CeVIO Creative Studio</a>」のキャラクターです。
+							</p>
+						</small>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="container">
+		<h1>説明書</h1>
+		<h2>PSDTool とは？</h2>
+		<img src="img/about.png" class="img-thumbnail" alt="PSDTool のスクリーンショット">
+		<p>
+			PSDTool は Photoshop 形式(*.psd) のファイルをブラウザで読み込んでレイヤーの表示／非表示を切り替えたり、合成された画像に名前を付けて保存したりできるツールです。
+			<br> 「ファイルを選択して開く」で読み込む画像はサーバーには一切送信されず完全にブラウザだけで処理されるため、プライベートな用途にも使用できます。
+		</p>
+		<p>
+			このツールは「イラストを描く人がレイヤーの表示／非表示を切り替えた様々なパターンを PNG で書き出したものを配布する」といった時間の浪費と手間を減らすために、 また配布されているイラストを利用したい人がソフトウェアを何も用意しなくても最新のブラウザさえあれば *.psd ファイルを扱えるようにすることを目的に作りました。
+		</p>
+		<p>
+			Photoshop 形式は sai、CLIP STUDIO PAINT、Krita、メディバンペイント、FireAlpaca など様々なペイントソフトで保存可能な共通の保存フォーマットです。<br>
+			これを機に、
+		</p>
+		<h2>動作環境</h2>
+		<p>
+			Microsoft Internet Explorer 11 / Microsoft Edge / Google Chrome / Mozilla Firefox で動作確認しています。
+			<br> Mac を持っていないので Apple Safari ではテストしていません。
+		</p>
+		<p>
+			ブラウザは常に最新版をお使いください。
+		</p>
+		<h2>読み込める *.psd ファイル</h2>
+		<p>非対応の機能が色々あります。</p>
+		<ul>
+			<li>RGB カラー（8bit/チャンネル）以外には対応していません。</li>
+			<li>レイヤーの合成モードは通常、比較（暗）、乗算、焼き込みカラー、比較（明）、スクリーン、覆い焼きカラー、オーバーレイ、ソフトライト、ハードライト、差の絶対値、除外、色相、彩度、カラー、輝度に対応しているはずです（動作未確認、ブラウザ側での実装依存）。</li>
+			<li>クリッピングマスク、レイヤーマスク、ベクトルマスクには対応していません。</li>
+			<li>テキストレイヤー、調整レイヤー、シェイプレイヤーなどには対応していません。</li>
+		</ul>
+		<h2>独自機能</h2>
+		<p>
+			レイヤー名の先頭に特定の記号を付けることで、レイヤーの表示／非表示の使い勝手を改善することができます。
+			<br> これらの機能を使用しても画像編集ソフトで開く際には今まで通り使用でき、編集が不便になることはありません。
+		</p>
+		<h3>アスタリスク「*」</h3>
+		<img src="img/asterisk.png" class="img-rounded" alt="アスタリスクの使用例">
+		<p>
+			レイヤー名の先頭に半角のアスタリスク「*」をつけると、選択項目がチェックボックスでははなくラジオボタンになります。
+			<br> ラジオボタンは親のグループレイヤー（画像例では「口」）に所属するようになります。
+		</p>
+		<ul>
+			<li>グループ内でひとつのみ選択できるため、二種類の表情が同時に表示されたりするのを防ぐことができます。</li>
+			<li>項目を選択すると前に選択されていた項目の選択解除も行われるため、切り替えのクリック数が半分で済みます。</li>
+			<li>ラジオボタンは選択解除できませんが、親のグループレイヤーで非表示にもできます。</li>
+		</ul>
+		<p>
+			ラジオボタン内のレイヤーが複数表示されたまま *.psd ファイルが保存されていた場合、その中で一番上のものがデフォルト表示されます。
+		</p>
+		<h3>エクスクラメーションマーク「!」</h3>
+		<img src="img/exclamation.png" class="img-rounded" alt="エクスクラメーションマークの使用例">
+		<p>
+			レイヤー名の先頭に半角のエクスクラメーションマーク「!」をつけると、選択項目からチェックボックスが消えます。
+			<br> チェックボックスがない項目は表示状態になり、非表示にできなくなります。
+		</p>
+		<ul>
+			<li>必須のパーツが外れるのを防ぐことができます。</li>
+			<li>選択項目を減らせるので、使う時に迷う要素を画面から減らすことができます。</li>
+		</ul>
+		<p>
+			強制表示設定にしたレイヤーを非表示にして *.psd ファイルを保存しても、強制的に表示状態になります。
+		</p>
+	</div>
+	<div class="container">
+		<div class="well text-center">
+			<small>
+				Created by <a href="https://github.com/oov/psd" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a> | Please listen to <a href="https://www.youtube.com/watch?v=SldjqJz3thA" target="_blank">my song</a>
+			</small>
+		</div>
+	</div>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/mithril/0.2.2-rc.1/mithril.min.js"></script>
+	<script src="js/psdtool.js"></script>
+	<script src="js/main.js"></script>
+</body>
+
+</html>
