@@ -40,7 +40,6 @@ type layer struct {
 
 func main() {
 	js.Global.Set("parsePSD", parsePSD)
-	// js.Global.Set("exportZIP", exportZIP)
 }
 
 func arrayBufferToByteSlice(a *js.Object) []byte {
@@ -165,46 +164,3 @@ func parsePSD(in *js.Object) *root {
 	}
 	return root
 }
-
-/*
-func buildZIP(w *zip.Writer, f string, l *layer) error {
-	for i, ll := range l.Layer {
-		buildZIP(w, fmt.Sprintf("%s_%02d-%s", f, i, ll.psdLayer.Name), &ll)
-	}
-	if !l.psdLayer.HasImage() {
-		return nil
-	}
-	imgBase64 := l.Canvas.Call("toDataURL", "image/png").Call("substring", 22).String()
-	b, err := base64.StdEncoding.DecodeString(imgBase64)
-	if err != nil {
-		return err
-	}
-	filename := fmt.Sprintf("%s.png", f)
-	o, err := w.CreateHeader(&zip.FileHeader{Name: filename, Method: zip.Store, Flags: 0x800})
-	if err != nil {
-		return err
-	}
-	_, err = o.Write(b)
-	return err
-}
-
-func exportZIP(in *js.Object) *js.Object {
-	root, err := parse(bytes.NewBuffer(arrayBufferToByteSlice(in)))
-	if err != nil {
-		panic(err)
-	}
-
-	buf := &bytes.Buffer{}
-	w := zip.NewWriter(buf)
-	s := time.Now().UnixNano()
-	for i, l := range root.Layer {
-		buildZIP(w, fmt.Sprintf("%02d-%s", i, l.psdLayer.Name), &l)
-	}
-	e := time.Now().UnixNano()
-	log.Println("Build ZIP:", (e-s)/1e6)
-	if err = w.Close(); err != nil {
-		panic(err)
-	}
-	return js.NewArrayBuffer(buf.Bytes())
-}
-*/
