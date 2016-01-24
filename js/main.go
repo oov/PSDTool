@@ -121,15 +121,6 @@ func createCanvas(l *psd.Layer) (*js.Object, error) {
 	return cvs, nil
 }
 
-func extractLayer(l *layer) {
-	if l.psdLayer.HasImage() {
-		js.Global.Get("document").Get("body").Call("appendChild", l.Canvas)
-	}
-	for i := range l.Layer {
-		extractLayer(&l.Layer[i])
-	}
-}
-
 func parse(r io.Reader) (*root, error) {
 	s := time.Now().UnixNano()
 	psdImg, _, err := psd.Decode(r)
