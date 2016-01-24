@@ -53,7 +53,7 @@ func buildLayer(l *layer) error {
 	l.Name = l.psdLayer.Name
 	l.BlendMode = l.psdLayer.BlendMode.String()
 	l.Opacity = l.psdLayer.Opacity
-	l.Clipping = l.psdLayer.Clipping != 0
+	l.Clipping = l.psdLayer.Clipping
 	l.TransparencyProtected = l.psdLayer.TransparencyProtected()
 	l.Visible = l.psdLayer.Visible()
 	l.X = l.psdLayer.Rect.Min.X
