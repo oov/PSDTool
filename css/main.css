@@ -64,9 +64,11 @@ body {
 .psdtool-layer-name {
    background: #f8f8f8;
    border: 1px solid #ddd;
+   margin-bottom: -1px;
+}
+.psdtool-layer-name label {
    display: block;
    font-weight: normal;
-   margin-bottom: -1px;
    padding: 4px;
    white-space: nowrap;
 }
@@ -78,7 +80,7 @@ body {
    transition: opacity 0.25s;
    opacity: 1;
 }
-.psdtool-folder.psdtool-hidden > ul {
+.psdtool-folder.psdtool-hidden > ul, .psdtool-hidden-by-clipping > .psdtool-layer-name > label {
    opacity: 0.25;
 }
 .psdtool-thumbnail {
@@ -101,4 +103,8 @@ body {
 }
 #layer-tree .psdtool-icon {
    margin-right: 0.75rem;
+}
+.psdtool-clipped-mark {
+   height: 1rem;
+   margin: 0 0.5rem 0 0.25rem;
 }

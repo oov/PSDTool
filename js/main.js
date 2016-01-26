@@ -103,23 +103,82 @@
       document.body.appendChild(main);
    }
 
+   function draw(ctx, src, x, y, opacity, blendMode) {
+      if (typeof opacity == 'object') {
+         switch (opacity.BlendMode) {
+            case 'normal':
+               blendMode = 'source-over';
+               break;
+            case 'darken':
+            case 'multiply':
+            case 'color-burn':
+
+            case 'lighten':
+            case 'screen':
+            case 'color-dodge':
+
+            case 'overlay':
+            case 'soft-light':
+            case 'hard-light':
+            case 'difference':
+            case 'exclusion':
+
+            case 'hue':
+            case 'saturation':
+            case 'color':
+            case 'luminosity':
+               blendMode = opacity.BlendMode;
+               break;
+         }
+         opacity = opacity.Opacity / 255;
+      }
+      ctx.globalAlpha = opacity;
+      ctx.globalCompositeOperation = blendMode;
+      ctx.drawImage(src, x, y);
+   }
+
    function render(canvas, root) {
+
       function r(ctx, layer) {
          if (!layer.visibleInput.checked || layer.Opacity == 0) {
             return
          }
-         if (layer.Canvas) {
-            ctx.globalAlpha = layer.Opacity / 255;
-            switch (layer.BlendMode) {
-               case 'normal',
-               'darken', 'multiply', 'color-burn',
-               'lighten', 'screen', 'color-dodge',
-               'overlay', 'soft-light', 'hard-light',
-               'difference', 'exclusion',
-               'hue', 'saturation', 'color', 'luminosity':
-                  ctx.globalCompositeOperation = layer.BlendMode;
+         if (layer.Canvas && !layer.Clipping) {
+            if (layer.clip.length) {
+               if (layer.BlendClippedElements) {
+                  var bb = document.createElement('canvas');
+                  var bbctx = bb.getContext('2d');
+                  bb.width = layer.Width;
+                  bb.height = layer.Height;
+                  draw(bbctx, layer.Canvas, 0, 0, 1, 'source-over');
+                  for (var i = 0; i < layer.clip.length; ++i) {
+                     var child = layer.clip[i];
+                     if (!child.visibleInput.checked || child.Opacity == 0 || !child.Canvas) {
+                        continue;
+                     }
+                     draw(bbctx, child.Canvas, child.X - layer.X, child.Y - layer.Y, child);
+                  }
+                  draw(bbctx, layer.Canvas, 0, 0, 1, 'destination-in');
+                  draw(ctx, bb, layer.X, layer.Y, layer);
+               } else {
+                  draw(ctx, layer.Canvas, layer.X, layer.Y, layer);
+                  for (var i = 0; i < layer.clip.length; ++i) {
+                     var child = layer.clip[i];
+                     if (!child.visibleInput.checked || child.Opacity == 0 || !child.Canvas) {
+                        continue;
+                     }
+                     var bb = document.createElement('canvas');
+                     var bbctx = bb.getContext('2d');
+                     bb.width = child.Width;
+                     bb.height = child.Height;
+                     draw(bbctx, child.Canvas, 0, 0, 1, 'copy');
+                     draw(bbctx, layer.Canvas, layer.X - child.X, layer.Y - child.Y, 1, 'destination-in');
+                     draw(ctx, bb, child.X, child.Y, child);
+                  }
+               }
+            } else {
+               draw(ctx, layer.Canvas, layer.X, layer.Y, layer);
             }
-            ctx.drawImage(layer.Canvas, layer.X, layer.Y);
          }
          for (var i = 0; i < layer.Layer.length; ++i) {
             r(ctx, layer.Layer[i]);
@@ -145,8 +204,14 @@
          function r(layer) {
             if (layer.visibleInput.checked) {
                layer.li.classList.remove('psdtool-hidden');
+               for (var i = 0; i < layer.clip.length; ++i) {
+                  layer.clip[i].li.classList.remove('psdtool-hidden-by-clipping');
+               }
             } else {
                layer.li.classList.add('psdtool-hidden');
+               for (var i = 0; i < layer.clip.length; ++i) {
+                  layer.clip[i].li.classList.add('psdtool-hidden-by-clipping');
+               }
             }
             for (var i = 0; i < layer.Layer.length; ++i) {
                r(layer.Layer[i]);
@@ -157,9 +222,28 @@
          }
       }
 
+      function registerClippingGroup(layers) {
+         var clip = [];
+         for (var i = layers.length - 1; i >= 0; --i) {
+            var layer = layers[i];
+            registerClippingGroup(layer.Layer);
+            if (layer.Clipping) {
+               clip.unshift(layer);
+               layer.clip = [];
+            } else {
+               for (var j = 0; j < clip.length; ++j) {
+                  clip[j].clippedBy = layer;
+               }
+               layer.clip = clip;
+               clip = [];
+            }
+         }
+      }
+
       function r(ul, layer, parentLayer) {
          layer.id = ++cid;
          layer.parentLayer = parentLayer;
+
          var prop = buildLayerProp(layer, parentLayer);
          var children = document.createElement('ul');
          for (var i = layer.Layer.length - 1; i >= 0; --i) {
@@ -178,6 +262,9 @@
                for (var p = layer.parentLayer; p.visibleInput;) {
                   p.visibleInput.checked = true;
                   p = p.parentLayer;
+               }
+               if (layer.clippedBy) {
+                  layer.clippedBy.visibleInput.checked = true;
                }
                redraw();
                updateClass();
@@ -209,6 +296,8 @@
          r(ul, root.Layer[i], root);
       }
 
+      registerClippingGroup(root.Layer);
+
       var set = {};
       var radios = ul.querySelectorAll('.psdtool-layer-visible[type=radio]');
       for (var i = 0; i < radios.length; ++i) {
@@ -235,7 +324,6 @@
 
    function buildLayerProp(layer, parentLayer) {
       var name = document.createElement('label');
-      name.className = 'psdtool-layer-name';
       var visible = document.createElement('input');
       var layerName = layer.Name;
       switch (layerName.charAt(0)) {
@@ -272,6 +360,13 @@
          icon.setAttribute('aria-hidden', 'true');
          name.appendChild(icon);
       } else if (layer.Canvas) {
+         if (layer.Clipping) {
+            var clip = document.createElement('img');
+            clip.className = 'psdtool-clipped-mark';
+            clip.src = 'img/clipped.svg';
+            clip.alt = 'clipped mark';
+            name.appendChild(clip);
+         }
          var thumb = document.createElement('canvas');
          thumb.className = 'psdtool-thumbnail';
          thumb.width = 96;
@@ -293,6 +388,7 @@
       name.appendChild(document.createTextNode(layerName));
 
       var div = document.createElement('div');
+      div.className = 'psdtool-layer-name';
       div.appendChild(name);
       return div;
    }

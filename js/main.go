@@ -25,6 +25,7 @@ type layer struct {
 	BlendMode             string
 	Opacity               uint8
 	Clipping              bool
+	BlendClippedElements  bool
 	TransparencyProtected bool
 	Visible               bool
 	X                     int
@@ -53,6 +54,7 @@ func buildLayer(l *layer) error {
 	l.BlendMode = l.psdLayer.BlendMode.String()
 	l.Opacity = l.psdLayer.Opacity
 	l.Clipping = l.psdLayer.Clipping
+	l.BlendClippedElements = l.psdLayer.BlendClippedElements
 	l.Visible = l.psdLayer.Visible()
 	l.X = l.psdLayer.Rect.Min.X
 	l.Y = l.psdLayer.Rect.Min.Y
