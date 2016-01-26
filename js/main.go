@@ -193,6 +193,8 @@ func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*roo
 	psdImg, _, err := psd.Decode(&progressReader{
 		Buf:      b,
 		Progress: func(p float64) { progress(0, p, nil) },
+	}, &psd.DecodeOptions{
+		SkipMergedImage: true,
 	})
 	if err != nil {
 		return nil, err
