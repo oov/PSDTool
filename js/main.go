@@ -35,6 +35,7 @@ type layer struct {
 	Folder                bool
 	FolderOpen            bool
 	Canvas                *js.Object
+	MaskCanvas            *js.Object
 	Layer                 []layer
 	psdLayer              *psd.Layer
 }
@@ -65,6 +66,11 @@ func buildLayer(l *layer) error {
 
 	if l.psdLayer.HasImage() && l.psdLayer.Rect.Dx()*l.psdLayer.Rect.Dy() > 0 {
 		if l.Canvas, err = createCanvas(l.psdLayer); err != nil {
+			return err
+		}
+	}
+	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Rect.Dx()*l.psdLayer.Mask.Rect.Dy() > 0 {
+		if l.MaskCanvas, err = createMaskCanvas(l.psdLayer); err != nil {
 			return err
 		}
 	}
@@ -117,6 +123,34 @@ func createCanvas(l *psd.Layer) (*js.Object, error) {
 				data.SetIndex(dx+2, bp[sx])
 				data.SetIndex(dx+3, 0xff)
 			}
+		}
+	}
+	ctx.Call("putImageData", imgData, 0, 0)
+	return cvs, nil
+}
+
+func createMaskCanvas(l *psd.Layer) (*js.Object, error) {
+	m, ok := l.Channel[-2]
+	if !ok {
+		return nil, nil
+	}
+
+	w, h := l.Mask.Rect.Dx(), l.Mask.Rect.Dy()
+	cvs := js.Global.Get("document").Call("createElement", "canvas")
+	cvs.Set("width", w)
+	cvs.Set("height", h)
+	ctx := cvs.Call("getContext", "2d")
+	imgData := ctx.Call("createImageData", w, h)
+	data := imgData.Get("data")
+
+	var ofsd, ofss, x, y, sx, dx int
+	mp := m.Data
+	for y = 0; y < h; y++ {
+		ofss = y * w
+		ofsd = ofss << 2
+		for x = 0; x < w; x++ {
+			sx, dx = ofss+x, ofsd+x<<2
+			data.SetIndex(dx+3, mp[sx])
 		}
 	}
 	ctx.Call("putImageData", imgData, 0, 0)
