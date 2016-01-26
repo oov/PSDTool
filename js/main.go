@@ -63,7 +63,7 @@ func buildLayer(l *layer) error {
 	l.Folder = l.psdLayer.Folder()
 	l.FolderOpen = l.psdLayer.FolderIsOpen()
 
-	if l.psdLayer.HasImage() {
+	if l.psdLayer.HasImage() && l.psdLayer.Rect.Dx()*l.psdLayer.Rect.Dy() > 0 {
 		if l.Canvas, err = createCanvas(l.psdLayer); err != nil {
 			return err
 		}
