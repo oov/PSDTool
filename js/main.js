@@ -45,6 +45,7 @@
             extract(ab);
          } catch (e) {
             document.body.innerHTML = e;
+            console.error(e);
          }
       }, function(e) {
          document.body.innerHTML = 'cannot read the psd file';
