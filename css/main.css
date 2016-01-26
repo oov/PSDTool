@@ -14,6 +14,16 @@ body {
    border: 1px dashed #4bf;
    background-color: #def;
 }
+#progress-bar {
+   transition: none;
+}
+#file-loading-ui {
+   margin-top: 4rem;
+   display: none;
+}
+#error-report-ui {
+   display: none;
+}
 #main {
    position: absolute;
    left: 0;

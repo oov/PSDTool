@@ -7,39 +7,56 @@
 <link href="css/main.css" rel="stylesheet">
 
 <body data-invert-caption="左右反転" data-invert-title="左右反転は髪型、アクセサリー、文字など本来反転していけない部分も反転してしまうため、使用には注意が必要です。">
-	<div class="container">
-		<h1>
-			PSDTool
-			<small>Photoshop 形式のファイルを読み込む奴</small>
-		</h1>
-		<div class="container-fluid">
-			<div class="row">
-				<div class="col-sm-6">
+	<div id="file-open-ui" class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h1>
+					PSDTool
+					<small>Photoshop 形式のファイルを読み込む奴</small>
+				</h1>
+			</div>
+		</div>
+		<div id="error-report-ui" class="row">
+			<div class="col-xs-12">
+				<div id="error-message" class="alert alert-danger" role="alert"></div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-sm-6">
+				<div>
 					<label for="inputfile">*.psd ファイルを選択して開く</label>
 					<div id="dropzone">
 						<input type="file" id="inputfile" accept=".psd">
 						<p>この辺にファイルをドロップして読み込むこともできます。</p>
 					</div>
 				</div>
-				<div class="col-sm-6">
-					<label for="samplefile">サンプルファイルで試す</label>
-					<div>
-						<img src="img/sample.png" width="140" height="240" class="psdtool-sampleimg img-thumbnail pull-left" alt="">
-						<button class="btn btn-default" id="samplefile" data-filename="im5467479.psd">サンプルファイルで試す</button>
-						<small>
-							<p>
-								このイラストは<a href="https://twitter.com/hrowl">水梟る</a>さんが投稿されている 「<a href="http://seiga.nicovideo.jp/seiga/im5467479">さとうささら立ち絵集5</a>」を 許可をいただいて PSDTool 用のサンプルファイルとして使用させて頂いています。
-							</p>
-							<p>
-								「<a href="http://satosasara.com/">さとうささら</a>」はトーク・ソング対応音声合成ソフトウェア「<a href="http://cevio.jp/">CeVIO Creative Studio</a>」のキャラクターです。
-							</p>
-						</small>
-					</div>
+			</div>
+			<div class="col-sm-6">
+				<label for="samplefile">サンプルファイルで試す</label>
+				<div>
+					<img src="img/sample.png" width="140" height="240" class="psdtool-sampleimg img-thumbnail pull-left" alt="">
+					<button class="btn btn-default" id="samplefile" data-filename="im5467479.psd">サンプルファイルで試す</button>
+					<small>
+						<p>
+							このイラストは<a href="https://twitter.com/hrowl">水梟る</a>さんが投稿されている 「<a href="http://seiga.nicovideo.jp/seiga/im5467479">さとうささら立ち絵集5</a>」を 許可をいただいて PSDTool 用のサンプルファイルとして使用させて頂いています。
+						</p>
+						<p>
+							「<a href="http://satosasara.com/">さとうささら</a>」はトーク・ソング対応音声合成ソフトウェア「<a href="http://cevio.jp/">CeVIO Creative Studio</a>」のキャラクターです。
+						</p>
+					</small>
 				</div>
 			</div>
 		</div>
 	</div>
-	<div class="container">
+	<div id="file-loading-ui" class="container">
+		<div class="progress">
+			<div id="progress-bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+				<span class="psdtool-progress-bar-caption sr-only"></span>
+			</div>
+		</div>
+		<div id="progress-caption"></div>
+	</div>
+	<div id="manual" class="container">
 		<h1>説明書</h1>
 		<h2>PSDTool とは？</h2>
 		<img src="img/about.png" class="img-thumbnail" alt="PSDTool のスクリーンショット">
@@ -51,8 +68,8 @@
 			このツールは「イラストを描く人がレイヤーの表示／非表示を切り替えた様々なパターンを PNG で書き出したものを配布する」といった時間の浪費と手間を減らすために、 また配布されているイラストを利用したい人がソフトウェアを何も用意しなくても最新のブラウザさえあれば *.psd ファイルを扱えるようにすることを目的に作りました。
 		</p>
 		<p>
-			Photoshop 形式は sai、CLIP STUDIO PAINT、Krita、メディバンペイント、FireAlpaca など様々なペイントソフトで保存可能な共通の保存フォーマットです。<br>
-			これを機に、
+			Photoshop 形式は sai、CLIP STUDIO PAINT、Krita、メディバンペイント、FireAlpaca など様々なペイントソフトで保存可能な共通の保存フォーマットです。
+			<br> これを機に、是非 Photoshop 形式での配布を検討してみてください。
 		</p>
 		<h2>動作環境</h2>
 		<p>
@@ -102,8 +119,6 @@
 		<p>
 			強制表示設定にしたレイヤーを非表示にして *.psd ファイルを保存しても、強制的に表示状態になります。
 		</p>
-	</div>
-	<div class="container">
 		<div class="well text-center">
 			<small>
 				Created by <a href="https://github.com/oov/psd" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a> | Please listen to <a href="https://www.youtube.com/watch?v=SldjqJz3thA" target="_blank">my song</a>

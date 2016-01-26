@@ -22,34 +22,83 @@
          return false;
       }, false);
       dz.addEventListener('drop', function(e) {
+         this.classList.remove('psdtool-drop-active');
          if (e.dataTransfer.files.length > 0) {
-            loadAndExtract(e.dataTransfer.files[0]);
+            loadAndParse(e.dataTransfer.files[0]);
          }
          e.preventDefault();
          e.stopPropagation();
          return false;
       }, false);
       document.getElementById('inputfile').addEventListener('change', function(e) {
-         loadAndExtract(document.getElementById('inputfile').files[0]);
+         loadAndParse(document.getElementById('inputfile').files[0]);
       }, false);
       document.getElementById('samplefile').addEventListener('click', function(e) {
-         loadAndExtract('img/' + document.getElementById('samplefile').getAttribute('data-filename'));
+         loadAndParse('img/' + document.getElementById('samplefile').getAttribute('data-filename'));
       }, false);
    }
 
-   function loadAndExtract(file_or_url) {
-      document.body.innerHTML = 'Now Loading...';
-      loadAsArrayBuffer(file_or_url).then(function(ab) {
-         document.body.innerHTML = '';
-         try {
-            extract(ab);
-         } catch (e) {
-            document.body.innerHTML = e;
-            console.error(e);
+   function loadAndParse(file_or_url) {
+      var fileOpenUi = document.getElementById('file-open-ui');
+      var manual = document.getElementById('manual');
+      var fileLoadingUi = document.getElementById('file-loading-ui');
+      var errorReportUi = document.getElementById('error-report-ui');
+      var bar = document.getElementById('progress-bar');
+
+      fileOpenUi.style.display = 'none';
+      manual.style.display = 'none';
+      fileLoadingUi.style.display = 'block';
+      errorReportUi.style.display = 'none';
+
+      var barCaptionContainer = bar.querySelector('.psdtool-progress-bar-caption');
+      var barCaption = document.createTextNode('0% Complete');
+      var captionContainer = document.getElementById('progress-caption');
+      var caption = document.createTextNode('Now loading...');
+      var errorMessageContainer = document.getElementById('error-message');
+      var errorMessage = document.createTextNode('');
+
+      barCaptionContainer.innerHTML = '';
+      barCaptionContainer.appendChild(barCaption);
+      captionContainer.innerHTML = '';
+      captionContainer.appendChild(caption);
+      errorMessageContainer.innerHTML = '';
+      errorMessageContainer.appendChild(errorMessage);
+
+      function progress(phase, progress, layer) {
+         var p, msg;
+         switch (phase) {
+            case 0:
+               p = (progress * 50).toFixed(0);
+               msg = 'Parsing psd file...';
+               break;
+            case 1:
+               p = (50 + progress * 50).toFixed(0)
+               msg = 'Drawing "' + layer.Name + '" layer image...';
+               break;
          }
-      }, function(e) {
-         document.body.innerHTML = 'cannot read the psd file';
-      });
+         bar.style.width = p + '%';
+         bar.setAttribute('aria-valuenow', p);
+         barCaption.textContent = p + '% Complete';
+         caption.textContent = p + '% ' + msg;
+      }
+
+      loadAsArrayBuffer(file_or_url)
+         .then(parse.bind(this, progress))
+         .then(initMain)
+         .then(function(main) {
+            fileLoadingUi.style.display = 'none';
+            fileOpenUi.style.display = 'none';
+            manual.style.display = 'none';
+            errorReportUi.style.display = 'none';
+            document.body.appendChild(main);
+         }, function(e) {
+            fileLoadingUi.style.display = 'none';
+            fileOpenUi.style.display = 'block';
+            manual.style.display = 'block';
+            errorReportUi.style.display = 'block';
+            errorMessage.textContent = e;
+            console.error(e);
+         });
    }
 
    function loadAsArrayBuffer(file_or_url) {
@@ -78,29 +127,45 @@
       return deferred.promise;
    }
 
-   function extract(arrayBuffer) {
-      var root = parsePSD(arrayBuffer);
+   function parse(progress, arrayBuffer) {
+      var deferred = m.deferred();
+      parsePSD(arrayBuffer, progress, function(root) {
+         deferred.resolve(root);
+      }, function(e) {
+         deferred.reject(e);
+      });
+      return deferred.promise;
+   }
 
-      var sideContainer = document.createElement('div');
-      sideContainer.id = 'side-container';
+   function initMain(root) {
+      var deferred = m.deferred();
+      setTimeout(function() {
+         try {
+            var sideContainer = document.createElement('div');
+            sideContainer.id = 'side-container';
 
-      var previewContainer = document.createElement('div');
-      previewContainer.id = 'preview-container';
+            var previewContainer = document.createElement('div');
+            previewContainer.id = 'preview-container';
 
-      var canvas = document.createElement('canvas');
-      canvas.width = root.Width;
-      canvas.height = root.Height;
+            var canvas = document.createElement('canvas');
+            canvas.width = root.Width;
+            canvas.height = root.Height;
 
-      sideContainer.appendChild(buildTree(root, render.bind(null, canvas, root)));
+            sideContainer.appendChild(buildTree(root, render.bind(null, canvas, root)));
 
-      var main = document.createElement('div');
-      main.id = 'main';
-      previewContainer.appendChild(canvas);
-      main.appendChild(sideContainer);
-      main.appendChild(previewContainer);
+            var main = document.createElement('div');
+            main.id = 'main';
+            previewContainer.appendChild(canvas);
+            main.appendChild(sideContainer);
+            main.appendChild(previewContainer);
 
-      render(canvas, root);
-      document.body.appendChild(main);
+            render(canvas, root);
+            deferred.resolve(main);
+         } catch (e) {
+            deferred.reject(e);
+         }
+      }, 1);
+      return deferred.promise;
    }
 
    function draw(ctx, src, x, y, opacity, blendMode) {

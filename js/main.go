@@ -3,8 +3,7 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
+	"errors"
 	"image/color"
 	"io"
 	"log"
@@ -15,9 +14,11 @@ import (
 )
 
 type root struct {
-	Width  int
-	Height int
-	Layer  []layer
+	Width     int
+	Height    int
+	Layer     []layer
+	processed int
+	progress  func(l *layer)
 }
 
 type layer struct {
@@ -48,7 +49,7 @@ func arrayBufferToByteSlice(a *js.Object) []byte {
 	return js.Global.Get("Uint8Array").New(a).Interface().([]byte)
 }
 
-func buildLayer(l *layer) error {
+func (r *root) buildLayer(l *layer) error {
 	var err error
 
 	l.Name = l.psdLayer.Name
@@ -74,9 +75,13 @@ func buildLayer(l *layer) error {
 			return err
 		}
 	}
+
+	r.processed++
+	r.progress(l)
+
 	for i := range l.psdLayer.Layer {
 		l.Layer = append(l.Layer, layer{psdLayer: &l.psdLayer.Layer[i]})
-		if err = buildLayer(&l.Layer[i]); err != nil {
+		if err = r.buildLayer(&l.Layer[i]); err != nil {
 			return err
 		}
 	}
@@ -85,7 +90,7 @@ func buildLayer(l *layer) error {
 
 func createCanvas(l *psd.Layer) (*js.Object, error) {
 	if l.Picker.ColorModel() != color.NRGBAModel {
-		return nil, fmt.Errorf("Unsupported color mode")
+		return nil, errors.New("Unsupported color mode")
 	}
 
 	w, h := l.Rect.Dx(), l.Rect.Dy()
@@ -157,36 +162,79 @@ func createMaskCanvas(l *psd.Layer) (*js.Object, error) {
 	return cvs, nil
 }
 
-func parse(r io.Reader) (*root, error) {
+func countLayers(l []psd.Layer) int {
+	r := len(l)
+	for i := range l {
+		r += countLayers(l[i].Layer)
+	}
+	return r
+}
+
+type progressReader struct {
+	Buf      []byte
+	Progress func(float64)
+	pos      int
+}
+
+func (r *progressReader) Read(p []byte) (int, error) {
+	l := copy(p, r.Buf[r.pos:])
+	if l == 0 {
+		return 0, io.EOF
+	}
+	if r.pos & ^0x3ffff != (r.pos+l) & ^0x3ffff {
+		r.Progress(float64(r.pos+l) / float64(len(r.Buf)))
+	}
+	r.pos += l
+	return l, nil
+}
+
+func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*root, error) {
 	s := time.Now().UnixNano()
-	psdImg, _, err := psd.Decode(r)
+	psdImg, _, err := psd.Decode(&progressReader{
+		Buf:      b,
+		Progress: func(p float64) { progress(0, p, nil) },
+	})
 	if err != nil {
 		return nil, err
 	}
 	e := time.Now().UnixNano()
+	progress(0, 1, nil)
 	log.Println("Decode PSD Structure:", (e-s)/1e6)
 
 	if psdImg.Config.ColorMode != psd.ColorModeRGB {
-		return nil, fmt.Errorf("Unsupported color mode")
+		return nil, errors.New("Unsupported color mode")
 	}
 
 	s = time.Now().UnixNano()
-	var l root
-	l.Width = psdImg.Config.Rect.Dx()
-	l.Height = psdImg.Config.Rect.Dy()
+	numLayers := countLayers(psdImg.Layer)
+	r := &root{
+		Width:  psdImg.Config.Rect.Dx(),
+		Height: psdImg.Config.Rect.Dy(),
+	}
+	r.progress = func(l *layer) { progress(1, float64(r.processed)/float64(numLayers), l) }
 	for i := range psdImg.Layer {
-		l.Layer = append(l.Layer, layer{psdLayer: &psdImg.Layer[i]})
-		buildLayer(&l.Layer[i])
+		r.Layer = append(r.Layer, layer{psdLayer: &psdImg.Layer[i]})
+		r.buildLayer(&r.Layer[i])
 	}
 	e = time.Now().UnixNano()
 	log.Println("Build Canvas:", (e-s)/1e6)
-	return &l, nil
+	return r, nil
 }
 
-func parsePSD(in *js.Object) *root {
-	root, err := parse(bytes.NewBuffer(arrayBufferToByteSlice(in)))
-	if err != nil {
-		panic(err)
-	}
-	return root
+func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
+	go func() {
+		next := time.Now()
+		root, err := parse(arrayBufferToByteSlice(in), func(phase int, prog float64, l *layer) {
+			if now := time.Now(); now.After(next) {
+				progress.Invoke(phase, prog, l)
+				time.Sleep(1) // anti-freeze
+				next = now.Add(100 * time.Millisecond)
+			}
+		})
+		if err != nil {
+			failed.Invoke(err.Error())
+			return
+		}
+		complete.Invoke(root)
+	}()
 }
