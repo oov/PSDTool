@@ -144,7 +144,6 @@
    }
 
    function initMain(root) {
-      console.log(root);
       var deferred = m.deferred();
       setTimeout(function() {
          try {

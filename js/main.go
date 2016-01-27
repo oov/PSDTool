@@ -76,7 +76,6 @@ func (r *root) buildLayer(l *layer) error {
 		if l.MaskCanvas, err = createMaskCanvas(l.psdLayer); err != nil {
 			return err
 		}
-		log.Println(l.psdLayer.Mask.Rect, "width:", l.psdLayer.Mask.Rect.Dx(), "height:", l.psdLayer.Mask.Rect.Dy())
 		l.MaskX = l.psdLayer.Mask.Rect.Min.X
 		l.MaskY = l.psdLayer.Mask.Rect.Min.Y
 		l.MaskDefaultColor = l.psdLayer.Mask.DefaultColor
