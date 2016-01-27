@@ -282,8 +282,14 @@
    function blend(dest, src, dx, dy, sw, sh, alpha, blendMode) {
       var sx = 0;
       var sy = 0;
-      if (dx >= dest.width || dy >= dest.height || dx + sw < 0 || dy + sh < 0) {
+      if (dx >= dest.width || dy >= dest.height || dx + sw < 0 || dy + sh < 0 || alpha == 0) {
          return;
+      }
+      if (sw > src.width) {
+         sw = src.width;
+      }
+      if (sh > src.height) {
+         sh = src.height;
       }
       if (dx < 0) {
          sw += dx;
@@ -305,54 +311,65 @@
       var imgData = dctx.getImageData(dx, dy, sw, sh);
       var d = imgData.data;
       var s = src.getContext('2d').getImageData(sx, sy, sw, sh).data;
-      var sr, sg, sb, sa;
-      var dr, dg, db, da;
-      var a1, a2, a3, r, g, b, a;
       switch (blendMode) {
          case 'linear-dodge':
-            for (var i = 0, len = sw * sh << 2; i < len; i += 4) {
-               sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = (s[i + 3] * alpha * 32897) >> 23;
-               dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
-
-               a1 = (sa * da * 32897) >> 23;
-               a2 = (sa * (255 - da) * 32897) >> 23;
-               a3 = ((255 - sa) * da * 32897) >> 23;
-               a = a1 + a2 + a3;
-               d[i + 3] = a;
-               if (a) {
-                  r = sr + dr;
-                  g = sg + dg;
-                  b = sb + db;
-
-                  d[i] = (r * a1 + sr * a2 + dr * a3) / a;
-                  d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
-                  d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
-               }
-            }
-            dctx.putImageData(imgData, dx, dy);
-            return;
+            linearDodge(d, s, sw, sh, alpha);
+            break;
          case 'color-dodge':
-            for (var i = 0, len = sw * sh << 2; i < len; i += 4) {
-               sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = (s[i + 3] * alpha * 32897) >> 23;
-               dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
+            colorDodge(d, s, sw, sh, alpha);
+            break;
+      }
+      dctx.putImageData(imgData, dx, dy);
+      return;
 
-               a1 = (sa * da * 32897) >> 23;
-               a2 = (sa * (255 - da) * 32897) >> 23;
-               a3 = ((255 - sa) * da * 32897) >> 23;
-               a = a1 + a2 + a3;
-               d[i + 3] = a;
-               if (a) {
-                  r = dr == 0 ? 0 : sr == 255 ? 255 : dr * 255 / (255 - sr);
-                  g = dg == 0 ? 0 : sg == 255 ? 255 : dg * 255 / (255 - sg);
-                  b = db == 0 ? 0 : sb == 255 ? 255 : db * 255 / (255 - sb);
+      function linearDodge(d, s, w, h, alpha) {
+         var sr, sg, sb, sa, dr, dg, db, da;
+         var a1, a2, a3, r, g, b, a;
+         for (var i = 0, len = w * h << 2; i < len; i += 4) {
+            sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = (s[i + 3] * alpha * 32897) >> 23;
+            dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
 
-                  d[i] = (r * a1 + sr * a2 + dr * a3) / a;
-                  d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
-                  d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
-               }
+            a = sa * 32897;
+            a1 = (a * da) >> 23;
+            a2 = (a * (255 - da)) >> 23;
+            a3 = ((8388735 - a) * da) >> 23;
+            a = a1 + a2 + a3;
+            d[i + 3] = a;
+            if (a) {
+               r = sr + dr;
+               g = sg + dg;
+               b = sb + db;
+
+               d[i] = (r * a1 + sr * a2 + dr * a3) / a;
+               d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
+               d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
             }
-            dctx.putImageData(imgData, dx, dy);
-            return;
+         }
+      }
+
+      function colorDodge(d, s, w, h, alpha) {
+         var sr, sg, sb, sa, dr, dg, db, da;
+         var a1, a2, a3, r, g, b, a;
+         for (var i = 0, len = w * h << 2; i < len; i += 4) {
+            sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = (s[i + 3] * alpha * 32897) >> 23;
+            dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
+
+            a = sa * 32897;
+            a1 = (a * da) >> 23;
+            a2 = (a * (255 - da)) >> 23;
+            a3 = ((8388735 - a) * da) >> 23;
+            a = a1 + a2 + a3;
+            d[i + 3] = a;
+            if (a) {
+               r = sr == 255 ? 255 : dr == 0 ? 0 : dr * 255 / (255 - sr);
+               g = sg == 255 ? 255 : dg == 0 ? 0 : dg * 255 / (255 - sg);
+               b = sb == 255 ? 255 : db == 0 ? 0 : db * 255 / (255 - sb);
+
+               d[i] = (r * a1 + sr * a2 + dr * a3) / a;
+               d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
+               d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
+            }
+         }
       }
    }
 
