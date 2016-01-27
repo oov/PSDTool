@@ -1,6 +1,8 @@
 (function() {
    'use strict';
 
+   var hasBrokenColorDodge = false;
+
    function init() {
       var dz = document.getElementById('dropzone');
       dz.addEventListener('dragenter', function(e) {
@@ -195,8 +197,12 @@
                blendMode = opacity.BlendMode;
                break;
 
-            case 'linear-dodge':
             case 'color-dodge':
+               if (!hasBrokenColorDodge) {
+                  blendMode = opacity.BlendMode;
+                  break;
+               }
+            case 'linear-dodge':
                blend(ctx.canvas, src, x, y, src.width, src.height, opacity.Opacity, opacity.BlendMode);
                return;
          }
@@ -731,5 +737,26 @@
       return div;
    }
 
+   function detectBrokenColorDodge() {
+      var img = new Image();
+      img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGUlEQVQI1wXBAQEAAAgCIOz/5TJI20UGhz5D2wX8PWbkFQAAAABJRU5ErkJggg==";
+      img.onload = function() {
+         var c = document.createElement('canvas');
+         c.width = 257;
+         c.height = 256;
+
+         var ctx = c.getContext('2d');
+         ctx.fillStyle = "rgb(255, 255, 255)";
+         ctx.fillRect(0, 0, c.width, c.height);
+         ctx.globalAlpha = 0.5;
+         ctx.globalCompositeOperation = 'color-dodge';
+         ctx.drawImage(img, 0, 0);
+
+         var c = ctx.getImageData(0, 0, 1, 1);
+         hasBrokenColorDodge = c.data[0] < 128;
+      }
+   }
+
+   detectBrokenColorDodge();
    document.addEventListener('DOMContentLoaded', init, false);
 })();
