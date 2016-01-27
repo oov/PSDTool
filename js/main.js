@@ -256,8 +256,16 @@
                draw(ctx, layer.Canvas, layer.X, layer.Y, layer);
             }
          }
-         for (var i = 0; i < layer.Layer.length; ++i) {
-            r(ctx, layer.Layer[i]);
+
+         if (layer.Layer.length) {
+            var bb = document.createElement('canvas');
+            var bbctx = bb.getContext('2d');
+            bb.width = root.Width;
+            bb.height = root.Height;
+            for (var i = 0; i < layer.Layer.length; ++i) {
+               r(bbctx, layer.Layer[i]);
+            }
+            draw(ctx, bb, 0, 0, layer);
          }
       }
 
