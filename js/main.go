@@ -36,6 +36,7 @@ type layer struct {
 	MaskX                 int
 	MaskY                 int
 	MaskCanvas            *js.Object
+	MaskDefaultColor      int
 	Buffer                *js.Object
 	Folder                bool
 	FolderOpen            bool
@@ -46,6 +47,7 @@ type layer struct {
 }
 
 func main() {
+	// psd.Debug = log.New(os.Stdout, "psd: ", log.Lshortfile)
 	js.Global.Set("parsePSD", parsePSD)
 }
 
@@ -70,12 +72,14 @@ func (r *root) buildLayer(l *layer) error {
 			return err
 		}
 	}
-	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Rect.Dx()*l.psdLayer.Mask.Rect.Dy() > 0 {
+	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.psdLayer.Mask.Rect.Dx()*l.psdLayer.Mask.Rect.Dy() > 0 {
 		if l.MaskCanvas, err = createMaskCanvas(l.psdLayer); err != nil {
 			return err
 		}
+		log.Println(l.psdLayer.Mask.Rect, "width:", l.psdLayer.Mask.Rect.Dx(), "height:", l.psdLayer.Mask.Rect.Dy())
 		l.MaskX = l.psdLayer.Mask.Rect.Min.X
 		l.MaskY = l.psdLayer.Mask.Rect.Min.Y
+		l.MaskDefaultColor = l.psdLayer.Mask.DefaultColor
 	}
 
 	r.processed++
@@ -111,7 +115,7 @@ func createImageCanvas(l *psd.Layer) (*js.Object, error) {
 	w, h := l.Rect.Dx(), l.Rect.Dy()
 	cvs := createCanvas(w, h)
 	ctx := cvs.Call("getContext", "2d")
-	imgData := ctx.Call("createImageData", w, h)
+	imgData := ctx.Call("getImageData", 0, 0, w, h)
 	data := imgData.Get("data")
 
 	var ofsd, ofss, x, y, sx, dx int
@@ -156,17 +160,28 @@ func createMaskCanvas(l *psd.Layer) (*js.Object, error) {
 	w, h := l.Mask.Rect.Dx(), l.Mask.Rect.Dy()
 	cvs := createCanvas(w, h)
 	ctx := cvs.Call("getContext", "2d")
-	imgData := ctx.Call("createImageData", w, h)
+	imgData := ctx.Call("getImageData", 0, 0, w, h)
 	data := imgData.Get("data")
 
 	var ofsd, ofss, x, y, sx, dx int
 	mp := m.Data
-	for y = 0; y < h; y++ {
-		ofss = y * w
-		ofsd = ofss << 2
-		for x = 0; x < w; x++ {
-			sx, dx = ofss+x, ofsd+x<<2
-			data.SetIndex(dx+3, mp[sx])
+	if l.Mask.DefaultColor == 0 {
+		for y = 0; y < h; y++ {
+			ofss = y * w
+			ofsd = ofss << 2
+			for x = 0; x < w; x++ {
+				sx, dx = ofss+x, ofsd+x<<2
+				data.SetIndex(dx+3, mp[sx])
+			}
+		}
+	} else {
+		for y = 0; y < h; y++ {
+			ofss = y * w
+			ofsd = ofss << 2
+			for x = 0; x < w; x++ {
+				sx, dx = ofss+x, ofsd+x<<2
+				data.SetIndex(dx+3, 255-mp[sx])
+			}
 		}
 	}
 	ctx.Call("putImageData", imgData, 0, 0)

@@ -172,44 +172,46 @@
    }
 
    function draw(ctx, src, x, y, opacity, blendMode) {
-      if (typeof opacity == 'object') {
-         switch (opacity.BlendMode) {
-            case 'normal':
-               blendMode = 'source-over';
+      switch (blendMode) {
+         case 'copy':
+         case 'source-over':
+         case 'destination-in':
+            break;
+
+         case 'normal':
+            blendMode = 'source-over';
+            break;
+
+         case 'darken':
+         case 'multiply':
+         case 'color-burn':
+
+         case 'lighten':
+         case 'screen':
+            // case 'color-dodge': sometimes broken in chrome
+
+         case 'overlay':
+         case 'soft-light':
+         case 'hard-light':
+         case 'difference':
+         case 'exclusion':
+
+         case 'hue':
+         case 'saturation':
+         case 'color':
+         case 'luminosity':
+            break;
+
+         case 'color-dodge':
+            if (!hasBrokenColorDodge) {
                break;
-            case 'darken':
-            case 'multiply':
-            case 'color-burn':
+            }
 
-            case 'lighten':
-            case 'screen':
-               // case 'color-dodge': sometimes broken in chrome
-
-            case 'overlay':
-            case 'soft-light':
-            case 'hard-light':
-            case 'difference':
-            case 'exclusion':
-
-            case 'hue':
-            case 'saturation':
-            case 'color':
-            case 'luminosity':
-               blendMode = opacity.BlendMode;
-               break;
-
-            case 'color-dodge':
-               if (!hasBrokenColorDodge) {
-                  blendMode = opacity.BlendMode;
-                  break;
-               }
-            case 'linear-dodge':
-               blend(ctx.canvas, src, x, y, src.width, src.height, opacity.Opacity, opacity.BlendMode);
-               return;
-         }
-         opacity = opacity.Opacity / 255;
+         case 'linear-dodge':
+            blend(ctx.canvas, src, x, y, src.width, src.height, opacity, blendMode);
+            return;
       }
-      ctx.globalAlpha = opacity;
+      ctx.globalAlpha = opacity / 255;
       ctx.globalCompositeOperation = blendMode;
       ctx.drawImage(src, x, y);
    }
@@ -223,38 +225,58 @@
          if (layer.Canvas && !layer.Clipping) {
             if (layer.clip.length) {
                if (layer.BlendClippedElements) {
-                  var bb = document.createElement('canvas');
+                  var bb = layer.Buffer;
                   var bbctx = bb.getContext('2d');
-                  bb.width = layer.Width;
-                  bb.height = layer.Height;
-                  draw(bbctx, layer.Canvas, 0, 0, 1, 'source-over');
+                  draw(bbctx, layer.Canvas, 0, 0, 255, 'copy');
                   for (var i = 0; i < layer.clip.length; ++i) {
                      var child = layer.clip[i];
                      if (!child.visibleInput.checked || child.Opacity == 0 || !child.Canvas) {
                         continue;
                      }
-                     draw(bbctx, child.Canvas, child.X - layer.X, child.Y - layer.Y, child);
+                     if (child.MaskCanvas) {
+                        var cbb = child.Buffer;
+                        var cbbctx = cbb.getContext('2d');
+                        draw(cbbctx, child.Canvas, 0, 0, 255, 'copy');
+                        if (child.MaskCanvas) {
+                           draw(cbbctx, child.MaskCanvas, child.MaskX - child.X, child.MaskY - child.Y, 255, child.MaskDefaultColor ? 'destination-out' : 'destination-in');
+                        }
+                        draw(bbctx, cbb, child.X - layer.X, child.Y - layer.Y, child.Opacity, child.BlendMode);
+                     } else {
+                        draw(bbctx, child.Canvas, child.X - layer.X, child.Y - layer.Y, child.Opacity, child.BlendMode);
+                     }
                   }
-                  draw(bbctx, layer.Canvas, 0, 0, 1, 'destination-in');
-                  draw(ctx, bb, offsetX+layer.X, offsetY+layer.Y, layer);
+                  draw(bbctx, layer.Canvas, 0, 0, 255, 'destination-in');
+                  if (layer.MaskCanvas) {
+                     draw(bbctx, layer.MaskCanvas, layer.MaskX - layer.X, layer.MaskY - layer.Y, 255, layer.MaskDefaultColor ? 'destination-out' : 'destination-in');
+                  }
+                  draw(ctx, bb, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
                } else {
-                  draw(ctx, layer.Canvas, offsetX+layer.X, offsetY+layer.Y, layer);
+                  // this is minor code path.
+                  // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
+                  draw(ctx, layer.Canvas, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
                   for (var i = 0; i < layer.clip.length; ++i) {
                      var child = layer.clip[i];
                      if (!child.visibleInput.checked || child.Opacity == 0 || !child.Canvas) {
                         continue;
                      }
-                     var bb = document.createElement('canvas');
+                     var bb = child.Buffer;
                      var bbctx = bb.getContext('2d');
-                     bb.width = child.Width;
-                     bb.height = child.Height;
-                     draw(bbctx, child.Canvas, 0, 0, 1, 'copy');
-                     draw(bbctx, layer.Canvas, layer.X - child.X, layer.Y - child.Y, 1, 'destination-in');
-                     draw(ctx, bb, offsetX+child.X, offsetY+child.Y, child);
+                     bbctx.clearRect(0, 0, bb.width, bb.height);
+                     draw(bbctx, child.Canvas, 0, 0, 255, 'copy');
+                     draw(bbctx, layer.Canvas, layer.X - child.X, layer.Y - child.Y, 255, 'destination-in');
+                     draw(ctx, bb, offsetX + child.X, offsetY + child.Y, child.Opacity, child.BlendMode);
                   }
                }
             } else {
-               draw(ctx, layer.Canvas, offsetX+layer.X, offsetY+layer.Y, layer);
+               if (layer.MaskCanvas) {
+                  var bb = layer.Buffer;
+                  var bbctx = bb.getContext('2d');
+                  draw(bbctx, layer.Canvas, 0, 0, 255, 'copy');
+                  draw(bbctx, layer.MaskCanvas, layer.MaskX - layer.X, layer.MaskY - layer.Y, 255, layer.MaskDefaultColor ? 'destination-out' : 'destination-in');
+                  draw(ctx, bb, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
+               } else {
+                  draw(ctx, layer.Canvas, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
+               }
             }
          }
 
@@ -265,7 +287,10 @@
             for (var i = 0; i < layer.Layer.length; ++i) {
                r(bbctx, layer.Layer[i], -layer.X, -layer.Y);
             }
-            draw(ctx, bb, offsetX+layer.X, offsetY+layer.Y, layer);
+            if (layer.MaskCanvas) {
+               draw(bbctx, layer.MaskCanvas, layer.MaskX - layer.X, layer.MaskY - layer.Y, 255, layer.MaskDefaultColor ? 'destination-out' : 'destination-in');
+            }
+            draw(ctx, bb, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
          }
       }
 
