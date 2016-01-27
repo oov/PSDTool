@@ -67,21 +67,22 @@
       errorMessageContainer.appendChild(errorMessage);
 
       function progress(phase, progress, layer) {
-         var p, msg;
+         var p, msg, ptext;
          switch (phase) {
             case 0:
-               p = (progress * 50).toFixed(0);
+               p = progress * 50;
                msg = 'Parsing psd file...';
                break;
             case 1:
-               p = (50 + progress * 50).toFixed(0)
+               p = 50 + progress * 50;
                msg = 'Drawing "' + layer.Name + '" layer image...';
                break;
          }
+         ptext = p.toFixed(0) + '%';
          bar.style.width = p + '%';
-         bar.setAttribute('aria-valuenow', p);
-         barCaption.textContent = p + '% Complete';
-         caption.textContent = p + '% ' + msg;
+         bar.setAttribute('aria-valuenow', ptext);
+         barCaption.textContent = ptext + ' Complete';
+         caption.textContent = ptext + ' ' + msg;
       }
 
       loadAsArrayBuffer(file_or_url)
