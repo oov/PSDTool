@@ -43,12 +43,14 @@
       var manual = document.getElementById('manual');
       var fileLoadingUi = document.getElementById('file-loading-ui');
       var errorReportUi = document.getElementById('error-report-ui');
+      var main = document.getElementById('main');
       var bar = document.getElementById('progress-bar');
 
       fileOpenUi.style.display = 'none';
       manual.style.display = 'none';
       fileLoadingUi.style.display = 'block';
       errorReportUi.style.display = 'none';
+      main.style.display = 'none';
 
       var barCaptionContainer = bar.querySelector('.psdtool-progress-bar-caption');
       var barCaption = document.createTextNode('0% Complete');
@@ -85,17 +87,18 @@
       loadAsArrayBuffer(file_or_url)
          .then(parse.bind(this, progress))
          .then(initMain)
-         .then(function(main) {
+         .then(function() {
             fileLoadingUi.style.display = 'none';
             fileOpenUi.style.display = 'none';
             manual.style.display = 'none';
             errorReportUi.style.display = 'none';
-            document.body.appendChild(main);
+            main.style.display = 'block';
          }, function(e) {
             fileLoadingUi.style.display = 'none';
             fileOpenUi.style.display = 'block';
             manual.style.display = 'block';
             errorReportUi.style.display = 'block';
+            main.style.display = 'none';
             errorMessage.textContent = e;
             console.error(e);
          });
@@ -153,14 +156,13 @@
 
             sideContainer.appendChild(buildTree(root, render.bind(null, canvas, root)));
 
-            var main = document.createElement('div');
-            main.id = 'main';
+            var main = document.getElementById('main');
+            main.innerHTML = '';
             previewContainer.appendChild(canvas);
             main.appendChild(sideContainer);
             main.appendChild(previewContainer);
-
             render(canvas, root);
-            deferred.resolve(main);
+            deferred.resolve();
          } catch (e) {
             deferred.reject(e);
          }

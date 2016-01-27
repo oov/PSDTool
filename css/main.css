@@ -25,6 +25,7 @@ body {
    display: none;
 }
 #main {
+   display: none;
    position: absolute;
    left: 0;
    top: 0;
