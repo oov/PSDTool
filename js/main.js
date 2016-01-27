@@ -144,6 +144,7 @@
    }
 
    function initMain(root) {
+      console.log(root);
       var deferred = m.deferred();
       setTimeout(function() {
          try {
@@ -215,7 +216,7 @@
 
    function render(canvas, root) {
 
-      function r(ctx, layer) {
+      function r(ctx, layer, offsetX, offsetY) {
          if (!layer.visibleInput.checked || layer.Opacity == 0) {
             return
          }
@@ -235,9 +236,9 @@
                      draw(bbctx, child.Canvas, child.X - layer.X, child.Y - layer.Y, child);
                   }
                   draw(bbctx, layer.Canvas, 0, 0, 1, 'destination-in');
-                  draw(ctx, bb, layer.X, layer.Y, layer);
+                  draw(ctx, bb, offsetX+layer.X, offsetY+layer.Y, layer);
                } else {
-                  draw(ctx, layer.Canvas, layer.X, layer.Y, layer);
+                  draw(ctx, layer.Canvas, offsetX+layer.X, offsetY+layer.Y, layer);
                   for (var i = 0; i < layer.clip.length; ++i) {
                      var child = layer.clip[i];
                      if (!child.visibleInput.checked || child.Opacity == 0 || !child.Canvas) {
@@ -249,23 +250,22 @@
                      bb.height = child.Height;
                      draw(bbctx, child.Canvas, 0, 0, 1, 'copy');
                      draw(bbctx, layer.Canvas, layer.X - child.X, layer.Y - child.Y, 1, 'destination-in');
-                     draw(ctx, bb, child.X, child.Y, child);
+                     draw(ctx, bb, offsetX+child.X, offsetY+child.Y, child);
                   }
                }
             } else {
-               draw(ctx, layer.Canvas, layer.X, layer.Y, layer);
+               draw(ctx, layer.Canvas, offsetX+layer.X, offsetY+layer.Y, layer);
             }
          }
 
          if (layer.Layer.length) {
-            var bb = document.createElement('canvas');
+            var bb = layer.Buffer;
             var bbctx = bb.getContext('2d');
-            bb.width = root.Width;
-            bb.height = root.Height;
+            bbctx.clearRect(0, 0, bb.width, bb.height);
             for (var i = 0; i < layer.Layer.length; ++i) {
-               r(bbctx, layer.Layer[i]);
+               r(bbctx, layer.Layer[i], -layer.X, -layer.Y);
             }
-            draw(ctx, bb, 0, 0, layer);
+            draw(ctx, bb, offsetX+layer.X, offsetY+layer.Y, layer);
          }
       }
 
@@ -280,7 +280,7 @@
          ctx.scale(-1, 1);
       }
       for (var i = 0; i < root.Layer.length; ++i) {
-         r(ctx, root.Layer[i]);
+         r(ctx, root.Layer[i], 0, 0);
       }
       ctx.restore();
       console.log("rendering: " + (Date.now() - s));
