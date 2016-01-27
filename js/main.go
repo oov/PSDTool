@@ -32,8 +32,6 @@ type layer struct {
 	Visible               bool
 	X                     int
 	Y                     int
-	Width                 int
-	Height                int
 	Folder                bool
 	FolderOpen            bool
 	Canvas                *js.Object
@@ -41,6 +39,8 @@ type layer struct {
 	Buffer                *js.Object
 	Layer                 []layer
 	psdLayer              *psd.Layer
+	width                 int
+	height                int
 }
 
 func main() {
@@ -86,15 +86,15 @@ func (r *root) buildLayer(l *layer) error {
 		rect = rect.Union(image.Rect(
 			l.Layer[i].X,
 			l.Layer[i].Y,
-			l.Layer[i].X+l.Layer[i].Width,
-			l.Layer[i].Y+l.Layer[i].Height,
+			l.Layer[i].X+l.Layer[i].width,
+			l.Layer[i].Y+l.Layer[i].height,
 		))
 	}
 	l.X = rect.Min.X
 	l.Y = rect.Min.Y
-	l.Width = rect.Dx()
-	l.Height = rect.Dy()
-	l.Buffer = createCanvas(l.Width, l.Height)
+	l.width = rect.Dx()
+	l.height = rect.Dy()
+	l.Buffer = createCanvas(l.width, l.height)
 
 	return nil
 }
