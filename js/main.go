@@ -32,11 +32,13 @@ type layer struct {
 	Visible               bool
 	X                     int
 	Y                     int
-	Folder                bool
-	FolderOpen            bool
 	Canvas                *js.Object
+	MaskX                 int
+	MaskY                 int
 	MaskCanvas            *js.Object
 	Buffer                *js.Object
+	Folder                bool
+	FolderOpen            bool
 	Layer                 []layer
 	psdLayer              *psd.Layer
 	width                 int
@@ -72,6 +74,8 @@ func (r *root) buildLayer(l *layer) error {
 		if l.MaskCanvas, err = createMaskCanvas(l.psdLayer); err != nil {
 			return err
 		}
+		l.MaskX = l.psdLayer.Mask.Rect.Min.X
+		l.MaskY = l.psdLayer.Mask.Rect.Min.Y
 	}
 
 	r.processed++
