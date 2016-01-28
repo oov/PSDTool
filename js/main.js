@@ -175,6 +175,7 @@
          case 'copy':
          case 'source-over':
          case 'destination-in':
+         case 'destination-out':
             break;
 
          case 'normal':
@@ -215,84 +216,80 @@
       ctx.drawImage(src, x, y);
    }
 
-   function render(canvas, root) {
+   function drawLayer(ctx, layer, x, y, opacity, blendMode) {
+      if (!layer.visibleInput.checked || opacity == 0) {
+         return false;
+      }
+      var bb = layer.Buffer;
+      var bbctx = bb.getContext('2d');
 
-      function r(ctx, layer, offsetX, offsetY) {
-         if (!layer.visibleInput.checked || layer.Opacity == 0) {
-            return
-         }
-         if (layer.Canvas && !layer.Clipping) {
-            if (layer.clip.length) {
-               if (layer.BlendClippedElements) {
-                  var bb = layer.Buffer;
-                  var bbctx = bb.getContext('2d');
-                  draw(bbctx, layer.Canvas, 0, 0, 255, 'copy');
-                  for (var i = 0; i < layer.clip.length; ++i) {
-                     var child = layer.clip[i];
-                     if (!child.visibleInput.checked || child.Opacity == 0 || !child.Canvas) {
-                        continue;
-                     }
-                     if (child.MaskCanvas) {
-                        var cbb = child.Buffer;
-                        var cbbctx = cbb.getContext('2d');
-                        draw(cbbctx, child.Canvas, 0, 0, 255, 'copy');
-                        if (child.MaskCanvas) {
-                           draw(cbbctx, child.MaskCanvas, child.MaskX - child.X, child.MaskY - child.Y, 255, child.MaskDefaultColor ? 'destination-out' : 'destination-in');
-                        }
-                        draw(bbctx, cbb, child.X - layer.X, child.Y - layer.Y, child.Opacity, child.BlendMode);
-                     } else {
-                        draw(bbctx, child.Canvas, child.X - layer.X, child.Y - layer.Y, child.Opacity, child.BlendMode);
-                     }
-                  }
-                  draw(bbctx, layer.Canvas, 0, 0, 255, 'destination-in');
-                  if (layer.MaskCanvas) {
-                     draw(bbctx, layer.MaskCanvas, layer.MaskX - layer.X, layer.MaskY - layer.Y, 255, layer.MaskDefaultColor ? 'destination-out' : 'destination-in');
-                  }
-                  draw(ctx, bb, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
-               } else {
-                  // this is minor code path.
-                  // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
-                  draw(ctx, layer.Canvas, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
-                  for (var i = 0; i < layer.clip.length; ++i) {
-                     var child = layer.clip[i];
-                     if (!child.visibleInput.checked || child.Opacity == 0 || !child.Canvas) {
-                        continue;
-                     }
-                     var bb = child.Buffer;
-                     var bbctx = bb.getContext('2d');
-                     bbctx.clearRect(0, 0, bb.width, bb.height);
-                     draw(bbctx, child.Canvas, 0, 0, 255, 'copy');
-                     draw(bbctx, layer.Canvas, layer.X - child.X, layer.Y - child.Y, 255, 'destination-in');
-                     draw(ctx, bb, offsetX + child.X, offsetY + child.Y, child.Opacity, child.BlendMode);
-                  }
-               }
-            } else {
-               if (layer.MaskCanvas) {
-                  var bb = layer.Buffer;
-                  var bbctx = bb.getContext('2d');
-                  draw(bbctx, layer.Canvas, 0, 0, 255, 'copy');
-                  draw(bbctx, layer.MaskCanvas, layer.MaskX - layer.X, layer.MaskY - layer.Y, 255, layer.MaskDefaultColor ? 'destination-out' : 'destination-in');
-                  draw(ctx, bb, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
-               } else {
-                  draw(ctx, layer.Canvas, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
-               }
+      if (layer.Layer.length) {
+         bbctx.clearRect(0, 0, bb.width, bb.height);
+         for (var i = 0, child; i < layer.Layer.length; ++i) {
+            child = layer.Layer[i];
+            if (!child.Clipping) {
+               drawLayer(bbctx, child, -layer.X, -layer.Y, child.Opacity, child.BlendMode);
             }
          }
-
-         if (layer.Layer.length) {
-            var bb = layer.Buffer;
-            var bbctx = bb.getContext('2d');
-            bbctx.clearRect(0, 0, bb.width, bb.height);
-            for (var i = 0; i < layer.Layer.length; ++i) {
-               r(bbctx, layer.Layer[i], -layer.X, -layer.Y);
-            }
-            if (layer.MaskCanvas) {
-               draw(bbctx, layer.MaskCanvas, layer.MaskX - layer.X, layer.MaskY - layer.Y, 255, layer.MaskDefaultColor ? 'destination-out' : 'destination-in');
-            }
-            draw(ctx, bb, offsetX + layer.X, offsetY + layer.Y, layer.Opacity, layer.BlendMode);
-         }
+      } else if (layer.Canvas) {
+         draw(bbctx, layer.Canvas, 0, 0, 255, 'copy');
       }
 
+      if (layer.MaskCanvas) {
+         draw(
+            bbctx,
+            layer.MaskCanvas,
+            layer.MaskX - layer.X,
+            layer.MaskY - layer.Y,
+            255,
+            layer.MaskDefaultColor ? 'destination-out' : 'destination-in'
+         );
+      }
+
+      if (!layer.clip.length) {
+         draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
+         return true;
+      }
+
+      var cbb = layer.ClippingBuffer;
+      var cbbctx = cbb.getContext('2d');
+
+      if (layer.BlendClippedElements) {
+         draw(cbbctx, bb, 0, 0, 255, 'copy');
+         var changed = false;
+         for (var i = 0, child; i < layer.clip.length; ++i) {
+            child = layer.clip[i];
+            changed = drawLayer(
+               cbbctx,
+               child, -layer.X, -layer.Y,
+               child.Opacity,
+               child.BlendMode
+            ) || changed;
+         }
+         if (changed) {
+            draw(cbbctx, bb, 0, 0, 255, 'destination-in');
+         }
+         draw(ctx, cbb, x + layer.X, y + layer.Y, opacity, blendMode);
+         return true;
+      }
+
+      // this is minor code path.
+      // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
+      draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
+      cbbctx.clearRect(0, 0, cbb.width, cbb.height);
+      for (var i = 0, child; i < layer.clip.length; ++i) {
+         child = layer.clip[i];
+         if (!drawLayer(cbbctx, child, -layer.X, -layer.Y, 255, 'copy')) {
+            continue;
+         }
+         draw(cbbctx, bb, 0, 0, 255, 'destination-in');
+         draw(ctx, cbb, x + layer.X, y + layer.Y, child.Opacity, child.BlendMode);
+         cbbctx.clearRect(0, 0, cbb.width, cbb.height);
+      }
+      return true;
+   }
+
+   function render(canvas, root) {
       canvas.width = root.Width;
       canvas.height = root.Height;
 
@@ -303,8 +300,11 @@
          ctx.translate(canvas.width, 0);
          ctx.scale(-1, 1);
       }
-      for (var i = 0; i < root.Layer.length; ++i) {
-         r(ctx, root.Layer[i], 0, 0);
+      for (var i = 0, layer; i < root.Layer.length; ++i) {
+         layer = root.Layer[i];
+         if (!layer.Clipping) {
+            drawLayer(ctx, layer, 0, 0, layer.Opacity, layer.BlendMode);
+         }
       }
       ctx.restore();
       console.log("rendering: " + (Date.now() - s));
@@ -408,8 +408,6 @@
             break;
       }
       dctx.putImageData(imgData, dx, dy);
-      return;
-
    }
 
    // this code is based on http://jsfiddle.net/gamealchemist/kpQyE/14/
@@ -607,8 +605,13 @@
                clip.unshift(layer);
                layer.clip = [];
             } else {
-               for (var j = 0; j < clip.length; ++j) {
-                  clip[j].clippedBy = layer;
+               if (clip.length) {
+                  for (var j = 0; j < clip.length; ++j) {
+                     clip[j].clippedBy = layer;
+                  }
+                  layer.ClippingBuffer = document.createElement('canvas');
+                  layer.ClippingBuffer.width = layer.Buffer.width;
+                  layer.ClippingBuffer.height = layer.Buffer.height;
                }
                layer.clip = clip;
                clip = [];
