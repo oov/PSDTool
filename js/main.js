@@ -207,10 +207,10 @@
             }
 
          case 'linear-dodge':
-            blend(ctx.canvas, src, x, y, src.width, src.height, opacity, blendMode);
+            blend(ctx.canvas, src, x, y, src.width, src.height, opacity * 255, blendMode);
             return;
       }
-      ctx.globalAlpha = opacity / 255;
+      ctx.globalAlpha = opacity;
       ctx.globalCompositeOperation = blendMode;
       ctx.drawImage(src, x, y);
    }
@@ -233,11 +233,11 @@
          for (var i = 0, child; i < layer.Child.length; ++i) {
             child = layer.Child[i];
             if (!child.Clipping) {
-               drawLayer(bbctx, child, -layer.X, -layer.Y, child.Opacity, child.BlendMode);
+               drawLayer(bbctx, child, -layer.X, -layer.Y, child.Opacity / 255, child.BlendMode);
             }
          }
       } else if (layer.Canvas) {
-         draw(bbctx, layer.Canvas, 0, 0, 255, 'source-over');
+         draw(bbctx, layer.Canvas, 0, 0, 1, 'source-over');
       }
 
       if (layer.MaskCanvas) {
@@ -246,7 +246,7 @@
             layer.MaskCanvas,
             layer.MaskX - layer.X,
             layer.MaskY - layer.Y,
-            255,
+            1,
             layer.MaskDefaultColor ? 'destination-out' : 'destination-in'
          );
       }
@@ -261,19 +261,19 @@
 
       if (layer.BlendClippedElements) {
          clear(cbbctx);
-         draw(cbbctx, bb, 0, 0, 255, 'source-over');
+         draw(cbbctx, bb, 0, 0, 1, 'source-over');
          var changed = false;
          for (var i = 0, child; i < layer.clip.length; ++i) {
             child = layer.clip[i];
             changed = drawLayer(
                cbbctx,
                child, -layer.X, -layer.Y,
-               child.Opacity,
+               child.Opacity / 255,
                child.BlendMode
             ) || changed;
          }
          if (changed) {
-            draw(cbbctx, bb, 0, 0, 255, 'destination-in');
+            draw(cbbctx, bb, 0, 0, 1, 'destination-in');
          }
          draw(ctx, cbb, x + layer.X, y + layer.Y, opacity, blendMode);
          return true;
@@ -285,11 +285,11 @@
       clear(cbbctx);
       for (var i = 0, child; i < layer.clip.length; ++i) {
          child = layer.clip[i];
-         if (!drawLayer(cbbctx, child, -layer.X, -layer.Y, 255, 'source-over')) {
+         if (!drawLayer(cbbctx, child, -layer.X, -layer.Y, 1, 'source-over')) {
             continue;
          }
-         draw(cbbctx, bb, 0, 0, 255, 'destination-in');
-         draw(ctx, cbb, x + layer.X, y + layer.Y, child.Opacity, child.BlendMode);
+         draw(cbbctx, bb, 0, 0, 1, 'destination-in');
+         draw(ctx, cbb, x + layer.X, y + layer.Y, child.Opacity / 255, child.BlendMode);
          clear(cbbctx);
       }
       return true;
@@ -309,7 +309,7 @@
       for (var i = 0, layer; i < root.Child.length; ++i) {
          layer = root.Child[i];
          if (!layer.Clipping) {
-            drawLayer(ctx, layer, 0, 0, layer.Opacity, layer.BlendMode);
+            drawLayer(ctx, layer, 0, 0, layer.Opacity / 255, layer.BlendMode);
          }
       }
       ctx.restore();
