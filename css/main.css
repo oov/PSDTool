@@ -103,6 +103,7 @@ body {
 }
 #layer-tree {
    padding-left: 0;
+   margin-bottom: 0;
 }
 #layer-tree ul {
    padding-left: 16px;
