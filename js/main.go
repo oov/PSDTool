@@ -17,7 +17,7 @@ import (
 type root struct {
 	Width     int
 	Height    int
-	Layer     []layer
+	Child     []layer
 	processed int
 	progress  func(l *layer)
 }
@@ -40,7 +40,7 @@ type layer struct {
 	Buffer                *js.Object
 	Folder                bool
 	FolderOpen            bool
-	Layer                 []layer
+	Child                 []layer
 	psdLayer              *psd.Layer
 	width                 int
 	height                int
@@ -86,15 +86,15 @@ func (r *root) buildLayer(l *layer) error {
 
 	rect := l.psdLayer.Rect
 	for i := range l.psdLayer.Layer {
-		l.Layer = append(l.Layer, layer{psdLayer: &l.psdLayer.Layer[i]})
-		if err = r.buildLayer(&l.Layer[i]); err != nil {
+		l.Child = append(l.Child, layer{psdLayer: &l.psdLayer.Layer[i]})
+		if err = r.buildLayer(&l.Child[i]); err != nil {
 			return err
 		}
 		rect = rect.Union(image.Rect(
-			l.Layer[i].X,
-			l.Layer[i].Y,
-			l.Layer[i].X+l.Layer[i].width,
-			l.Layer[i].Y+l.Layer[i].height,
+			l.Child[i].X,
+			l.Child[i].Y,
+			l.Child[i].X+l.Child[i].width,
+			l.Child[i].Y+l.Child[i].height,
 		))
 	}
 	l.X = rect.Min.X
@@ -247,8 +247,8 @@ func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*roo
 	}
 	r.progress = func(l *layer) { progress(1, float64(r.processed)/float64(numLayers), l) }
 	for i := range psdImg.Layer {
-		r.Layer = append(r.Layer, layer{psdLayer: &psdImg.Layer[i]})
-		r.buildLayer(&r.Layer[i])
+		r.Child = append(r.Child, layer{psdLayer: &psdImg.Layer[i]})
+		r.buildLayer(&r.Child[i])
 	}
 	e = time.Now().UnixNano()
 	log.Println("Build Canvas:", (e-s)/1e6)

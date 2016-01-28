@@ -223,10 +223,10 @@
       var bb = layer.Buffer;
       var bbctx = bb.getContext('2d');
 
-      if (layer.Layer.length) {
+      if (layer.Child.length) {
          bbctx.clearRect(0, 0, bb.width, bb.height);
-         for (var i = 0, child; i < layer.Layer.length; ++i) {
-            child = layer.Layer[i];
+         for (var i = 0, child; i < layer.Child.length; ++i) {
+            child = layer.Child[i];
             if (!child.Clipping) {
                drawLayer(bbctx, child, -layer.X, -layer.Y, child.Opacity, child.BlendMode);
             }
@@ -300,8 +300,8 @@
          ctx.translate(canvas.width, 0);
          ctx.scale(-1, 1);
       }
-      for (var i = 0, layer; i < root.Layer.length; ++i) {
-         layer = root.Layer[i];
+      for (var i = 0, layer; i < root.Child.length; ++i) {
+         layer = root.Child[i];
          if (!layer.Clipping) {
             drawLayer(ctx, layer, 0, 0, layer.Opacity, layer.BlendMode);
          }
@@ -587,12 +587,12 @@
                   layer.clip[i].li.classList.add('psdtool-hidden-by-clipping');
                }
             }
-            for (var i = 0; i < layer.Layer.length; ++i) {
-               r(layer.Layer[i]);
+            for (var i = 0; i < layer.Child.length; ++i) {
+               r(layer.Child[i]);
             }
          }
-         for (var i = 0; i < root.Layer.length; ++i) {
-            r(root.Layer[i]);
+         for (var i = 0; i < root.Child.length; ++i) {
+            r(root.Child[i]);
          }
       }
 
@@ -600,7 +600,7 @@
          var clip = [];
          for (var i = layers.length - 1; i >= 0; --i) {
             var layer = layers[i];
-            registerClippingGroup(layer.Layer);
+            registerClippingGroup(layer.Child);
             if (layer.Clipping) {
                clip.unshift(layer);
                layer.clip = [];
@@ -625,8 +625,8 @@
 
          var prop = buildLayerProp(layer, parentLayer);
          var children = document.createElement('ul');
-         for (var i = layer.Layer.length - 1; i >= 0; --i) {
-            r(children, layer.Layer[i], layer);
+         for (var i = layer.Child.length - 1; i >= 0; --i) {
+            r(children, layer.Child[i], layer);
          }
 
          var li = document.createElement('li');
@@ -671,11 +671,11 @@
       root.id = 'r'
       var ul = document.createElement('ul');
       ul.id = 'layer-tree';
-      for (var i = root.Layer.length - 1; i >= 0; --i) {
-         r(ul, root.Layer[i], root);
+      for (var i = root.Child.length - 1; i >= 0; --i) {
+         r(ul, root.Child[i], root);
       }
 
-      registerClippingGroup(root.Layer);
+      registerClippingGroup(root.Child);
 
       var set = {};
       var radios = ul.querySelectorAll('.psdtool-layer-visible[type=radio]');
