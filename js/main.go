@@ -12,6 +12,7 @@ import (
 
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/oov/psd"
+	"golang.org/x/text/encoding/japanese"
 )
 
 type root struct {
@@ -58,7 +59,13 @@ func arrayBufferToByteSlice(a *js.Object) []byte {
 func (r *root) buildLayer(l *layer) error {
 	var err error
 
-	l.Name = l.psdLayer.Name
+	if l.psdLayer.Name == l.psdLayer.MBCSName {
+		if l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName); err != nil {
+			l.Name = l.psdLayer.MBCSName
+		}
+	} else {
+		l.Name = l.psdLayer.Name
+	}
 	l.BlendMode = l.psdLayer.BlendMode.String()
 	l.Opacity = l.psdLayer.Opacity
 	l.Clipping = l.psdLayer.Clipping
