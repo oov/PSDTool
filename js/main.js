@@ -207,7 +207,7 @@
             }
 
          case 'linear-dodge':
-            blend(ctx.canvas, src, x, y, src.width, src.height, opacity * 255, blendMode);
+            blend(ctx.canvas, src, x, y, src.width, src.height, opacity, blendMode);
             return;
       }
       ctx.globalAlpha = opacity;
@@ -325,15 +325,15 @@
 
    function linearDodge(d, s, w, h, alpha) {
       var sr, sg, sb, sa, dr, dg, db, da;
-      var a1, a2, a3, r, g, b, a;
+      var a1, a2, a3, r, g, b, a, tmp;
       for (var i = 0, len = w * h << 2; i < len; i += 4) {
-         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = (s[i + 3] * alpha * 32897) >> 23;
+         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
          dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
 
-         a = sa * 32897;
-         a1 = (a * da) >> 23;
-         a2 = (a * (255 - da)) >> 23;
-         a3 = ((8388735 - a) * da) >> 23;
+         tmp = 0 | (sa * alpha * 32897);
+         a1 = (tmp * da) >> 23;
+         a2 = (tmp * (255 - da)) >> 23;
+         a3 = ((8388735 - tmp) * da) >> 23;
          a = a1 + a2 + a3;
          d[i + 3] = a;
          if (a) {
@@ -350,21 +350,21 @@
 
    function colorDodge(d, s, w, h, alpha) {
       var sr, sg, sb, sa, dr, dg, db, da;
-      var a1, a2, a3, r, g, b, a;
+      var a1, a2, a3, r, g, b, a, tmp;
       for (var i = 0, len = w * h << 2; i < len; i += 4) {
-         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = (s[i + 3] * alpha * 32897) >> 23;
+         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
          dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
 
-         a = sa * 32897;
-         a1 = (a * da) >> 23;
-         a2 = (a * (255 - da)) >> 23;
-         a3 = ((8388735 - a) * da) >> 23;
+         tmp = 0 | (sa * alpha * 32897);
+         a1 = (tmp * da) >> 23;
+         a2 = (tmp * (255 - da)) >> 23;
+         a3 = ((8388735 - tmp) * da) >> 23;
          a = a1 + a2 + a3;
          d[i + 3] = a;
          if (a) {
-            r = sr == 255 ? 255 : dr == 0 ? 0 : dr * 255 / (255 - sr);
-            g = sg == 255 ? 255 : dg == 0 ? 0 : dg * 255 / (255 - sg);
-            b = sb == 255 ? 255 : db == 0 ? 0 : db * 255 / (255 - sb);
+            r = sr == 255 ? 255 : dr == 0 ? 0 : 0 | (dr * 255 / (255 - sr));
+            g = sg == 255 ? 255 : dg == 0 ? 0 : 0 | (dg * 255 / (255 - sg));
+            b = sb == 255 ? 255 : db == 0 ? 0 : 0 | (db * 255 / (255 - sb));
 
             d[i] = (r * a1 + sr * a2 + dr * a3) / a;
             d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
