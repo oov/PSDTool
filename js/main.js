@@ -172,7 +172,6 @@
 
    function draw(ctx, src, x, y, opacity, blendMode) {
       switch (blendMode) {
-         case 'copy':
          case 'source-over':
          case 'destination-in':
          case 'destination-out':
@@ -216,6 +215,12 @@
       ctx.drawImage(src, x, y);
    }
 
+   function clear(ctx) {
+      ctx.globalAlpha = 1
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+   }
+
    function drawLayer(ctx, layer, x, y, opacity, blendMode) {
       if (!layer.visibleInput.checked || opacity == 0) {
          return false;
@@ -223,8 +228,8 @@
       var bb = layer.Buffer;
       var bbctx = bb.getContext('2d');
 
+      clear(bbctx);
       if (layer.Child.length) {
-         bbctx.clearRect(0, 0, bb.width, bb.height);
          for (var i = 0, child; i < layer.Child.length; ++i) {
             child = layer.Child[i];
             if (!child.Clipping) {
@@ -232,7 +237,7 @@
             }
          }
       } else if (layer.Canvas) {
-         draw(bbctx, layer.Canvas, 0, 0, 255, 'copy');
+         draw(bbctx, layer.Canvas, 0, 0, 255, 'source-over');
       }
 
       if (layer.MaskCanvas) {
@@ -255,7 +260,8 @@
       var cbbctx = cbb.getContext('2d');
 
       if (layer.BlendClippedElements) {
-         draw(cbbctx, bb, 0, 0, 255, 'copy');
+         clear(cbbctx);
+         draw(cbbctx, bb, 0, 0, 255, 'source-over');
          var changed = false;
          for (var i = 0, child; i < layer.clip.length; ++i) {
             child = layer.clip[i];
@@ -276,15 +282,15 @@
       // this is minor code path.
       // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
       draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
-      cbbctx.clearRect(0, 0, cbb.width, cbb.height);
+      clear(cbbctx);
       for (var i = 0, child; i < layer.clip.length; ++i) {
          child = layer.clip[i];
-         if (!drawLayer(cbbctx, child, -layer.X, -layer.Y, 255, 'copy')) {
+         if (!drawLayer(cbbctx, child, -layer.X, -layer.Y, 255, 'source-over')) {
             continue;
          }
          draw(cbbctx, bb, 0, 0, 255, 'destination-in');
          draw(ctx, cbb, x + layer.X, y + layer.Y, child.Opacity, child.BlendMode);
-         cbbctx.clearRect(0, 0, cbb.width, cbb.height);
+         clear(cbbctx);
       }
       return true;
    }
