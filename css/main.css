@@ -58,7 +58,7 @@ body {
 #preview-container canvas {
    margin: auto;
    display: block;
-   background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAAQMAAAD58POIAAAABlBMVEXMzMz////TjRV2AAAAKElEQVRIx2P4z4AKGQZIgGGQOGQ0PEbDYzQ8RsNjNDxGw2M0PGguAAAGkPwuYonmZAAAAABJRU5ErkJggg==");
+   background: url(../img/transparent.gif);
    border: 1px solid #888;
 }
 #invert {
