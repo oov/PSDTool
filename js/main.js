@@ -114,7 +114,10 @@
          xhr.open('GET', file_or_url);
          xhr.responseType = 'arraybuffer';
          xhr.onload = function(e) {
-            deferred.resolve(xhr.response);
+            deferred.resolve({
+               buffer: xhr.response,
+               name: 'file'
+            });
          };
          xhr.onerror = function(e) {
             deferred.reject(e);
@@ -125,7 +128,10 @@
       var r = new FileReader();
       r.readAsArrayBuffer(file_or_url);
       r.onload = function(e) {
-         deferred.resolve(r.result);
+         deferred.resolve({
+            buffer: r.result,
+            name: file_or_url.name
+         });
       };
       r.onerror = function(e) {
          deferred.reject(e);
@@ -146,9 +152,10 @@
       return true;
    }
 
-   function parse(progress, arrayBuffer) {
+   function parse(progress, obj) {
       var deferred = m.deferred();
-      parsePSD(arrayBuffer, progress, function(root) {
+      parsePSD(obj.buffer, progress, function(root) {
+         root.name = obj.name;
          deferred.resolve(root);
       }, function(e) {
          deferred.reject(e);
@@ -174,6 +181,7 @@
             var save = saveCanvas.bind(null, canvas);
             buildTree(root, redraw);
             buildMiscUI(root, redraw, save);
+
             render(canvas, root);
             deferred.resolve();
          } catch (e) {
@@ -667,6 +675,7 @@
 
       var lastPx;
       root.maxPixels = document.getElementById('max-pixels');
+      root.maxPixels.value = root.Height;
       root.maxPixels.addEventListener('blur', function(e) {
          if (this.value == lastPx) {
             return;
@@ -675,8 +684,10 @@
          redraw();
       }, false);
 
+      root.seqDlPrefix = document.getElementById('seq-dl-prefix');
+      root.seqDlPrefix.value = root.name.replace(/\.psd$/ig, '') + '_';
       document.getElementById('seq-dl').addEventListener('click', function(e) {
-         var prefix = document.getElementById('seq-dl-prefix').value;
+         var prefix = root.seqDlPrefix.value;
          var numElem = document.getElementById('seq-dl-num');
          var num = parseInt(numElem.value, 10);
          if (num < 0) {
