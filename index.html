@@ -6,7 +6,7 @@
 <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
 <link href="css/main.css" rel="stylesheet">
 
-<body data-invert-caption="左右反転" data-invert-title="左右反転は髪型、アクセサリー、文字など本来反転していけない部分も反転してしまうため、使用には注意が必要です。">
+<body>
 	<div id="file-open-ui" class="container">
 		<div class="row">
 			<div class="col-xs-12">
@@ -82,6 +82,32 @@
 		<p>
 			ブラウザは常に最新版をお使いください。
 		</p>
+		<h2>機能の説明</h2>
+		<p>ファイルを開くと画面の上部には以下の様なインターフェイスが現れます。</p>
+		<img src="img/head.png" class="img-thumbnail" alt="PSDTool の画面上部にあるインターフェイス">
+		<dl>
+			<dt>左右反転</dt>
+			<dd>
+				<p>
+					画像を左右反転します。
+					<br>画像内に文字やアクセサリー、髪型や服の装飾など反転すると問題がある場合もあるため、使用には注意が必要です。
+				</p>
+			</dd>
+			<dt>縮小</dt>
+			<dd>
+				<p>
+					読み込んだ画像が大きすぎる場合、ここで保存前に縮小することができます。
+					<br>縦か横のどちらかの最大ピクセル数を指定すると、その大きさに合わせてサイズが決定されます。この設定によって元のサイズより画像が拡大されることはありません。
+				</p>
+			</dd>
+			<dt>連番DL</dt>
+			<dd>
+				<p>
+					画像を通し番号付きで保存するための機能です。
+					<br>スクリーンショットのように入力欄がそれぞれ「file_」「0」の状態で「.png」ボタンを押すと、「file_0000.png」というファイル名で保存され、「0」が「1」に変わります。
+				</p>
+			</dd>
+		</dl>
 		<h2>読み込める *.psd ファイル</h2>
 		<p>非対応の機能が色々あります。</p>
 		<ul>
@@ -128,6 +154,8 @@
 		<dl>
 			<dt>2016-01-29</dt>
 			<dd>透過領域でアニメーション</dd>
+			<dd>縮小機能を追加</dd>
+			<dd>連番ダウンロード機能を追加</dd>
 			<dd>バグ修正</dd>
 			<dt>2016-01-28</dt>
 			<dd>合成モード「覆い焼き（リニア）」に対応</dd>
@@ -147,8 +175,54 @@
 			</small>
 		</div>
 	</div>
-	<div id="main"></div>
+	<div id="main">
+		<div id="side-container">
+			<ul id="layer-tree"></ul>
+		</div>
+		<div id="main-container">
+			<div id="misc-ui" class="container-fluid">
+				<div class="row">
+					<div class="col-sm-3 col-md-2">
+						<label for="invert-input">
+							<input id="invert-input" type="checkbox"> 左右反転
+						</label>
+					</div>
+					<div class="col-sm-6 col-md-4">
+						<div class="form-inline">
+							<div class="form-group">
+								<label for="fixed-side">縮小</label>
+								<select class="form-control" id="fixed-side">
+									<option value="h" selected="selected">縦</option>
+									<option value="w">横</option>
+								</select>
+								<label class="sr-only" for="max-size">サイズ</label>
+								<div class="input-group">
+									<div class="input-group-addon">最大</div>
+									<input type="number" class="form-control" id="max-pixels" inputmode="numeric" value="1200">
+									<div class="input-group-addon">px</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-sm-12 col-md-6">
+						<div class="form-inline">
+							<div class="form-group">
+								<label for="seq-dl-prefix">連番DL</label>
+								<input id="seq-dl-prefix" type="text" class="form-control" value="file_">
+								<label class="sr-only" for="seq-dl-num">番号</label>
+								<input type="number" class="form-control" id="seq-dl-num" inputmode="numeric" value="0">
+								<button id="seq-dl" class="btn btn-primary">.png</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div id="preview-container"></div>
+		</div>
+	</div>
+	</div>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/mithril/0.2.2-rc.1/mithril.min.js"></script>
+	<script src="js/FileSaver.min.js"></script>
 	<script src="js/psdtool.js"></script>
 	<script src="js/main.js"></script>
 </body>

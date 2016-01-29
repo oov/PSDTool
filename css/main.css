@@ -42,8 +42,7 @@ body {
    height: 100vh;
    overflow: auto;
 }
-#preview-container {
-   background: #ccc;
+#main-container {
    position: absolute;
    left: 20vw;
    top: 0;
@@ -54,6 +53,37 @@ body {
    overflow: auto;
    box-sizing: border-box;
    border-left: 1px solid #888;
+   background: #ccc;
+}
+#misc-ui {
+   box-sizing: border-box;
+   margin: 0;
+   background: #fff;
+   padding-top: 8px;
+   padding-bottom: 8px;
+   border-bottom:#bbb 1px solid;
+}
+label[for=invert-input] {
+   margin-bottom: 0;
+   padding: 5px 0 0 0;
+}
+#fixed-side {
+   padding: 0;
+}
+@media (min-width: 768px) {
+   #max-pixels, #seq-dl-num {
+      width: 6rem;
+      padding: 0 0 0 4px;
+   }
+   #seq-dl-prefix {
+      width: 14rem;
+      padding: 0 4px;
+   }
+}
+#preview-container {
+   padding: 8px 0;
+   margin: 0;
+   overflow: auto;
 }
 #preview-container canvas {
    margin: auto;
@@ -61,16 +91,12 @@ body {
    background: url(../img/transparent.gif);
    border: 1px solid #888;
 }
-#invert {
-   margin: 0;
-   padding: 4px;
-   font-weight: normal;
-}
-#invert, .psdtool-layer-name {
+label {
    user-select: none;
    -moz-user-select: none;
    -webkit-user-select: none;
    -ms-user-select: none;
+   font-weight: normal;
 }
 .psdtool-layer-name {
    background: #f8f8f8;
@@ -80,7 +106,6 @@ body {
 .psdtool-layer-name label {
    margin: 0;
    display: block;
-   font-weight: normal;
    padding: 4px;
    white-space: nowrap;
 }

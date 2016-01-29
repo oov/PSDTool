@@ -61,11 +61,11 @@
       var errorMessageContainer = document.getElementById('error-message');
       var errorMessage = document.createTextNode('');
 
-      barCaptionContainer.innerHTML = '';
+      removeAllChild(barCaptionContainer);
       barCaptionContainer.appendChild(barCaption);
-      captionContainer.innerHTML = '';
+      removeAllChild(captionContainer);
       captionContainer.appendChild(caption);
-      errorMessageContainer.innerHTML = '';
+      removeAllChild(errorMessageContainer);
       errorMessageContainer.appendChild(errorMessage);
 
       function progress(phase, progress, layer) {
@@ -133,6 +133,19 @@
       return deferred.promise;
    }
 
+   function saveCanvas(canvas, filename) {
+      var b64 = canvas.toDataURL('image/png');
+      var bin = atob(b64.substring(b64.indexOf(',') + 1));
+      var buf = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; ++i) {
+         buf[i] = bin.charCodeAt(i);
+      }
+      saveAs(new Blob([buf.buffer], {
+         type: 'image/png'
+      }), filename);
+      return true;
+   }
+
    function parse(progress, arrayBuffer) {
       var deferred = m.deferred();
       parsePSD(arrayBuffer, progress, function(root) {
@@ -143,24 +156,24 @@
       return deferred.promise;
    }
 
+   function removeAllChild(elem) {
+      for (var i = elem.childNodes.length - 1; i >= 0; --i) {
+         elem.removeChild(elem.firstChild);
+      }
+   }
+
    function initMain(root) {
       var deferred = m.deferred();
       setTimeout(function() {
          try {
-            var sideContainer = document.createElement('div');
-            sideContainer.id = 'side-container';
-
-            var previewContainer = document.createElement('div');
-            previewContainer.id = 'preview-container';
+            registerClippingGroup(root.Child);
 
             var canvas = document.createElement('canvas');
-            sideContainer.appendChild(buildTree(root, render.bind(null, canvas, root)));
-
-            var main = document.getElementById('main');
-            main.innerHTML = '';
-            previewContainer.appendChild(canvas);
-            main.appendChild(sideContainer);
-            main.appendChild(previewContainer);
+            document.getElementById('preview-container').appendChild(canvas);
+            var redraw = render.bind(null, canvas, root);
+            var save = saveCanvas.bind(null, canvas);
+            buildTree(root, redraw);
+            buildMiscUI(root, redraw, save);
             render(canvas, root);
             deferred.resolve();
          } catch (e) {
@@ -316,7 +329,27 @@
       console.log("rendering: " + (Date.now() - s));
 
       var scale = 1;
+      var px = parseInt(root.maxPixels.value, 10);
+      switch (root.fixedSide.value) {
+         case 'w':
+            if (canvas.width > px) {
+               scale = px / canvas.width;
+            }
+            break;
+         case 'h':
+            if (canvas.height > px) {
+               scale = px / canvas.height;
+            }
+            break;
+      }
       if (scale != 1) {
+         if (canvas.width * scale < 1 || canvas.height * scale < 1) {
+            if (canvas.width > canvas.height) {
+               scale = 1 / canvas.height;
+            } else {
+               scale = 1 / canvas.width;
+            }
+         }
          s = Date.now();
          downScaleCanvas(canvas, canvas, scale);
          console.log("resize: " + (Date.now() - s));
@@ -577,63 +610,94 @@
       }
    }
 
+   function updateClass(root) {
+      function r(layer) {
+         if (layer.visibleInput.checked) {
+            layer.li.classList.remove('psdtool-hidden');
+            for (var i = 0; i < layer.clip.length; ++i) {
+               layer.clip[i].li.classList.remove('psdtool-hidden-by-clipping');
+            }
+         } else {
+            layer.li.classList.add('psdtool-hidden');
+            for (var i = 0; i < layer.clip.length; ++i) {
+               layer.clip[i].li.classList.add('psdtool-hidden-by-clipping');
+            }
+         }
+         for (var i = 0; i < layer.Child.length; ++i) {
+            r(layer.Child[i]);
+         }
+      }
+      for (var i = 0; i < root.Child.length; ++i) {
+         r(root.Child[i]);
+      }
+   }
+
+   function registerClippingGroup(layers) {
+      var clip = [];
+      for (var i = layers.length - 1; i >= 0; --i) {
+         var layer = layers[i];
+         registerClippingGroup(layer.Child);
+         if (layer.Clipping) {
+            clip.unshift(layer);
+            layer.clip = [];
+         } else {
+            if (clip.length) {
+               for (var j = 0; j < clip.length; ++j) {
+                  clip[j].clippedBy = layer;
+               }
+               layer.ClippingBuffer = document.createElement('canvas');
+               layer.ClippingBuffer.width = layer.Buffer.width;
+               layer.ClippingBuffer.height = layer.Buffer.height;
+            }
+            layer.clip = clip;
+            clip = [];
+         }
+      }
+   }
+
+   function buildMiscUI(root, redraw, save) {
+      root.invertInput = document.getElementById('invert-input');
+      root.invertInput.addEventListener('click', function(e) {
+         redraw();
+      }, false)
+      root.fixedSide = document.getElementById('fixed-side');
+      root.fixedSide.addEventListener('change', function(e) {
+         redraw();
+      }, false)
+
+      var lastPx;
+      root.maxPixels = document.getElementById('max-pixels');
+      root.maxPixels.addEventListener('blur', function(e) {
+         if (this.value == lastPx) {
+            return;
+         }
+         lastPx = this.value;
+         redraw();
+      }, false);
+
+      document.getElementById('seq-dl').addEventListener('click', function(e) {
+         var prefix = document.getElementById('seq-dl-prefix').value;
+         var numElem = document.getElementById('seq-dl-num');
+         var num = parseInt(numElem.value, 10);
+         if (num < 0) {
+            num = 0;
+         }
+         var s = num.toString();
+         if (s.length < 4) {
+            s = ("0000" + s).substring(s.length);
+         }
+         if (save(prefix + s + '.png')) {
+            numElem.value = num + 1;
+         }
+      }, false);
+   }
+
    function buildTree(root, redraw) {
       var cid = 0;
-
-      function updateClass() {
-         function r(layer) {
-            if (layer.visibleInput.checked) {
-               layer.li.classList.remove('psdtool-hidden');
-               for (var i = 0; i < layer.clip.length; ++i) {
-                  layer.clip[i].li.classList.remove('psdtool-hidden-by-clipping');
-               }
-            } else {
-               layer.li.classList.add('psdtool-hidden');
-               for (var i = 0; i < layer.clip.length; ++i) {
-                  layer.clip[i].li.classList.add('psdtool-hidden-by-clipping');
-               }
-            }
-            for (var i = 0; i < layer.Child.length; ++i) {
-               r(layer.Child[i]);
-            }
-         }
-         for (var i = 0; i < root.Child.length; ++i) {
-            r(root.Child[i]);
-         }
-      }
-
-      function registerClippingGroup(layers) {
-         var clip = [];
-         for (var i = layers.length - 1; i >= 0; --i) {
-            var layer = layers[i];
-            registerClippingGroup(layer.Child);
-            if (layer.Clipping) {
-               clip.unshift(layer);
-               layer.clip = [];
-            } else {
-               if (clip.length) {
-                  for (var j = 0; j < clip.length; ++j) {
-                     clip[j].clippedBy = layer;
-                  }
-                  layer.ClippingBuffer = document.createElement('canvas');
-                  layer.ClippingBuffer.width = layer.Buffer.width;
-                  layer.ClippingBuffer.height = layer.Buffer.height;
-               }
-               layer.clip = clip;
-               clip = [];
-            }
-         }
-      }
 
       function r(ul, layer, parentLayer) {
          layer.id = ++cid;
          layer.parentLayer = parentLayer;
-
-         var prop = buildLayerProp(layer, parentLayer);
-         var children = document.createElement('ul');
-         for (var i = layer.Child.length - 1; i >= 0; --i) {
-            r(children, layer.Child[i], layer);
-         }
 
          var li = document.createElement('li');
          if (layer.Folder) {
@@ -641,47 +705,34 @@
          }
          layer.li = li;
 
-         var input = prop.querySelector('.psdtool-layer-visible');
-         if (input) {
-            input.addEventListener('click', function() {
-               for (var p = layer.parentLayer; p.visibleInput;) {
-                  p.visibleInput.checked = true;
-                  p = p.parentLayer;
-               }
-               if (layer.clippedBy) {
-                  layer.clippedBy.visibleInput.checked = true;
-               }
-               redraw();
-               updateClass();
-            }, false);
-         }
-
+         var prop = buildLayerProp(layer, parentLayer);
+         layer.visibleInput.addEventListener('click', function() {
+            for (var p = layer.parentLayer; p.visibleInput; p = p.parentLayer) {
+               p.visibleInput.checked = true;
+            }
+            if (layer.clippedBy) {
+               layer.clippedBy.visibleInput.checked = true;
+            }
+            redraw();
+            updateClass(root);
+         }, false);
          li.appendChild(prop);
+
+         var children = document.createElement('ul');
+         for (var i = layer.Child.length - 1; i >= 0; --i) {
+            r(children, layer.Child[i], layer);
+         }
          li.appendChild(children);
+
          ul.appendChild(li);
       }
 
-
-      var invert = document.createElement('label');
-      invert.id = 'invert';
-      invert.setAttribute('title', document.body.getAttribute('data-invert-title'));
-      var check = document.createElement('input');
-      check.type = 'checkbox';
-      check.addEventListener('click', function(e) {
-         redraw();
-      }, false)
-      root.invertInput = check;
-      invert.appendChild(check);
-      invert.appendChild(document.createTextNode(document.body.getAttribute('data-invert-caption')));
-
+      var ul = document.getElementById('layer-tree');
+      removeAllChild(ul);
       root.id = 'r'
-      var ul = document.createElement('ul');
-      ul.id = 'layer-tree';
       for (var i = root.Child.length - 1; i >= 0; --i) {
          r(ul, root.Child[i], root);
       }
-
-      registerClippingGroup(root.Child);
 
       var set = {};
       var radios = ul.querySelectorAll('.psdtool-layer-visible[type=radio]');
@@ -699,12 +750,7 @@
             rinShibuyas[j].checked = false;
          }
       }
-      updateClass();
-
-      var div = document.createElement('div');
-      div.appendChild(invert);
-      div.appendChild(ul);
-      return div;
+      updateClass(root);
    }
 
    function buildLayerProp(layer, parentLayer) {
