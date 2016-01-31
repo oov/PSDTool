@@ -474,153 +474,153 @@
       var sbuf = src.getContext('2d').getImageData(0, 0, sw, sh).data,
          tbuf = new Float32Array(4 * sw * sh);
 
-      calc(tbuf, sbuf, scale, sw, sh, tw, th);
+      downScaleCanvasCalculate(tbuf, sbuf, scale, sw, sh, tw, th);
 
       dest.width = tw;
       dest.height = th;
 
       var ctx = dest.getContext('2d');
       var imgData = ctx.getImageData(0, 0, tw, th);
-      finalize(imgData.data, tbuf);
+      downScaleCanvasFinalize(imgData.data, tbuf);
       ctx.putImageData(imgData, 0, 0);
       return;
+   }
 
-      // convert float32 array into a UInt8Clamped Array
-      function finalize(bb, fb) {
-         for (var i = 0, len = fb.length, ma; i < len; i += 4) {
-            if (fb[i + 3] == 0) {
+   // convert float32 array into a UInt8Clamped Array
+   function downScaleCanvasFinalize(bb, fb) {
+      for (var i = 0, len = fb.length, ma; i < len; i += 4) {
+         if (fb[i + 3] == 0) {
+            continue;
+         }
+         ma = 255 / fb[i + 3];
+         bb[i] = fb[i] * ma | 0;
+         bb[i + 1] = fb[i + 1] * ma | 0;
+         bb[i + 2] = fb[i + 2] * ma | 0;
+         bb[i + 3] = fb[i + 3] | 0;
+      }
+   }
+
+   function downScaleCanvasCalculate(tbuf, sbuf, scale, sw, sh, tw, th) {
+      var sqScale = scale * scale; // square scale = area of source pixel within target
+      var sx = 0,
+         sy = 0,
+         sIndex = 0; // source x,y, index within source array
+      var tx = 0,
+         ty = 0,
+         yIndex = 0,
+         tIndex = 0,
+         tIndex2 = 0; // target x,y, x,y index within target array
+      var tX = 0,
+         tY = 0; // rounded tx, ty
+      var w = 0,
+         nw = 0,
+         wx = 0,
+         nwx = 0,
+         wy = 0,
+         nwy = 0; // weight / next weight x / y
+      // weight is weight of current source point within target.
+      // next weight is weight of current source point within next target's point.
+      var crossX = false; // does scaled px cross its current px right border ?
+      var crossY = false; // does scaled px cross its current px bottom border ?
+      var sR = 0,
+         sG = 0,
+         sB = 0,
+         sA = 0;
+
+      for (sy = 0; sy < sh; sy++) {
+         ty = sy * scale; // y src position within target
+         tY = 0 | ty; // rounded : target pixel's y
+         yIndex = (tY * tw) << 2; // line index within target array
+         crossY = (tY != (0 | ty + scale));
+         if (crossY) { // if pixel is crossing botton target pixel
+            wy = (tY + 1 - ty); // weight of point within target pixel
+            nwy = (ty + scale - tY - 1); // ... within y+1 target pixel
+         }
+         for (sx = 0; sx < sw; sx++, sIndex += 4) {
+            tx = sx * scale; // x src position within target
+            tX = 0 | tx; // rounded : target pixel's x
+            tIndex = yIndex + (tX << 2); // target pixel index within target array
+            crossX = (tX != (0 | tx + scale));
+            if (crossX) { // if pixel is crossing target pixel's right
+               wx = (tX + 1 - tx); // weight of point within target pixel
+               nwx = (tx + scale - tX - 1); // ... within x+1 target pixel
+            }
+            sR = sbuf[sIndex]; // retrieving r,g,b for curr src px.
+            sG = sbuf[sIndex + 1];
+            sB = sbuf[sIndex + 2];
+            sA = sbuf[sIndex + 3];
+            if (sA == 0) {
                continue;
             }
-            ma = 255 / fb[i + 3];
-            bb[i] = fb[i] * ma | 0;
-            bb[i + 1] = fb[i + 1] * ma | 0;
-            bb[i + 2] = fb[i + 2] * ma | 0;
-            bb[i + 3] = fb[i + 3] | 0;
-         }
-      }
-
-      function calc(tbuf, sbuf, scale, sw, sh, tw, th) {
-         var sqScale = scale * scale; // square scale = area of source pixel within target
-         var sx = 0,
-            sy = 0,
-            sIndex = 0; // source x,y, index within source array
-         var tx = 0,
-            ty = 0,
-            yIndex = 0,
-            tIndex = 0,
-            tIndex2 = 0; // target x,y, x,y index within target array
-         var tX = 0,
-            tY = 0; // rounded tx, ty
-         var w = 0,
-            nw = 0,
-            wx = 0,
-            nwx = 0,
-            wy = 0,
-            nwy = 0; // weight / next weight x / y
-         // weight is weight of current source point within target.
-         // next weight is weight of current source point within next target's point.
-         var crossX = false; // does scaled px cross its current px right border ?
-         var crossY = false; // does scaled px cross its current px bottom border ?
-         var sR = 0,
-            sG = 0,
-            sB = 0,
-            sA = 0;
-
-         for (sy = 0; sy < sh; sy++) {
-            ty = sy * scale; // y src position within target
-            tY = 0 | ty; // rounded : target pixel's y
-            yIndex = (tY * tw) << 2; // line index within target array
-            crossY = (tY != (0 | ty + scale));
-            if (crossY) { // if pixel is crossing botton target pixel
-               wy = (tY + 1 - ty); // weight of point within target pixel
-               nwy = (ty + scale - tY - 1); // ... within y+1 target pixel
+            if (sA < 255) {
+               // x * 32897 >> 23 == x / 255
+               sR = (sR * sA * 32897) >> 23;
+               sG = (sG * sA * 32897) >> 23;
+               sB = (sB * sA * 32897) >> 23;
             }
-            for (sx = 0; sx < sw; sx++, sIndex += 4) {
-               tx = sx * scale; // x src position within target
-               tX = 0 | tx; // rounded : target pixel's x
-               tIndex = yIndex + (tX << 2); // target pixel index within target array
-               crossX = (tX != (0 | tx + scale));
-               if (crossX) { // if pixel is crossing target pixel's right
-                  wx = (tX + 1 - tx); // weight of point within target pixel
-                  nwx = (tx + scale - tX - 1); // ... within x+1 target pixel
-               }
-               sR = sbuf[sIndex]; // retrieving r,g,b for curr src px.
-               sG = sbuf[sIndex + 1];
-               sB = sbuf[sIndex + 2];
-               sA = sbuf[sIndex + 3];
-               if (sA == 0) {
-                  continue;
-               }
-               if (sA < 255) {
-                  // x * 32897 >> 23 == x / 255
-                  sR = (sR * sA * 32897) >> 23;
-                  sG = (sG * sA * 32897) >> 23;
-                  sB = (sB * sA * 32897) >> 23;
-               }
 
-               if (!crossX && !crossY) { // pixel does not cross
-                  // just add components weighted by squared scale.
-                  tbuf[tIndex] += sR * sqScale;
-                  tbuf[tIndex + 1] += sG * sqScale;
-                  tbuf[tIndex + 2] += sB * sqScale;
-                  tbuf[tIndex + 3] += sA * sqScale;
-               } else if (crossX && !crossY) { // cross on X only
-                  w = wx * scale;
-                  // add weighted component for current px
-                  tbuf[tIndex] += sR * w;
-                  tbuf[tIndex + 1] += sG * w;
-                  tbuf[tIndex + 2] += sB * w;
-                  tbuf[tIndex + 3] += sA * w;
-                  // add weighted component for next (tX+1) px
-                  nw = nwx * scale;
-                  tbuf[tIndex + 4] += sR * nw;
-                  tbuf[tIndex + 5] += sG * nw;
-                  tbuf[tIndex + 6] += sB * nw;
-                  tbuf[tIndex + 7] += sA * nw;
-               } else if (crossY && !crossX) { // cross on Y only
-                  w = wy * scale;
-                  // add weighted component for current px
-                  tbuf[tIndex] += sR * w;
-                  tbuf[tIndex + 1] += sG * w;
-                  tbuf[tIndex + 2] += sB * w;
-                  tbuf[tIndex + 3] += sA * w;
-                  // add weighted component for next (tY+1) px
-                  tIndex2 = tIndex + (tw << 2);
-                  nw = nwy * scale;
-                  tbuf[tIndex2] += sR * nw;
-                  tbuf[tIndex2 + 1] += sG * nw;
-                  tbuf[tIndex2 + 2] += sB * nw;
-                  tbuf[tIndex2 + 3] += sA * nw;
-               } else { // crosses both x and y : four target points involved
-                  // add weighted component for current px
-                  w = wx * wy;
-                  tbuf[tIndex] += sR * w;
-                  tbuf[tIndex + 1] += sG * w;
-                  tbuf[tIndex + 2] += sB * w;
-                  tbuf[tIndex + 3] += sA * w;
-                  // for tX + 1; tY px
-                  nw = nwx * wy;
-                  tbuf[tIndex + 4] += sR * nw; // same for x
-                  tbuf[tIndex + 5] += sG * nw;
-                  tbuf[tIndex + 6] += sB * nw;
-                  tbuf[tIndex + 7] += sA * nw;
-                  // for tX ; tY + 1 px
-                  tIndex2 = tIndex + (tw << 2);
-                  nw = wx * nwy;
-                  tbuf[tIndex2] += sR * nw; // same for mul
-                  tbuf[tIndex2 + 1] += sG * nw;
-                  tbuf[tIndex2 + 2] += sB * nw;
-                  tbuf[tIndex2 + 3] += sA * nw;
-                  // for tX + 1 ; tY +1 px
-                  nw = nwx * nwy;
-                  tbuf[tIndex2 + 4] += sR * nw; // same for both x and y
-                  tbuf[tIndex2 + 5] += sG * nw;
-                  tbuf[tIndex2 + 6] += sB * nw;
-                  tbuf[tIndex2 + 7] += sA * nw;
-               }
-            } // end for sx
-         } // end for sy
-      }
+            if (!crossX && !crossY) { // pixel does not cross
+               // just add components weighted by squared scale.
+               tbuf[tIndex] += sR * sqScale;
+               tbuf[tIndex + 1] += sG * sqScale;
+               tbuf[tIndex + 2] += sB * sqScale;
+               tbuf[tIndex + 3] += sA * sqScale;
+            } else if (crossX && !crossY) { // cross on X only
+               w = wx * scale;
+               // add weighted component for current px
+               tbuf[tIndex] += sR * w;
+               tbuf[tIndex + 1] += sG * w;
+               tbuf[tIndex + 2] += sB * w;
+               tbuf[tIndex + 3] += sA * w;
+               // add weighted component for next (tX+1) px
+               nw = nwx * scale;
+               tbuf[tIndex + 4] += sR * nw;
+               tbuf[tIndex + 5] += sG * nw;
+               tbuf[tIndex + 6] += sB * nw;
+               tbuf[tIndex + 7] += sA * nw;
+            } else if (crossY && !crossX) { // cross on Y only
+               w = wy * scale;
+               // add weighted component for current px
+               tbuf[tIndex] += sR * w;
+               tbuf[tIndex + 1] += sG * w;
+               tbuf[tIndex + 2] += sB * w;
+               tbuf[tIndex + 3] += sA * w;
+               // add weighted component for next (tY+1) px
+               tIndex2 = tIndex + (tw << 2);
+               nw = nwy * scale;
+               tbuf[tIndex2] += sR * nw;
+               tbuf[tIndex2 + 1] += sG * nw;
+               tbuf[tIndex2 + 2] += sB * nw;
+               tbuf[tIndex2 + 3] += sA * nw;
+            } else { // crosses both x and y : four target points involved
+               // add weighted component for current px
+               w = wx * wy;
+               tbuf[tIndex] += sR * w;
+               tbuf[tIndex + 1] += sG * w;
+               tbuf[tIndex + 2] += sB * w;
+               tbuf[tIndex + 3] += sA * w;
+               // for tX + 1; tY px
+               nw = nwx * wy;
+               tbuf[tIndex + 4] += sR * nw; // same for x
+               tbuf[tIndex + 5] += sG * nw;
+               tbuf[tIndex + 6] += sB * nw;
+               tbuf[tIndex + 7] += sA * nw;
+               // for tX ; tY + 1 px
+               tIndex2 = tIndex + (tw << 2);
+               nw = wx * nwy;
+               tbuf[tIndex2] += sR * nw; // same for mul
+               tbuf[tIndex2 + 1] += sG * nw;
+               tbuf[tIndex2 + 2] += sB * nw;
+               tbuf[tIndex2 + 3] += sA * nw;
+               // for tX + 1 ; tY +1 px
+               nw = nwx * nwy;
+               tbuf[tIndex2 + 4] += sR * nw; // same for both x and y
+               tbuf[tIndex2 + 5] += sG * nw;
+               tbuf[tIndex2 + 6] += sB * nw;
+               tbuf[tIndex2 + 7] += sA * nw;
+            }
+         } // end for sx
+      } // end for sy
    }
 
    function updateClass(root) {
