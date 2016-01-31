@@ -242,11 +242,72 @@
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
    }
 
+   function calculateNextState(layer, opacity) {
+      if (!layer.visibleInput.checked || opacity == 0) {
+         return false;
+      }
+
+      var state = "";
+      if (layer.Child.length) {
+         for (var i = 0, child; i < layer.Child.length; ++i) {
+            child = layer.Child[i];
+            if (!child.Clipping) {
+               if (calculateNextState(child, child.Opacity / 255)) {
+                  state += child.nextState + '+';
+               }
+            }
+         }
+         if (state != "") {
+            state = state.substring(0, state.length - 1);
+         }
+      } else if (layer.Canvas) {
+         state = layer.id;
+      }
+
+      if (layer.MaskCanvas) {
+         state += '|lm';
+      }
+
+      if (!layer.clip.length) {
+         layer.nextState = state;
+         return true;
+      }
+
+      state += '|cm' + (layer.BlendClippedElements ? '1' : '0') + ':';
+      if (layer.BlendClippedElements) {
+         for (var i = 0, child; i < layer.clip.length; ++i) {
+            child = layer.clip[i];
+            if (calculateNextState(child, child.Opacity / 255)) {
+               state += child.nextState + '+';
+            }
+         }
+         layer.nextState = state.substring(0, state.length - 1);
+         return true;
+      }
+
+      // we cannot cache in this mode
+      state += Date.now() + '_' + Math.random() + ':';
+
+      for (var i = 0, child; i < layer.clip.length; ++i) {
+         child = layer.clip[i];
+         if (calculateNextState(child, 1)) {
+            state += child.nextState + '+';
+         }
+      }
+      layer.nextState = state.substring(0, state.length - 1);
+      return true;
+   }
+
    function drawLayer(ctx, layer, x, y, opacity, blendMode) {
       if (!layer.visibleInput.checked || opacity == 0) {
          return false;
       }
       var bb = layer.Buffer;
+      if (layer.currentState == layer.nextState) {
+         draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
+         return true;
+      }
+
       var bbctx = bb.getContext('2d');
 
       clear(bbctx);
@@ -274,6 +335,7 @@
 
       if (!layer.clip.length) {
          draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
+         layer.currentState = layer.nextState;
          return true;
       }
 
@@ -296,7 +358,11 @@
          if (changed) {
             draw(cbbctx, bb, 0, 0, 1, 'destination-in');
          }
+         // swap buffer for next time
+         layer.ClippingBuffer = bb;
+         layer.Buffer = cbb;
          draw(ctx, cbb, x + layer.X, y + layer.Y, opacity, blendMode);
+         layer.currentState = layer.nextState;
          return true;
       }
 
@@ -313,20 +379,38 @@
          draw(ctx, cbb, x + layer.X, y + layer.Y, child.Opacity / 255, child.BlendMode);
          clear(cbbctx);
       }
+      layer.currentState = layer.nextState;
       return true;
    }
 
    function render(canvas, root) {
       var s = Date.now();
 
-      var bb = root.Buffer;
-      var bbctx = bb.getContext('2d');
-      clear(bbctx);
+      var state = "";
       for (var i = 0, layer; i < root.Child.length; ++i) {
          layer = root.Child[i];
          if (!layer.Clipping) {
-            drawLayer(bbctx, layer, -root.RealX, -root.RealY, layer.Opacity / 255, layer.BlendMode);
+            if (calculateNextState(layer, layer.Opacity / 255)) {
+               state += layer.nextState + '+';
+            }
          }
+      }
+      if (state != "") {
+         state = state.substring(0, state.length - 1);
+      }
+      root.nextState = state;
+
+      var bb = root.Buffer;
+      if (root.currentState != root.nextState) {
+         var bbctx = bb.getContext('2d');
+         clear(bbctx);
+         for (var i = 0, layer; i < root.Child.length; ++i) {
+            layer = root.Child[i];
+            if (!layer.Clipping) {
+               drawLayer(bbctx, layer, -root.RealX, -root.RealY, layer.Opacity / 255, layer.BlendMode);
+            }
+         }
+         root.currentState = root.nextState;
       }
 
       var ctx = canvas.getContext('2d');
