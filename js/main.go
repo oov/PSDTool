@@ -16,11 +16,17 @@ import (
 )
 
 type root struct {
-	Width     int
-	Height    int
-	Child     []layer
-	processed int
-	progress  func(l *layer)
+	Width      int
+	Height     int
+	RealX      int
+	RealY      int
+	RealWidth  int
+	RealHeight int
+	Buffer     *js.Object
+	Child      []layer
+	processed  int
+	progress   func(l *layer)
+	realRect   image.Rectangle
 }
 
 type layer struct {
@@ -78,6 +84,7 @@ func (r *root) buildLayer(l *layer) error {
 		if l.Canvas, err = createImageCanvas(l.psdLayer); err != nil {
 			return err
 		}
+		r.realRect = r.realRect.Union(l.psdLayer.Rect)
 	}
 	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.psdLayer.Mask.Rect.Dx()*l.psdLayer.Mask.Rect.Dy() > 0 {
 		if l.MaskCanvas, err = createMaskCanvas(l.psdLayer); err != nil {
@@ -257,6 +264,11 @@ func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*roo
 		r.Child = append(r.Child, layer{psdLayer: &psdImg.Layer[i]})
 		r.buildLayer(&r.Child[i])
 	}
+	r.RealX = r.realRect.Min.X
+	r.RealY = r.realRect.Min.Y
+	r.RealWidth = r.realRect.Dx()
+	r.RealHeight = r.realRect.Dy()
+	r.Buffer = createCanvas(r.RealWidth, r.RealHeight)
 	e = time.Now().UnixNano()
 	log.Println("Build Canvas:", (e-s)/1e6)
 	return r, nil

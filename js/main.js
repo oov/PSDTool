@@ -317,22 +317,27 @@
    }
 
    function render(canvas, root) {
+      var s = Date.now();
+
+      var bb = root.Buffer;
+      var bbctx = bb.getContext('2d');
+      clear(bbctx);
+      for (var i = 0, layer; i < root.Child.length; ++i) {
+         layer = root.Child[i];
+         if (!layer.Clipping) {
+            drawLayer(bbctx, layer, -root.RealX, -root.RealY, layer.Opacity / 255, layer.BlendMode);
+         }
+      }
+
+      var ctx = canvas.getContext('2d');
       canvas.width = root.Width;
       canvas.height = root.Height;
-
-      var s = Date.now();
-      var ctx = canvas.getContext('2d');
       ctx.save();
       if (root.invertInput.checked) {
          ctx.translate(canvas.width, 0);
          ctx.scale(-1, 1);
       }
-      for (var i = 0, layer; i < root.Child.length; ++i) {
-         layer = root.Child[i];
-         if (!layer.Clipping) {
-            drawLayer(ctx, layer, 0, 0, layer.Opacity / 255, layer.BlendMode);
-         }
-      }
+      ctx.drawImage(bb, root.RealX, root.RealY);
       ctx.restore();
       console.log("rendering: " + (Date.now() - s));
 
