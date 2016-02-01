@@ -120,6 +120,30 @@ func (r *root) buildLayer(l *layer) error {
 	return nil
 }
 
+func countLayers(l []psd.Layer) int {
+	r := len(l)
+	for i := range l {
+		r += countLayers(l[i].Layer)
+	}
+	return r
+}
+
+func (r *root) Build(img *psd.PSD, progress func(processed, total int, l *layer)) {
+	numLayers := countLayers(img.Layer)
+	r.Width = img.Config.Rect.Dx()
+	r.Height = img.Config.Rect.Dy()
+	r.progress = func(l *layer) { progress(r.processed, numLayers, l) }
+	for i := range img.Layer {
+		r.Child = append(r.Child, layer{psdLayer: &img.Layer[i]})
+		r.buildLayer(&r.Child[i])
+	}
+	r.RealX = r.realRect.Min.X
+	r.RealY = r.realRect.Min.Y
+	r.RealWidth = r.realRect.Dx()
+	r.RealHeight = r.realRect.Dy()
+	r.Buffer = createCanvas(r.RealWidth, r.RealHeight)
+}
+
 func createImageCanvas(l *psd.Layer) (*js.Object, error) {
 	if l.Picker.ColorModel() != color.NRGBAModel {
 		return nil, errors.New("Unsupported color mode")
@@ -138,8 +162,7 @@ func createImageCanvas(l *psd.Layer) (*js.Object, error) {
 	if a, ok := l.Channel[-1]; ok {
 		ap := a.Data
 		for y = 0; y < sh; y++ {
-			ofss = y * sw
-			ofsd = y * dw << 2
+			ofss, ofsd = y*sw, y*dw<<2
 			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+0, rp[sx])
@@ -150,8 +173,7 @@ func createImageCanvas(l *psd.Layer) (*js.Object, error) {
 		}
 	} else {
 		for y = 0; y < sh; y++ {
-			ofss = y * sw
-			ofsd = y * dw << 2
+			ofss, ofsd = y*sw, y*dw<<2
 			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+0, rp[sx])
@@ -182,8 +204,7 @@ func createMaskCanvas(l *psd.Layer) (*js.Object, error) {
 	mp := m.Data
 	if l.Mask.DefaultColor == 0 {
 		for y = 0; y < sh; y++ {
-			ofss = y * sw
-			ofsd = y * dw << 2
+			ofss, ofsd = y*sw, y*dw<<2
 			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+3, mp[sx])
@@ -191,8 +212,7 @@ func createMaskCanvas(l *psd.Layer) (*js.Object, error) {
 		}
 	} else {
 		for y = 0; y < sh; y++ {
-			ofss = y * sw
-			ofsd = y * dw << 2
+			ofss, ofsd = y*sw, y*dw<<2
 			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+3, 255-mp[sx])
@@ -208,14 +228,6 @@ func createCanvas(width, height int) *js.Object {
 	cvs.Set("width", width)
 	cvs.Set("height", height)
 	return cvs
-}
-
-func countLayers(l []psd.Layer) int {
-	r := len(l)
-	for i := range l {
-		r += countLayers(l[i].Layer)
-	}
-	return r
 }
 
 type progressReader struct {
@@ -256,24 +268,13 @@ func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*roo
 	}
 
 	s = time.Now().UnixNano()
-	numLayers := countLayers(psdImg.Layer)
-	r := &root{
-		Width:  psdImg.Config.Rect.Dx(),
-		Height: psdImg.Config.Rect.Dy(),
-	}
-	r.progress = func(l *layer) { progress(1, float64(r.processed)/float64(numLayers), l) }
-	for i := range psdImg.Layer {
-		r.Child = append(r.Child, layer{psdLayer: &psdImg.Layer[i]})
-		r.buildLayer(&r.Child[i])
-	}
-	r.RealX = r.realRect.Min.X
-	r.RealY = r.realRect.Min.Y
-	r.RealWidth = r.realRect.Dx()
-	r.RealHeight = r.realRect.Dy()
-	r.Buffer = createCanvas(r.RealWidth, r.RealHeight)
+	var r root
+	r.Build(psdImg, func(processed, total int, l *layer) {
+		progress(1, float64(processed)/float64(total), l)
+	})
 	e = time.Now().UnixNano()
 	log.Println("Build Canvas:", (e-s)/1e6)
-	return r, nil
+	return &r, nil
 }
 
 func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
