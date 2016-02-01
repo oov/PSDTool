@@ -38,6 +38,15 @@
       document.getElementById('samplefile').addEventListener('click', function(e) {
          loadAndParse('img/' + document.getElementById('samplefile').getAttribute('data-filename'));
       }, false);
+      window.addEventListener('resize', resized, false);
+   }
+
+   function resized() {
+      var mainContainer = document.getElementById('main-container');
+      var miscUi = document.getElementById('misc-ui');
+      var previewContainer = document.getElementById('preview-container');
+      previewContainer.style.width = mainContainer.clientWidth + 'px';
+      previewContainer.style.height = (mainContainer.clientHeight - miscUi.offsetHeight) + 'px';
    }
 
    function loadAndParse(file_or_url) {
@@ -96,6 +105,7 @@
             manual.style.display = 'none';
             errorReportUi.style.display = 'none';
             main.style.display = 'block';
+            resized();
          }, function(e) {
             fileLoadingUi.style.display = 'none';
             fileOpenUi.style.display = 'block';
@@ -181,7 +191,6 @@
             var save = saveCanvas.bind(null, canvas);
             buildTree(root, redraw);
             buildMiscUI(root, redraw, save);
-
             render(canvas, root);
             deferred.resolve();
          } catch (e) {

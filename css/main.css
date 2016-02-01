@@ -41,6 +41,8 @@ body {
    width: 20vw;
    height: 100vh;
    overflow: auto;
+   box-sizing: border-box;
+   border-right: 1px solid #888;
 }
 #main-container {
    position: absolute;
@@ -50,9 +52,7 @@ body {
    margin: 0;
    width: 80vw;
    height: 100vh;
-   overflow: auto;
-   box-sizing: border-box;
-   border-left: 1px solid #888;
+   overflow: hidden;
    background: #ccc;
 }
 #misc-ui {
@@ -61,7 +61,7 @@ body {
    background: #fff;
    padding-top: 8px;
    padding-bottom: 8px;
-   border-bottom:#bbb 1px solid;
+   border-bottom: #bbb 1px solid;
 }
 label[for=invert-input] {
    margin-bottom: 0;
@@ -81,7 +81,7 @@ label[for=invert-input] {
    }
 }
 #preview-container {
-   padding: 8px 0;
+   padding: 0;
    margin: 0;
    overflow: auto;
 }
