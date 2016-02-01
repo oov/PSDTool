@@ -577,7 +577,7 @@
       var w = new Worker('js/resizer.js');
       w.onmessage = function(e) {
          var ctx = dest.getContext('2d');
-         var imgData = ctx.getImageData(0, 0, dw, dh);
+         var imgData = ctx.createImageData(dw, dh);
          downScaleCanvasFinalize(
             imgData.data,
             new Uint8Array(e.data.buf),

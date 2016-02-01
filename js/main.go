@@ -125,10 +125,11 @@ func createImageCanvas(l *psd.Layer) (*js.Object, error) {
 		return nil, errors.New("Unsupported color mode")
 	}
 
-	w, h := l.Rect.Dx(), l.Rect.Dy()
-	cvs := createCanvas(w, h)
+	sw, sh := l.Rect.Dx(), l.Rect.Dy()
+	cvs := createCanvas(sw, sh)
 	ctx := cvs.Call("getContext", "2d")
-	imgData := ctx.Call("getImageData", 0, 0, w, h)
+	imgData := ctx.Call("createImageData", sw, sh)
+	dw := imgData.Get("width").Int()
 	data := imgData.Get("data")
 
 	var ofsd, ofss, x, y, sx, dx int
@@ -136,10 +137,10 @@ func createImageCanvas(l *psd.Layer) (*js.Object, error) {
 	rp, gp, bp := r.Data, g.Data, b.Data
 	if a, ok := l.Channel[-1]; ok {
 		ap := a.Data
-		for y = 0; y < h; y++ {
-			ofss = y * w
-			ofsd = ofss << 2
-			for x = 0; x < w; x++ {
+		for y = 0; y < sh; y++ {
+			ofss = y * sw
+			ofsd = y * dw << 2
+			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+0, rp[sx])
 				data.SetIndex(dx+1, gp[sx])
@@ -148,10 +149,10 @@ func createImageCanvas(l *psd.Layer) (*js.Object, error) {
 			}
 		}
 	} else {
-		for y = 0; y < h; y++ {
-			ofss = y * w
-			ofsd = ofss << 2
-			for x = 0; x < w; x++ {
+		for y = 0; y < sh; y++ {
+			ofss = y * sw
+			ofsd = y * dw << 2
+			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+0, rp[sx])
 				data.SetIndex(dx+1, gp[sx])
@@ -170,28 +171,29 @@ func createMaskCanvas(l *psd.Layer) (*js.Object, error) {
 		return nil, nil
 	}
 
-	w, h := l.Mask.Rect.Dx(), l.Mask.Rect.Dy()
-	cvs := createCanvas(w, h)
+	sw, sh := l.Mask.Rect.Dx(), l.Mask.Rect.Dy()
+	cvs := createCanvas(sw, sh)
 	ctx := cvs.Call("getContext", "2d")
-	imgData := ctx.Call("getImageData", 0, 0, w, h)
+	imgData := ctx.Call("createImageData", sw, sh)
+	dw := imgData.Get("width").Int()
 	data := imgData.Get("data")
 
 	var ofsd, ofss, x, y, sx, dx int
 	mp := m.Data
 	if l.Mask.DefaultColor == 0 {
-		for y = 0; y < h; y++ {
-			ofss = y * w
-			ofsd = ofss << 2
-			for x = 0; x < w; x++ {
+		for y = 0; y < sh; y++ {
+			ofss = y * sw
+			ofsd = y * dw << 2
+			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+3, mp[sx])
 			}
 		}
 	} else {
-		for y = 0; y < h; y++ {
-			ofss = y * w
-			ofsd = ofss << 2
-			for x = 0; x < w; x++ {
+		for y = 0; y < sh; y++ {
+			ofss = y * sw
+			ofsd = y * dw << 2
+			for x = 0; x < sw; x++ {
 				sx, dx = ofss+x, ofsd+x<<2
 				data.SetIndex(dx+3, 255-mp[sx])
 			}
