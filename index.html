@@ -23,27 +23,42 @@
 		</div>
 		<div class="row">
 			<div class="col-sm-6">
-				<div>
-					<label for="inputfile">*.psd ファイルを選択して開く</label>
-					<div id="dropzone">
-						<input type="file" id="inputfile" accept=".psd">
-						<p>この辺にファイルをドロップして読み込むこともできます。</p>
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h2 class="panel-title">*.psd ファイルを選択して開く</h2>
+					</div>
+					<div class="panel-body">
+						<div id="dropzone">
+							<input type="file" id="inputfile" accept=".psd">
+							<p>この辺にファイルをドロップして読み込むこともできます。</p>
+						</div>
 					</div>
 				</div>
 			</div>
 			<div class="col-sm-6">
-				<label for="samplefile">サンプルファイルで試す</label>
-				<div>
-					<img src="img/sample.png" width="140" height="240" class="psdtool-sampleimg img-thumbnail pull-left" alt="">
-					<button class="btn btn-default" id="samplefile" data-filename="im5467479.psd">サンプルファイルで試す</button>
-					<small>
-						<p>
-							このイラストは<a href="https://twitter.com/hrowl">水梟る</a>さんが投稿されている 「<a href="http://seiga.nicovideo.jp/seiga/im5467479">さとうささら立ち絵集5</a>」を 許可をいただいて PSDTool 用のサンプルファイルとして使用させて頂いています。
-						</p>
-						<p>
-							「<a href="http://satosasara.com/">さとうささら</a>」はトーク・ソング対応音声合成ソフトウェア「<a href="http://cevio.jp/">CeVIO Creative Studio</a>」のキャラクターです。
-						</p>
-					</small>
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h2 class="panel-title">サンプルファイルで試す</h2>
+					</div>
+					<div class="panel-body">
+						<div id="try-sample">
+							<img src="img/sample.png" width="140" height="240" class="psdtool-sampleimg img-thumbnail pull-left" alt="">
+							<p>
+								<button class="btn btn-default" id="samplefile" data-filename="im5467479.psd">サンプルファイルで試す</button>
+							</p>
+							<small>
+								<p>
+									このイラストは<a href="https://twitter.com/hrowl">水梟る</a>さんが投稿されている 「<a href="http://seiga.nicovideo.jp/seiga/im5467479">さとうささら立ち絵集5</a>」を 許可をいただいて PSDTool 用のサンプルファイルとして使用させて頂いています。
+								</p>
+								<p>
+									<a href="http://seiga.nicovideo.jp/seiga/im5467479">ニコニコ静画で配布されている *.psd ファイル</a> は PSDTool が持つ <a href="#original-feature">独自拡張機能</a> のサンプルにもなっています。
+								</p>
+								<p>
+									「<a href="http://satosasara.com/">さとうささら</a>」はトーク・ソング対応音声合成ソフトウェア「<a href="http://cevio.jp/">CeVIO Creative Studio</a>」のキャラクターです。
+								</p>
+							</small>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -84,7 +99,7 @@
 		</p>
 		<h2>機能の説明</h2>
 		<p>ファイルを開くと画面の上部には以下の様なインターフェイスが現れます。</p>
-		<img src="img/head.png" class="img-thumbnail" alt="PSDTool の画面上部にあるインターフェイス">
+		<p><img src="img/head.png" class="img-thumbnail" alt="PSDTool の画面上部にあるインターフェイス"></p>
 		<dl>
 			<dt>左右反転</dt>
 			<dd>
@@ -118,13 +133,13 @@
 			</li>
 			<li>テキストレイヤー、調整レイヤー、シェイプレイヤーなどには対応していません。</li>
 		</ul>
-		<h2>独自機能</h2>
+		<h2 id="original-feature">独自機能</h2>
 		<p>
 			レイヤー名の先頭に特定の記号を付けることで、レイヤーの表示／非表示の使い勝手を改善することができます。
 			<br>これらの機能を使用しても画像編集ソフトで開く際には今まで通り使用でき、編集が不便になることはありません。
 		</p>
 		<h3>アスタリスク「*」</h3>
-		<img src="img/asterisk.png" class="img-rounded" alt="アスタリスクの使用例">
+		<p><img src="img/asterisk.png" class="img-rounded" alt="アスタリスクの使用例"></p>
 		<p>
 			レイヤー名の先頭に半角のアスタリスク「*」をつけると、選択項目がチェックボックスでははなくラジオボタンになります。
 			<br>ラジオボタンは親のグループレイヤー（画像例では「口」）に所属するようになります。
@@ -138,7 +153,7 @@
 			ラジオボタン内のレイヤーが複数表示されたまま *.psd ファイルが保存されていた場合、その中で一番上のものがデフォルト表示されます。
 		</p>
 		<h3>エクスクラメーションマーク「!」</h3>
-		<img src="img/exclamation.png" class="img-rounded" alt="エクスクラメーションマークの使用例">
+		<p><img src="img/exclamation.png" class="img-rounded" alt="エクスクラメーションマークの使用例"></p>
 		<p>
 			レイヤー名の先頭に半角のエクスクラメーションマーク「!」をつけると、選択項目からチェックボックスが消えます。
 			<br>チェックボックスがない項目は表示状態になり、非表示にできなくなります。
@@ -152,6 +167,8 @@
 		</p>
 		<h2>変更履歴</h2>
 		<dl>
+			<dt>2016-02-02</dt>
+			<dd>操作性の改善</dd>
 			<dt>2016-02-01</dt>
 			<dd>描画負荷の軽減</dd>
 			<dd>縮小処理中にUIが硬直しないように</dd>
@@ -174,7 +191,7 @@
 
 		<div class="well text-center">
 			<small>
-				Created by <a href="https://github.com/oov/psd" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a> | Please listen to <a href="https://www.youtube.com/watch?v=SldjqJz3thA" target="_blank">my song</a>
+				Created by <a href="https://github.com/oov/psdtool" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a> | Please listen to <a href="https://www.youtube.com/watch?v=SldjqJz3thA" target="_blank">my song</a>
 			</small>
 		</div>
 	</div>

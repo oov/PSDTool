@@ -5,8 +5,8 @@ body {
 .psdtool-sampleimg {
    margin-right: 8px;
 }
-#dropzone {
-   min-height: 16rem;
+#dropzone, #try-sample {
+   min-height: 24rem;
    border: 1px dashed transparent;
    background-color: #fff;
 }
