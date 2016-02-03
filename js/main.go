@@ -1,4 +1,5 @@
 //go:generate gopherjs build -m -o psdtool.js
+//go:generate go run blend.go
 
 package main
 

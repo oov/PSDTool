@@ -1,8 +1,6 @@
 (function() {
    'use strict';
 
-   var hasBrokenColorDodge = false;
-
    function init() {
       var dz = document.getElementById('dropzone');
       dz.addEventListener('dragenter', function(e) {
@@ -206,37 +204,7 @@
          case 'destination-in':
          case 'destination-out':
             break;
-
-         case 'normal':
-            blendMode = 'source-over';
-            break;
-
-         case 'darken':
-         case 'multiply':
-         case 'color-burn':
-
-         case 'lighten':
-         case 'screen':
-            // case 'color-dodge': sometimes broken in chrome
-
-         case 'overlay':
-         case 'soft-light':
-         case 'hard-light':
-         case 'difference':
-         case 'exclusion':
-
-         case 'hue':
-         case 'saturation':
-         case 'color':
-         case 'luminosity':
-            break;
-
-         case 'color-dodge':
-            if (!hasBrokenColorDodge) {
-               break;
-            }
-
-         case 'linear-dodge':
+         default:
             blend(ctx.canvas, src, x, y, src.width, src.height, opacity, blendMode);
             return;
       }
@@ -465,99 +433,6 @@
          ctx.restore();
          root.seqDl.disabled = phase != 1;
       });
-   }
-
-   function linearDodge(d, s, w, h, alpha) {
-      var sr, sg, sb, sa, dr, dg, db, da;
-      var a1, a2, a3, r, g, b, a, tmp;
-      for (var i = 0, len = w * h << 2; i < len; i += 4) {
-         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
-         dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
-
-         tmp = 0 | (sa * alpha * 32897);
-         a1 = (tmp * da) >> 23;
-         a2 = (tmp * (255 - da)) >> 23;
-         a3 = ((8388735 - tmp) * da) >> 23;
-         a = a1 + a2 + a3;
-         d[i + 3] = a;
-         if (a) {
-            r = sr + dr;
-            g = sg + dg;
-            b = sb + db;
-
-            d[i] = (r * a1 + sr * a2 + dr * a3) / a;
-            d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
-            d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
-         }
-      }
-   }
-
-   function colorDodge(d, s, w, h, alpha) {
-      var sr, sg, sb, sa, dr, dg, db, da;
-      var a1, a2, a3, r, g, b, a, tmp;
-      for (var i = 0, len = w * h << 2; i < len; i += 4) {
-         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
-         dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
-
-         tmp = 0 | (sa * alpha * 32897);
-         a1 = (tmp * da) >> 23;
-         a2 = (tmp * (255 - da)) >> 23;
-         a3 = ((8388735 - tmp) * da) >> 23;
-         a = a1 + a2 + a3;
-         d[i + 3] = a;
-         if (a) {
-            r = sr == 255 ? 255 : dr == 0 ? 0 : Math.min(255, 0 | (dr * 255 / (255 - sr)));
-            g = sg == 255 ? 255 : dg == 0 ? 0 : Math.min(255, 0 | (dg * 255 / (255 - sg)));
-            b = sb == 255 ? 255 : db == 0 ? 0 : Math.min(255, 0 | (db * 255 / (255 - sb)));
-
-            d[i] = (r * a1 + sr * a2 + dr * a3) / a;
-            d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
-            d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
-         }
-      }
-   }
-
-   function blend(dest, src, dx, dy, sw, sh, alpha, blendMode) {
-      var sx = 0;
-      var sy = 0;
-      if (dx >= dest.width || dy >= dest.height || dx + sw < 0 || dy + sh < 0 || alpha == 0) {
-         return;
-      }
-      if (sw > src.width) {
-         sw = src.width;
-      }
-      if (sh > src.height) {
-         sh = src.height;
-      }
-      if (dx < 0) {
-         sw += dx;
-         sx -= dx;
-         dx = 0;
-      }
-      if (dy < 0) {
-         sh += dy;
-         sy -= dy;
-         dy = 0;
-      }
-      if (dx + sw > dest.width) {
-         sw = dest.width - dx;
-      }
-      if (dy + sh > dest.height) {
-         sh = dest.height - dy;
-      }
-      var dctx = dest.getContext('2d');
-      var imgData = dctx.getImageData(dx, dy, sw, sh);
-      var d = imgData.data;
-      var s = src.getContext('2d').getImageData(sx, sy, sw, sh).data;
-      switch (blendMode) {
-         case 'linear-dodge':
-            linearDodge(d, s, sw, sh, alpha);
-            break;
-         case 'color-dodge':
-            colorDodge(d, s, sw, sh, alpha);
-            break;
-      }
-      dctx.putImageData(imgData, dx, dy);
    }
 
    // this code is based on http://jsfiddle.net/gamealchemist/kpQyE/14/
@@ -840,26 +715,5 @@
       return div;
    }
 
-   function detectBrokenColorDodge() {
-      var img = new Image();
-      img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGUlEQVQI1wXBAQEAAAgCIOz/5TJI20UGhz5D2wX8PWbkFQAAAABJRU5ErkJggg==";
-      img.onload = function() {
-         var c = document.createElement('canvas');
-         c.width = 257;
-         c.height = 256;
-
-         var ctx = c.getContext('2d');
-         ctx.fillStyle = "rgb(255, 255, 255)";
-         ctx.fillRect(0, 0, c.width, c.height);
-         ctx.globalAlpha = 0.5;
-         ctx.globalCompositeOperation = 'color-dodge';
-         ctx.drawImage(img, 0, 0);
-
-         var c = ctx.getImageData(0, 0, 1, 1);
-         hasBrokenColorDodge = c.data[0] < 128;
-      }
-   }
-
-   detectBrokenColorDodge();
    document.addEventListener('DOMContentLoaded', init, false);
 })();
