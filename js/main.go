@@ -73,7 +73,11 @@ func (r *root) buildLayer(l *layer) error {
 	} else {
 		l.Name = l.psdLayer.Name
 	}
-	l.BlendMode = l.psdLayer.BlendMode.String()
+	if l.psdLayer.Folder() {
+		l.BlendMode = l.psdLayer.SectionDividerSetting.BlendMode.String()
+	} else {
+		l.BlendMode = l.psdLayer.BlendMode.String()
+	}
 	l.Opacity = l.psdLayer.Opacity
 	l.Clipping = l.psdLayer.Clipping
 	l.BlendClippedElements = l.psdLayer.BlendClippedElements

@@ -219,59 +219,56 @@
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
    }
 
-   function calculateNextState(layer, opacity) {
+   function calculateNextState(layer, opacity, blendMode) {
       if (!layer.visibleInput.checked || opacity == 0) {
          return false;
       }
 
-      var state = "";
+      layer.nextState = "";
       if (layer.Child.length) {
+         if (blendMode == 'pass-through') {
+            layer.nextState += layer.parentLayer.nextState + '+';
+         }
          for (var i = 0, child; i < layer.Child.length; ++i) {
             child = layer.Child[i];
             if (!child.Clipping) {
-               if (calculateNextState(child, child.Opacity / 255)) {
-                  state += child.nextState + '+';
+               if (calculateNextState(child, child.Opacity / 255, child.BlendMode)) {
+                  layer.nextState += child.nextState + '+';
                }
             }
          }
-         if (state != "") {
-            state = state.substring(0, state.length - 1);
-         }
       } else if (layer.Canvas) {
-         state = layer.id;
+         layer.nextState = layer.id;
       }
 
       if (layer.MaskCanvas) {
-         state += '|lm';
+         layer.nextState += '|lm';
       }
 
       if (!layer.clip.length) {
-         layer.nextState = state;
          return true;
       }
 
-      state += '|cm' + (layer.BlendClippedElements ? '1' : '0') + ':';
+      layer.nextState += '|cm' + (layer.BlendClippedElements ? '1' : '0') + ':';
       if (layer.BlendClippedElements) {
          for (var i = 0, child; i < layer.clip.length; ++i) {
             child = layer.clip[i];
-            if (calculateNextState(child, child.Opacity / 255)) {
-               state += child.nextState + '+';
+            if (calculateNextState(child, child.Opacity / 255, child.BlendMode)) {
+               layer.nextState += child.nextState + '+';
             }
          }
-         layer.nextState = state.substring(0, state.length - 1);
          return true;
       }
 
       // we cannot cache in this mode
-      state += Date.now() + '_' + Math.random() + ':';
+      layer.nextState += Date.now() + '_' + Math.random() + ':';
 
       for (var i = 0, child; i < layer.clip.length; ++i) {
          child = layer.clip[i];
-         if (calculateNextState(child, 1)) {
-            state += child.nextState + '+';
+         if (calculateNextState(child, 1, 'source-over')) {
+            layer.nextState += child.nextState + '+';
          }
       }
-      layer.nextState = state.substring(0, state.length - 1);
       return true;
    }
 
@@ -289,6 +286,10 @@
 
       clear(bbctx);
       if (layer.Child.length) {
+         if (blendMode == 'pass-through') {
+            draw(bbctx, layer.parentLayer.Buffer, -x - layer.X, -y - layer.Y, 1, 'source-over');
+            blendMode = 'source-over';
+         }
          for (var i = 0, child; i < layer.Child.length; ++i) {
             child = layer.Child[i];
             if (!child.Clipping) {
@@ -363,19 +364,15 @@
    function render(canvas, root) {
       var s = Date.now();
 
-      var state = "";
+      root.nextState = "";
       for (var i = 0, layer; i < root.Child.length; ++i) {
          layer = root.Child[i];
          if (!layer.Clipping) {
-            if (calculateNextState(layer, layer.Opacity / 255)) {
-               state += layer.nextState + '+';
+            if (calculateNextState(layer, layer.Opacity / 255, layer.BlendMode)) {
+               root.nextState += layer.nextState + '+';
             }
          }
       }
-      if (state != "") {
-         state = state.substring(0, state.length - 1);
-      }
-      root.nextState = state;
 
       var bb = root.Buffer;
       if (root.currentState != root.nextState) {
