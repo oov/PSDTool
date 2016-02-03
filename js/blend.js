@@ -232,6 +232,38 @@ var blend = (function() {
       }
    }
 
+   function blendDarkerColor(d, s, w, h, alpha) {
+      var sr, sg, sb, sa, dr, dg, db, da;
+      var a1, a2, a3, r, g, b, a, tmp;
+      for (var i = 0, len = w * h << 2; i < len; i += 4) {
+         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
+         dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
+
+         tmp = 0 | (sa * alpha * 32897);
+         a1 = (tmp * da) >> 23;
+         a2 = (tmp * (255 - da)) >> 23;
+         a3 = ((8388735 - tmp) * da) >> 23;
+         a = a1 + a2 + a3;
+         d[i + 3] = a;
+         if (a) {
+
+            if (lum(sr, sg, sb) < lum(dr, dg, db)) {
+               r = sr;
+               g = sg;
+               b = sb;
+            } else {
+               r = dr;
+               g = dg;
+               b = db;
+            }
+
+            d[i] = (r * a1 + sr * a2 + dr * a3) / a;
+            d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
+            d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
+         }
+      }
+   }
+
    function blendLighten(d, s, w, h, alpha) {
       var sr, sg, sb, sa, dr, dg, db, da;
       var a1, a2, a3, r, g, b, a, tmp;
@@ -366,6 +398,38 @@ var blend = (function() {
             g = sg + dg;
 
             b = sb + db;
+
+            d[i] = (r * a1 + sr * a2 + dr * a3) / a;
+            d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
+            d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
+         }
+      }
+   }
+
+   function blendLighterColor(d, s, w, h, alpha) {
+      var sr, sg, sb, sa, dr, dg, db, da;
+      var a1, a2, a3, r, g, b, a, tmp;
+      for (var i = 0, len = w * h << 2; i < len; i += 4) {
+         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
+         dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
+
+         tmp = 0 | (sa * alpha * 32897);
+         a1 = (tmp * da) >> 23;
+         a2 = (tmp * (255 - da)) >> 23;
+         a3 = ((8388735 - tmp) * da) >> 23;
+         a = a1 + a2 + a3;
+         d[i + 3] = a;
+         if (a) {
+
+            if (lum(sr, sg, sb) > lum(dr, dg, db)) {
+               r = sr;
+               g = sg;
+               b = sb;
+            } else {
+               r = dr;
+               g = dg;
+               b = db;
+            }
 
             d[i] = (r * a1 + sr * a2 + dr * a3) / a;
             d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
@@ -833,6 +897,80 @@ var blend = (function() {
       }
    }
 
+   function blendSubtract(d, s, w, h, alpha) {
+      var sr, sg, sb, sa, dr, dg, db, da;
+      var a1, a2, a3, r, g, b, a, tmp;
+      for (var i = 0, len = w * h << 2; i < len; i += 4) {
+         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
+         dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
+
+         tmp = 0 | (sa * alpha * 32897);
+         a1 = (tmp * da) >> 23;
+         a2 = (tmp * (255 - da)) >> 23;
+         a3 = ((8388735 - tmp) * da) >> 23;
+         a = a1 + a2 + a3;
+         d[i + 3] = a;
+         if (a) {
+
+            r = Math.max(0, dr - sr);
+
+            g = Math.max(0, dg - sg);
+
+            b = Math.max(0, db - sb);
+
+            d[i] = (r * a1 + sr * a2 + dr * a3) / a;
+            d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
+            d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
+         }
+      }
+   }
+
+   function blendDivide(d, s, w, h, alpha) {
+      var sr, sg, sb, sa, dr, dg, db, da;
+      var a1, a2, a3, r, g, b, a, tmp;
+      for (var i = 0, len = w * h << 2; i < len; i += 4) {
+         sr = s[i], sg = s[i + 1], sb = s[i + 2], sa = s[i + 3];
+         dr = d[i], dg = d[i + 1], db = d[i + 2], da = d[i + 3];
+
+         tmp = 0 | (sa * alpha * 32897);
+         a1 = (tmp * da) >> 23;
+         a2 = (tmp * (255 - da)) >> 23;
+         a3 = ((8388735 - tmp) * da) >> 23;
+         a = a1 + a2 + a3;
+         d[i + 3] = a;
+         if (a) {
+
+            if (dr == 0) {
+               r = 0;
+            } else if (sr == 0) {
+               r = 255;
+            } else {
+               r = Math.min(255, dr / sr * 255);
+            }
+
+            if (dg == 0) {
+               g = 0;
+            } else if (sg == 0) {
+               g = 255;
+            } else {
+               g = Math.min(255, dg / sg * 255);
+            }
+
+            if (db == 0) {
+               b = 0;
+            } else if (sb == 0) {
+               b = 255;
+            } else {
+               b = Math.min(255, db / sb * 255);
+            }
+
+            d[i] = (r * a1 + sr * a2 + dr * a3) / a;
+            d[i + 1] = (g * a1 + sg * a2 + dg * a3) / a;
+            d[i + 2] = (b * a1 + sb * a2 + db * a3) / a;
+         }
+      }
+   }
+
    function blendHue(d, s, w, h, alpha) {
       var sr, sg, sb, sa, dr, dg, db, da;
       var a1, a2, a3, r, g, b, a, tmp;
@@ -950,17 +1088,21 @@ var blend = (function() {
    }
 
    var blendModes = {
+      // 'pass-through': blendPassThrough,
       'source-over': blendNormal,
+      // 'dissolve': blendDissolve,
 
       'darken': blendDarken,
       'multiply': blendMultiply,
       'color-burn': blendColorBurn,
       'linear-burn': blendLinearBurn,
+      'darker-color': blendDarkerColor,
 
       'lighten': blendLighten,
       'screen': blendScreen,
       'color-dodge': blendColorDodge,
       'linear-dodge': blendLinearDodge,
+      'lighter-color': blendLighterColor,
 
       'overlay': blendOverlay,
       'soft-light': blendSoftLight,
@@ -972,6 +1114,8 @@ var blend = (function() {
 
       'difference': blendDifference,
       'exclusion': blendExclusion,
+      'subtract': blendSubtract,
+      'divide': blendDivide,
 
       'hue': blendHue,
       'saturation': blendSaturation,

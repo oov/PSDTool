@@ -91,6 +91,20 @@ var blendModes = []struct {
             ret = Math.max(0, dest + src - 255);
 `,
 	},
+	{
+		Name: "DarkerColor",
+		Code: `
+            if (lum(sr, sg, sb) < lum(dr, dg, db)) {
+               r = sr;
+               g = sg;
+               b = sb;
+            } else {
+               r = dr;
+               g = dg;
+               b = db;
+            }
+`,
+	},
 	// ----------------------------------------------------------------
 	{
 		Name: "Lighten",
@@ -124,6 +138,20 @@ var blendModes = []struct {
 		Name: "LinearDodge",
 		CodePerChannel: `
             ret = src + dest;
+`,
+	},
+	{
+		Name: "LighterColor",
+		Code: `
+            if (lum(sr, sg, sb) > lum(dr, dg, db)) {
+               r = sr;
+               g = sg;
+               b = sb;
+            } else {
+               r = dr;
+               g = dg;
+               b = db;
+            }
 `,
 	},
 	// ----------------------------------------------------------------
@@ -251,6 +279,24 @@ var blendModes = []struct {
             ret = dest + src - (dest * src * 32897 >> 22);
 `,
 	},
+	{
+		Name: "Subtract",
+		CodePerChannel: `
+            ret = Math.max(0, dest - src);
+`,
+	},
+	{
+		Name: "Divide",
+		CodePerChannel: `
+            if (dest == 0) {
+               ret = 0;
+            } else if (src == 0) {
+               ret = 255;
+            } else {
+               ret = Math.min(255, dest / src * 255);
+            }
+`,
+	},
 	// ----------------------------------------------------------------
 	{
 		Name: "Hue",
@@ -363,17 +409,21 @@ var blend = (function() {
 
 {{range .}}{{template "blendBase" .}}{{end}}
    var blendModes = {
+      // 'pass-through': blendPassThrough,
       'source-over': blendNormal,
+      // 'dissolve': blendDissolve,
 
       'darken': blendDarken,
       'multiply': blendMultiply,
       'color-burn': blendColorBurn,
       'linear-burn': blendLinearBurn,
+      'darker-color': blendDarkerColor,
 
       'lighten': blendLighten,
       'screen': blendScreen,
       'color-dodge': blendColorDodge,
       'linear-dodge': blendLinearDodge,
+      'lighter-color': blendLighterColor,
 
       'overlay': blendOverlay,
       'soft-light': blendSoftLight,
@@ -385,6 +435,8 @@ var blend = (function() {
 
       'difference': blendDifference,
       'exclusion': blendExclusion,
+      'subtract': blendSubtract,
+      'divide': blendDivide,
 
       'hue': blendHue,
       'saturation': blendSaturation,
