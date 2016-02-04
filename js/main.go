@@ -4,11 +4,13 @@
 package main
 
 import (
+	"archive/zip"
 	"errors"
 	"image"
 	"image/color"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -249,19 +251,88 @@ func (r *progressReader) Read(p []byte) (int, error) {
 	if l == 0 {
 		return 0, io.EOF
 	}
-	if r.pos & ^0x3ffff != (r.pos+l) & ^0x3ffff {
+	if r.Progress != nil && (r.pos & ^0x3ffff != (r.pos+l) & ^0x3ffff) {
 		r.Progress(float64(r.pos+l) / float64(len(r.Buf)))
 	}
 	r.pos += l
 	return l, nil
 }
 
+func (r *progressReader) ReadAt(p []byte, off int64) (n int, err error) {
+	if off < 0 {
+		return 0, errors.New("progressReader.ReadAt: negative offset")
+	}
+	if off >= int64(len(r.Buf)) {
+		return 0, io.EOF
+	}
+	r.pos = int(off)
+	return r.Read(p)
+}
+
+type genericProgressReader struct {
+	R        io.Reader
+	Progress func(float64)
+	pos      int64
+	ln       int64
+}
+
+func (r *genericProgressReader) Read(p []byte) (int, error) {
+	l, err := r.R.Read(p)
+	if err != nil {
+		return l, err
+	}
+	l64 := int64(l)
+	if r.Progress != nil && (r.pos & ^0x3ffff != (r.pos+l64) & ^0x3ffff) {
+		r.Progress(float64(r.pos+l64) / float64(r.ln))
+	}
+	r.pos += l64
+	return l, err
+}
+
 func parse(b []byte, progress func(step string, progress float64, l *layer)) (*root, error) {
 	s := time.Now().UnixNano()
-	psdImg, _, err := psd.Decode(&progressReader{
-		Buf:      b,
-		Progress: func(p float64) { progress("parse", p, nil) },
-	}, &psd.DecodeOptions{
+	if len(b) < 4 {
+		return nil, errors.New("unsupported file type")
+	}
+	var reader io.Reader
+	switch string(b[:4]) {
+	case "PK\x03\x04": // zip archive
+		zr, err := zip.NewReader(&progressReader{Buf: b}, int64(len(b)))
+		if err != nil {
+			return nil, err
+		}
+		var psdf *zip.File
+		for _, f := range zr.File {
+			if strings.ToLower(f.Name[len(f.Name)-4:]) == ".psd" {
+				psdf = f
+				break
+			}
+		}
+		if psdf == nil {
+			return nil, errors.New("psd file is not found from given zip archive")
+		}
+		rc, err := psdf.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		reader = &genericProgressReader{
+			R:        rc,
+			Progress: func(p float64) { progress("parse", p, nil) },
+			ln:       int64(psdf.UncompressedSize64),
+		}
+	case "7z\xbc\xaf": // 7z archive
+		return nil, errors.New("7z archive is not supported")
+	case "8BPS": // psd file
+		reader = &progressReader{
+			Buf:      b,
+			Progress: func(p float64) { progress("parse", p, nil) },
+		}
+		break
+	default:
+		return nil, errors.New("unsupported file type")
+	}
+	psdImg, _, err := psd.Decode(reader, &psd.DecodeOptions{
 		SkipMergedImage: true,
 	})
 	if err != nil {
