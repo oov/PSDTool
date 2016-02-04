@@ -256,11 +256,11 @@ func (r *progressReader) Read(p []byte) (int, error) {
 	return l, nil
 }
 
-func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*root, error) {
+func parse(b []byte, progress func(step string, progress float64, l *layer)) (*root, error) {
 	s := time.Now().UnixNano()
 	psdImg, _, err := psd.Decode(&progressReader{
 		Buf:      b,
-		Progress: func(p float64) { progress(0, p, nil) },
+		Progress: func(p float64) { progress("parse", p, nil) },
 	}, &psd.DecodeOptions{
 		SkipMergedImage: true,
 	})
@@ -268,7 +268,7 @@ func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*roo
 		return nil, err
 	}
 	e := time.Now().UnixNano()
-	progress(0, 1, nil)
+	progress("parse", 1, nil)
 	log.Println("Decode PSD Structure:", (e-s)/1e6)
 
 	if psdImg.Config.ColorMode != psd.ColorModeRGB {
@@ -278,7 +278,7 @@ func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*roo
 	s = time.Now().UnixNano()
 	var r root
 	if err = r.Build(psdImg, func(processed, total int, l *layer) {
-		progress(1, float64(processed)/float64(total), l)
+		progress("draw", float64(processed)/float64(total), l)
 	}); err != nil {
 		return nil, err
 	}
@@ -290,9 +290,9 @@ func parse(b []byte, progress func(phase int, progress float64, l *layer)) (*roo
 func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
 	go func() {
 		next := time.Now()
-		root, err := parse(arrayBufferToByteSlice(in), func(phase int, prog float64, l *layer) {
+		root, err := parse(arrayBufferToByteSlice(in), func(step string, prog float64, l *layer) {
 			if now := time.Now(); now.After(next) {
-				progress.Invoke(phase, prog, l)
+				progress.Invoke(step, prog, l)
 				time.Sleep(1) // anti-freeze
 				next = now.Add(100 * time.Millisecond)
 			}

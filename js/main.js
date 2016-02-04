@@ -34,7 +34,7 @@
          loadAndParse(document.getElementById('inputfile').files[0]);
       }, false);
       document.getElementById('samplefile').addEventListener('click', function(e) {
-         loadAndParse('img/' + document.getElementById('samplefile').getAttribute('data-filename'));
+         loadAndParse(document.getElementById('samplefile').getAttribute('data-filename'));
       }, false);
       window.addEventListener('resize', resized, false);
    }
@@ -75,14 +75,18 @@
       removeAllChild(errorMessageContainer);
       errorMessageContainer.appendChild(errorMessage);
 
-      function progress(phase, progress, layer) {
+      function progress(step, progress, layer) {
          var p, msg, ptext;
-         switch (phase) {
-            case 0:
+         switch (step) {
+            case 'receive':
+               p = progress * 100;
+               msg = 'Receiving file...';
+               break;
+            case 'parse':
                p = progress * 50;
                msg = 'Parsing psd file...';
                break;
-            case 1:
+            case 'draw':
                p = 50 + progress * 50;
                msg = 'Drawing "' + layer.Name + '" layer image...';
                break;
@@ -94,7 +98,7 @@
          caption.textContent = ptext + ' ' + msg;
       }
 
-      loadAsArrayBuffer(file_or_url)
+      loadAsArrayBuffer(progress, file_or_url)
          .then(parse.bind(this, progress))
          .then(initMain)
          .then(function() {
@@ -115,23 +119,70 @@
          });
    }
 
-   function loadAsArrayBuffer(file_or_url) {
+   function loadAsArrayBuffer(progress, file_or_url) {
       var deferred = m.deferred();
       if (typeof file_or_url == 'string') {
-         var xhr = new XMLHttpRequest();
-         xhr.open('GET', file_or_url);
-         xhr.responseType = 'arraybuffer';
-         xhr.onload = function(e) {
-            deferred.resolve({
-               buffer: xhr.response,
-               name: 'file'
-            });
-         };
-         xhr.onerror = function(e) {
-            deferred.reject(e);
+         var hash = file_or_url.indexOf('#');
+         if (hash != -1) {
+            var ifr, port, portOnMessage, windowOnMessage;
+            portOnMessage = function (e) {
+               if (!e.data || !e.data.type) {
+                  return;
+               }
+               switch (e.data.type) {
+                  case 'complete':
+                     document.body.removeChild(ifr);
+                     progress('receive', 1);
+                     deferred.resolve({
+                        buffer: e.data.data,
+                        name: e.data.name
+                     });
+                     return;
+                  case 'error':
+                     document.body.removeChild(ifr);
+                     deferred.reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
+                     return;
+                  case 'progress':
+                     progress('receive', e.data.loaded / e.data.total);
+                     return;
+               }
+            };
+            windowOnMessage = function (e) {
+               if (e.data == 'hello') {
+                  port = e.ports[0];
+                  port.onmessage = portOnMessage;
+                  port.postMessage('hello');
+                  window.removeEventListener('message', windowOnMessage, false);
+               }
+            };
+            window.addEventListener('message', windowOnMessage, false);
+            ifr = document.createElement('iframe');
+            ifr.sandbox = 'allow-scripts allow-same-origin';
+            // http://example.com/_psdtool.html#http:original_hash_data
+            ifr.src = file_or_url.substring(0, hash + 1) + location.protocol + file_or_url.substring(hash + 1);
+            ifr.style.display = 'none';
+            document.body.appendChild(ifr);
+            return deferred.promise;
+         } else {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', file_or_url);
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = function(e) {
+               progress('receive', 1);
+               deferred.resolve({
+                  buffer: xhr.response,
+                  name: 'file'
+               });
+            };
+            xhr.onerror = function(e) {
+               deferred.reject(e);
+            }
+            xhr.onprogress = function(e) {
+               progress('receive', e.loaded / e.total);
+            };
+            xhr.send(null);
+            return deferred.promise;
          }
-         xhr.send(null);
-         return deferred.promise;
       }
       var r = new FileReader();
       r.readAsArrayBuffer(file_or_url);
