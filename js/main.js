@@ -125,7 +125,7 @@
          var hash = file_or_url.indexOf('#');
          if (hash != -1) {
             var ifr, port, portOnMessage, windowOnMessage;
-            portOnMessage = function (e) {
+            portOnMessage = function(e) {
                if (!e.data || !e.data.type) {
                   return;
                }
@@ -147,7 +147,7 @@
                      return;
                }
             };
-            windowOnMessage = function (e) {
+            windowOnMessage = function(e) {
                if (e.data == 'hello') {
                   port = e.ports[0];
                   port.onmessage = portOnMessage;
@@ -163,26 +163,25 @@
             ifr.style.display = 'none';
             document.body.appendChild(ifr);
             return deferred.promise;
-         } else {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', file_or_url);
-            xhr.responseType = 'arraybuffer';
-            xhr.onload = function(e) {
-               progress('receive', 1);
-               deferred.resolve({
-                  buffer: xhr.response,
-                  name: 'file'
-               });
-            };
-            xhr.onerror = function(e) {
-               deferred.reject(e);
-            }
-            xhr.onprogress = function(e) {
-               progress('receive', e.loaded / e.total);
-            };
-            xhr.send(null);
-            return deferred.promise;
          }
+         var xhr = new XMLHttpRequest();
+         xhr.open('GET', file_or_url);
+         xhr.responseType = 'arraybuffer';
+         xhr.onload = function(e) {
+            progress('receive', 1);
+            deferred.resolve({
+               buffer: xhr.response,
+               name: 'file'
+            });
+         };
+         xhr.onerror = function(e) {
+            deferred.reject(e);
+         }
+         xhr.onprogress = function(e) {
+            progress('receive', e.loaded / e.total);
+         };
+         xhr.send(null);
+         return deferred.promise;
       }
       var r = new FileReader();
       r.readAsArrayBuffer(file_or_url);
