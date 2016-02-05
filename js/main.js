@@ -78,6 +78,10 @@
       function progress(step, progress, layer) {
          var p, msg, ptext;
          switch (step) {
+            case 'prepare':
+               p = 0;
+               msg = 'Getting ready...';
+               break;
             case 'receive':
                p = progress * 100;
                msg = 'Receiving file...';
@@ -121,6 +125,7 @@
 
    function loadAsArrayBuffer(progress, file_or_url) {
       var deferred = m.deferred();
+      progress('prepare', 0);
       if (typeof file_or_url == 'string') {
          var crossDomain = false;
          if (file_or_url.substring(0, 3) == 'xd:') {
@@ -134,12 +139,21 @@
             return deferred.promise;
          }
          if (crossDomain) {
-            var ifr = document.createElement('iframe');
+            var ifr = document.createElement('iframe'), port;
+            var timer = setTimeout(function() {
+               port.onmessage = null;
+               document.body.removeChild(ifr);
+               deferred.reject(new Error('something went wrong'));
+            }, 20000);
             ifr.sandbox = 'allow-scripts allow-same-origin';
             ifr.onload = function() {
                var msgCh = new MessageChannel();
-               var port = msgCh.port1;
+               port = msgCh.port1;
                port.onmessage = function(e) {
+                  if (timer) {
+                     clearTimeout(timer);
+                     timer = null;
+                  }
                   if (!e.data || !e.data.type) {
                      return;
                   }
