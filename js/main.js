@@ -1,6 +1,9 @@
 (function() {
    'use strict';
 
+   var ui = {},
+      psdRoot;
+
    function init() {
       var dz = document.getElementById('dropzone');
       dz.addEventListener('dragenter', function(e) {
@@ -37,6 +40,10 @@
          loadAndParse(document.getElementById('samplefile').getAttribute('data-filename'));
       }, false);
       window.addEventListener('resize', resized, false);
+      window.addEventListener('hashchange', hashchanged, false);
+
+      initUI();
+      hashchanged();
    }
 
    function resized() {
@@ -45,6 +52,13 @@
       var previewContainer = document.getElementById('preview-container');
       previewContainer.style.width = mainContainer.clientWidth + 'px';
       previewContainer.style.height = (mainContainer.clientHeight - miscUi.offsetHeight) + 'px';
+   }
+
+   function hashchanged() {
+      var hashData = decodeURIComponent(location.hash.substring(1));
+      if (hashData.substring(0, 5) == 'load:') {
+         loadAndParse(hashData.substring(5));
+      }
    }
 
    function loadAndParse(file_or_url) {
@@ -139,7 +153,8 @@
             return deferred.promise;
          }
          if (crossDomain) {
-            var ifr = document.createElement('iframe'), port;
+            var ifr = document.createElement('iframe'),
+               port;
             var timer = setTimeout(function() {
                port.onmessage = null;
                document.body.removeChild(ifr);
@@ -219,24 +234,11 @@
       return deferred.promise;
    }
 
-   function saveCanvas(canvas, filename) {
-      var b64 = canvas.toDataURL('image/png');
-      var bin = atob(b64.substring(b64.indexOf(',') + 1));
-      var buf = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; ++i) {
-         buf[i] = bin.charCodeAt(i);
-      }
-      saveAs(new Blob([buf.buffer], {
-         type: 'image/png'
-      }), filename);
-      return true;
-   }
-
    function parse(progress, obj) {
       var deferred = m.deferred();
-      parsePSD(obj.buffer, progress, function(root) {
-         root.name = obj.name;
-         deferred.resolve(root);
+      parsePSD(obj.buffer, progress, function(psd) {
+         psd.name = obj.name;
+         deferred.resolve(psd);
       }, function(e) {
          deferred.reject(e);
       });
@@ -249,19 +251,19 @@
       }
    }
 
-   function initMain(root) {
+   function initMain(psd) {
       var deferred = m.deferred();
       setTimeout(function() {
          try {
-            registerClippingGroup(root.Child);
-
-            var canvas = document.createElement('canvas');
-            document.getElementById('preview-container').appendChild(canvas);
-            var redraw = render.bind(null, canvas, root);
-            var save = saveCanvas.bind(null, canvas);
-            buildTree(root, redraw);
-            buildMiscUI(root, redraw, save);
-            render(canvas, root);
+            registerClippingGroup(psd.Child);
+            buildTree(psd, function() {
+               ui.redraw();
+            });
+            ui.maxPixels.value = psd.Height;
+            ui.seqDlPrefix.value = psd.name;
+            ui.seqDlNum.value = 0;
+            psdRoot = psd;
+            ui.redraw();
             deferred.resolve();
          } catch (e) {
             deferred.reject(e);
@@ -433,39 +435,38 @@
       return true;
    }
 
-   function render(canvas, root) {
+   function render(canvas, psd) {
       var s = Date.now();
 
-      root.nextState = "";
-      for (var i = 0, layer; i < root.Child.length; ++i) {
-         layer = root.Child[i];
+      psd.nextState = "";
+      for (var i = 0, layer; i < psd.Child.length; ++i) {
+         layer = psd.Child[i];
          if (!layer.Clipping) {
             if (calculateNextState(layer, layer.Opacity / 255, layer.BlendMode)) {
-               root.nextState += layer.nextState + '+';
+               psd.nextState += layer.nextState + '+';
             }
          }
       }
 
-      var bb = root.Buffer;
-      if (root.currentState != root.nextState) {
+      var bb = psd.Buffer;
+      if (psd.currentState != psd.nextState) {
          var bbctx = bb.getContext('2d');
          clear(bbctx);
-         for (var i = 0, layer; i < root.Child.length; ++i) {
-            layer = root.Child[i];
+         for (var i = 0, layer; i < psd.Child.length; ++i) {
+            layer = psd.Child[i];
             if (!layer.Clipping) {
-               drawLayer(bbctx, layer, -root.RealX, -root.RealY, layer.Opacity / 255, layer.BlendMode);
+               drawLayer(bbctx, layer, -psd.RealX, -psd.RealY, layer.Opacity / 255, layer.BlendMode);
             }
          }
-         root.currentState = root.nextState;
+         psd.currentState = psd.nextState;
       }
       console.log("rendering: " + (Date.now() - s));
 
-
       var scale = 1;
-      var px = parseInt(root.maxPixels.value, 10);
-      var w = root.Buffer.width;
-      var h = root.Buffer.height;
-      switch (root.fixedSide.value) {
+      var px = parseInt(ui.maxPixels.value, 10);
+      var w = psd.Buffer.width;
+      var h = psd.Buffer.height;
+      switch (ui.fixedSide.value) {
          case 'w':
             if (w > px) {
                scale = px / w;
@@ -486,21 +487,21 @@
       }
 
       s = Date.now();
-      canvas.width = 0 | root.Width * scale;
-      canvas.height = 0 | root.Height * scale;
-      root.seqDl.disabled = true;
-      downScaleCanvas(root.Buffer, scale, function(phase, c) {
+      canvas.width = 0 | psd.Width * scale;
+      canvas.height = 0 | psd.Height * scale;
+      ui.seqDl.disabled = true;
+      downScaleCanvas(psd.Buffer, scale, function(phase, c) {
          console.log("scaling: " + (Date.now() - s) + '(phase:' + phase + ')');
          var ctx = canvas.getContext('2d');
          clear(ctx);
          ctx.save();
-         if (root.invertInput.checked) {
+         if (ui.invertInput.checked) {
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
          }
-         ctx.drawImage(c, 0 | root.RealX * scale, 0 | root.RealY * scale);
+         ctx.drawImage(c, 0 | psd.RealX * scale, 0 | psd.RealY * scale);
          ctx.restore();
-         root.seqDl.disabled = phase != 1;
+         ui.seqDl.disabled = phase != 1;
       });
    }
 
@@ -565,7 +566,7 @@
       }
    }
 
-   function updateClass(root) {
+   function updateClass(psd) {
       function r(layer) {
          if (layer.visibleInput.checked) {
             layer.li.classList.remove('psdtool-hidden');
@@ -582,8 +583,8 @@
             r(layer.Child[i]);
          }
       }
-      for (var i = 0; i < root.Child.length; ++i) {
-         r(root.Child[i]);
+      for (var i = 0; i < psd.Child.length; ++i) {
+         r(psd.Child[i]);
       }
    }
 
@@ -610,35 +611,49 @@
       }
    }
 
-   function buildMiscUI(root, redraw, save) {
-      root.invertInput = document.getElementById('invert-input');
-      root.invertInput.addEventListener('click', function(e) {
-         redraw();
-      }, false)
-      root.fixedSide = document.getElementById('fixed-side');
-      root.fixedSide.addEventListener('change', function(e) {
-         redraw();
-      }, false)
+   function initUI() {
+      ui.previewCanvas = document.getElementById('preview');
+      ui.redraw = function() {
+         render(ui.previewCanvas, psdRoot);
+      };
+      ui.save = function(filename) {
+         var b64 = ui.previewCanvas.toDataURL('image/png');
+         var bin = atob(b64.substring(b64.indexOf(',') + 1));
+         var buf = new Uint8Array(bin.length);
+         for (var i = 0; i < bin.length; ++i) {
+            buf[i] = bin.charCodeAt(i);
+         }
+         saveAs(new Blob([buf.buffer], {
+            type: 'image/png'
+         }), filename);
+         return true;
+      };
+
+      ui.invertInput = document.getElementById('invert-input');
+      ui.invertInput.addEventListener('click', function(e) {
+         ui.redraw();
+      }, false);
+      ui.fixedSide = document.getElementById('fixed-side');
+      ui.fixedSide.addEventListener('change', function(e) {
+         ui.redraw();
+      }, false);
 
       var lastPx;
-      root.maxPixels = document.getElementById('max-pixels');
-      root.maxPixels.value = root.Height;
-      root.maxPixels.addEventListener('blur', function(e) {
+      ui.maxPixels = document.getElementById('max-pixels');
+      ui.maxPixels.addEventListener('blur', function(e) {
          if (this.value == lastPx) {
             return;
          }
          lastPx = this.value;
-         redraw();
+         ui.redraw();
       }, false);
 
-      root.seqDlPrefix = document.getElementById('seq-dl-prefix');
-      root.seqDlPrefix.value = root.name;
-
-      root.seqDl = document.getElementById('seq-dl');
-      root.seqDl.addEventListener('click', function(e) {
-         var prefix = root.seqDlPrefix.value;
-         var numElem = document.getElementById('seq-dl-num');
-         var num = parseInt(numElem.value, 10);
+      ui.seqDlPrefix = document.getElementById('seq-dl-prefix');
+      ui.seqDlNum = document.getElementById('seq-dl-num');
+      ui.seqDl = document.getElementById('seq-dl');
+      ui.seqDl.addEventListener('click', function(e) {
+         var prefix = ui.seqDlPrefix.value;
+         var num = parseInt(ui.seqDlNum.value, 10);
          if (num < 0) {
             num = 0;
          }
@@ -646,13 +661,13 @@
          if (s.length < 4) {
             s = ("0000" + s).substring(s.length);
          }
-         if (save(prefix + s + '.png')) {
-            numElem.value = num + 1;
+         if (ui.save(prefix + s + '.png')) {
+            ui.seqDlNum.value = num + 1;
          }
       }, false);
    }
 
-   function buildTree(root, redraw) {
+   function buildTree(psd, redraw) {
       var cid = 0;
 
       function r(ul, layer, parentLayer) {
@@ -674,7 +689,7 @@
                layer.clippedBy.visibleInput.checked = true;
             }
             redraw();
-            updateClass(root);
+            updateClass(psd);
          }, false);
          li.appendChild(prop);
 
@@ -689,9 +704,9 @@
 
       var ul = document.getElementById('layer-tree');
       removeAllChild(ul);
-      root.id = 'r'
-      for (var i = root.Child.length - 1; i >= 0; --i) {
-         r(ul, root.Child[i], root);
+      psd.id = 'r'
+      for (var i = psd.Child.length - 1; i >= 0; --i) {
+         r(ul, psd.Child[i], psd);
       }
 
       var set = {};
@@ -710,7 +725,7 @@
             rinShibuyas[j].checked = false;
          }
       }
-      updateClass(root);
+      updateClass(psd);
    }
 
    function buildLayerProp(layer, parentLayer) {
