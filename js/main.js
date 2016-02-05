@@ -134,7 +134,6 @@
             return deferred.promise;
          }
          if (crossDomain) {
-            file_or_url = file_or_url.substring(3);
             var ifr = document.createElement('iframe');
             ifr.sandbox = 'allow-scripts allow-same-origin';
             ifr.onload = function() {
