@@ -196,7 +196,8 @@
             });
          };
          xhr.onerror = function(e) {
-            deferred.reject(e);
+            console.error(e);
+            deferred.reject(new Error('could not receive data'));
          }
          xhr.onprogress = function(e) {
             progress('receive', e.loaded / e.total);
