@@ -205,10 +205,14 @@
          xhr.responseType = 'arraybuffer';
          xhr.onload = function(e) {
             progress('receive', 1);
-            deferred.resolve({
-               buffer: xhr.response,
-               name: 'file'
-            });
+            if (xhr.status == 200) {
+               deferred.resolve({
+                  buffer: xhr.response,
+                  name: 'file'
+               });
+               return;
+            }
+            deferred.reject(new Error(xhr.status + ' ' + xhr.statusText));
          };
          xhr.onerror = function(e) {
             console.error(e);
