@@ -122,13 +122,18 @@
    function loadAsArrayBuffer(progress, file_or_url) {
       var deferred = m.deferred();
       if (typeof file_or_url == 'string') {
+         var crossDomain = false;
+         if (file_or_url.substring(0, 3) == 'xd:') {
+            file_or_url = file_or_url.substring(3);
+            crossDomain = true;
+         }
          if (location.protocol == 'https:' && file_or_url.substring(0, 5) == 'http:') {
             setTimeout(function() {
                deferred.reject(new Error('cannot access to the insecure content from HTTPS.'));
             }, 0);
             return deferred.promise;
          }
-         if (file_or_url.substring(0, 3) == 'xd:') {
+         if (crossDomain) {
             file_or_url = file_or_url.substring(3);
             var ifr = document.createElement('iframe');
             ifr.sandbox = 'allow-scripts allow-same-origin';
