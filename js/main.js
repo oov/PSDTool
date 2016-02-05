@@ -128,47 +128,41 @@
             }, 0);
             return deferred.promise;
          }
-         var hash = file_or_url.indexOf('#');
-         if (hash != -1) {
-            var ifr, port, portOnMessage, windowOnMessage;
-            portOnMessage = function(e) {
-               if (!e.data || !e.data.type) {
-                  return;
-               }
-               switch (e.data.type) {
-                  case 'complete':
-                     document.body.removeChild(ifr);
-                     progress('receive', 1);
-                     deferred.resolve({
-                        buffer: e.data.data,
-                        name: e.data.name
-                     });
-                     return;
-                  case 'error':
-                     document.body.removeChild(ifr);
-                     deferred.reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
-                     return;
-                  case 'progress':
-                     progress('receive', e.data.loaded / e.data.total);
-                     return;
-               }
-            };
-            windowOnMessage = function(e) {
-               if (file_or_url.substring(0, e.origin.length) != e.origin) {
-                  return;
-               }
-               if (e.data == 'hello') {
-                  port = e.ports[0];
-                  port.onmessage = portOnMessage;
-                  port.postMessage('hello');
-                  window.removeEventListener('message', windowOnMessage, false);
-               }
-            };
-            window.addEventListener('message', windowOnMessage, false);
-            ifr = document.createElement('iframe');
+         if (file_or_url.substring(0, 3) == 'xd:') {
+            file_or_url = file_or_url.substring(3);
+            var ifr = document.createElement('iframe');
             ifr.sandbox = 'allow-scripts allow-same-origin';
-            // http://example.com/_psdtool.html#http:original_hash_data
-            ifr.src = file_or_url.substring(0, hash + 1) + location.protocol + file_or_url.substring(hash + 1);
+            ifr.onload = function() {
+               var msgCh = new MessageChannel();
+               var port = msgCh.port1;
+               port.onmessage = function(e) {
+                  if (!e.data || !e.data.type) {
+                     return;
+                  }
+                  switch (e.data.type) {
+                     case 'complete':
+                        document.body.removeChild(ifr);
+                        progress('receive', 1);
+                        deferred.resolve({
+                           buffer: e.data.data,
+                           name: e.data.name
+                        });
+                        return;
+                     case 'error':
+                        document.body.removeChild(ifr);
+                        deferred.reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
+                        return;
+                     case 'progress':
+                        progress('receive', e.data.loaded / e.data.total);
+                        return;
+                  }
+               };
+               ifr.contentWindow.postMessage(
+                  location.protocol,
+                  file_or_url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]
+               );
+            }
+            ifr.src = file_or_url;
             ifr.style.display = 'none';
             document.body.appendChild(ifr);
             return deferred.promise;
@@ -197,7 +191,7 @@
       r.onload = function(e) {
          deferred.resolve({
             buffer: r.result,
-            name: file_or_url.name
+            name: file_or_url.name.replace(/\.psd$/ig, '') + '_'
          });
       };
       r.onerror = function(e) {
@@ -619,7 +613,7 @@
       }, false);
 
       root.seqDlPrefix = document.getElementById('seq-dl-prefix');
-      root.seqDlPrefix.value = root.name.replace(/\.psd$/ig, '') + '_';
+      root.seqDlPrefix.value = root.name;
 
       root.seqDl = document.getElementById('seq-dl');
       root.seqDl.addEventListener('click', function(e) {
