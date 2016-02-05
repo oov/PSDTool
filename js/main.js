@@ -122,6 +122,12 @@
    function loadAsArrayBuffer(progress, file_or_url) {
       var deferred = m.deferred();
       if (typeof file_or_url == 'string') {
+         if (location.protocol == 'https:' && file_or_url.substring(0, 5) == 'http:') {
+            setTimeout(function() {
+               deferred.reject(new Error('cannot access to the insecure content from HTTPS.'));
+            }, 0);
+            return deferred.promise;
+         }
          var hash = file_or_url.indexOf('#');
          if (hash != -1) {
             var ifr, port, portOnMessage, windowOnMessage;
@@ -148,6 +154,9 @@
                }
             };
             windowOnMessage = function(e) {
+               if (file_or_url.substring(0, e.origin.length) != e.origin) {
+                  return;
+               }
                if (e.data == 'hello') {
                   port = e.ports[0];
                   port.onmessage = portOnMessage;
