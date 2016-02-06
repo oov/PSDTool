@@ -536,14 +536,14 @@
 
       var sw = src.width,
          sh = src.height,
-         dw = Math.floor(src.width * scale),
-         dh = Math.floor(src.height * scale);
+         dw = Math.floor(sw * scale),
+         dh = Math.floor(sh * scale);
 
       var dest = document.createElement('canvas');
       dest.width = dw;
       dest.height = dh;
       var ctx = dest.getContext('2d');
-      ctx.drawImage(src, 0, 0, sw, sh, 0, 0, dw, dh);
+      ctx.drawImage(src, 0, 0, sw, sh, 0, 0, Math.round(sw * scale), Math.round(sh * scale));
       callback(0, dest);
 
       var w = new Worker('js/resizer.js');
