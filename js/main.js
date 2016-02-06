@@ -480,10 +480,11 @@
       }
       console.log("rendering: " + (Date.now() - s));
 
+      var autoTrim = false; // experimental feature
       var scale = 1;
       var px = parseInt(ui.maxPixels.value, 10);
-      var w = psd.Width;
-      var h = psd.Height;
+      var w = autoTrim ? psd.Buffer.width : psd.Width;
+      var h = autoTrim ? psd.Buffer.height : psd.Height;
       switch (ui.fixedSide.value) {
          case 'w':
             if (w > px) {
@@ -505,8 +506,8 @@
       }
 
       s = Date.now();
-      canvas.width = 0 | psd.Width * scale;
-      canvas.height = 0 | psd.Height * scale;
+      canvas.width = 0 | w * scale;
+      canvas.height = 0 | h * scale;
       ui.seqDl.disabled = true;
       downScaleCanvas(psd.Buffer, scale, function(phase, c) {
          console.log("scaling: " + (Date.now() - s) + '(phase:' + phase + ')');
@@ -517,7 +518,7 @@
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
          }
-         ctx.drawImage(c, 0 | psd.RealX * scale, 0 | psd.RealY * scale);
+         ctx.drawImage(c, autoTrim ? 0 : 0 | psd.RealX * scale, autoTrim ? 0 : 0 | psd.RealY * scale);
          ctx.restore();
          ui.seqDl.disabled = phase != 1;
       });
