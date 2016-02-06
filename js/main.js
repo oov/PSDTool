@@ -245,11 +245,11 @@
    }
 
    function extractFilePrefixFromUrl(url) {
-      var name = url.replace(/#[^#]*$/, '');
-      name = name.replace(/\?[^?]*$/, '');
-      name = name.replace(/^.*?([^\/]+)$/, '$1');
-      name = name.replace(/\..*$/i, '') + '_';
-      return name;
+      url = url.replace(/#[^#]*$/, '');
+      url = url.replace(/\?[^?]*$/, '');
+      url = url.replace(/^.*?([^\/]+)$/, '$1');
+      url = url.replace(/\..*$/i, '') + '_';
+      return url;
    }
 
    function parse(progress, obj) {
