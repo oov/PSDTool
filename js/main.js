@@ -175,10 +175,14 @@
                   switch (e.data.type) {
                      case 'complete':
                         document.body.removeChild(ifr);
+                        if (!e.data.data) {
+                           deferred.reject(new Error('something went wrong'));
+                           return;
+                        }
                         progress('receive', 1);
                         deferred.resolve({
                            buffer: e.data.data,
-                           name: e.data.name
+                           name: e.data.name ? e.data.name : extractFilePrefixFromUrl(file_or_url)
                         });
                         return;
                      case 'error':
@@ -186,7 +190,9 @@
                         deferred.reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
                         return;
                      case 'progress':
-                        progress('receive', e.data.loaded / e.data.total);
+                        if (('loaded' in e.data) && ('total' in e.data)) {
+                           progress('receive', e.data.loaded / e.data.total);
+                        }
                         return;
                   }
                };
@@ -208,7 +214,7 @@
             if (xhr.status == 200) {
                deferred.resolve({
                   buffer: xhr.response,
-                  name: 'file'
+                  name: extractFilePrefixFromUrl(file_or_url)
                });
                return;
             }
@@ -229,13 +235,21 @@
       r.onload = function(e) {
          deferred.resolve({
             buffer: r.result,
-            name: file_or_url.name.replace(/\.psd$/ig, '') + '_'
+            name: file_or_url.name.replace(/\..*$/i, '') + '_'
          });
       };
       r.onerror = function(e) {
          deferred.reject(e);
       }
       return deferred.promise;
+   }
+
+   function extractFilePrefixFromUrl(url) {
+      var name = url.replace(/#[^#]*$/, '');
+      name = name.replace(/\?[^?]*$/, '');
+      name = name.replace(/^.*?([^\/]+)$/, '$1');
+      name = name.replace(/\..*$/i, '') + '_';
+      return name;
    }
 
    function parse(progress, obj) {
