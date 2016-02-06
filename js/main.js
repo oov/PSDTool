@@ -482,8 +482,8 @@
 
       var scale = 1;
       var px = parseInt(ui.maxPixels.value, 10);
-      var w = psd.Buffer.width;
-      var h = psd.Buffer.height;
+      var w = psd.Width;
+      var h = psd.Height;
       switch (ui.fixedSide.value) {
          case 'w':
             if (w > px) {
