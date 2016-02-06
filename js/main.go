@@ -9,12 +9,14 @@ import (
 	"image"
 	"image/color"
 	"io"
+	"io/ioutil"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/oov/psd"
+	"github.com/saintfish/chardet"
 	"golang.org/x/text/encoding/japanese"
 )
 
@@ -30,6 +32,7 @@ type root struct {
 	processed  int
 	progress   func(l *layer)
 	realRect   image.Rectangle
+	Readme     string
 }
 
 type layer struct {
@@ -289,7 +292,37 @@ func (r *genericProgressReader) Read(p []byte) (int, error) {
 	return l, err
 }
 
+func readTextFile(r io.Reader) (string, error) {
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+
+	d, err := chardet.NewTextDetector().DetectBest(b)
+	if err != nil {
+		return "", err
+	}
+
+	switch d.Charset {
+	case "ISO-2022-JP":
+		b, err = japanese.ISO2022JP.NewDecoder().Bytes(b)
+	case "EUC-JP":
+		b, err = japanese.EUCJP.NewDecoder().Bytes(b)
+	case "Shift_JIS":
+		b, err = japanese.ShiftJIS.NewDecoder().Bytes(b)
+	case "UTF-8":
+		break
+	default:
+		return "", errors.New("unsupported charset: " + d.Charset)
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 func parse(b []byte, progress func(step string, progress float64, l *layer)) (*root, error) {
+	var r root
 	s := time.Now().UnixNano()
 	if len(b) < 4 {
 		return nil, errors.New("unsupported file type")
@@ -301,16 +334,31 @@ func parse(b []byte, progress func(step string, progress float64, l *layer)) (*r
 		if err != nil {
 			return nil, err
 		}
-		var psdf *zip.File
+		var psdf, txtf *zip.File
 		for _, f := range zr.File {
-			if strings.ToLower(f.Name[len(f.Name)-4:]) == ".psd" {
+			if psdf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".psd" {
 				psdf = f
-				break
+			}
+			if txtf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".txt" {
+				txtf = f
 			}
 		}
 		if psdf == nil {
 			return nil, errors.New("psd file is not found from given zip archive")
 		}
+
+		if txtf != nil {
+			txtr, err := txtf.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer txtr.Close()
+			r.Readme, err = readTextFile(txtr)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		rc, err := psdf.Open()
 		if err != nil {
 			return nil, err
@@ -347,7 +395,6 @@ func parse(b []byte, progress func(step string, progress float64, l *layer)) (*r
 	}
 
 	s = time.Now().UnixNano()
-	var r root
 	if err = r.Build(psdImg, func(processed, total int, l *layer) {
 		progress("draw", float64(processed)/float64(total), l)
 	}); err != nil {

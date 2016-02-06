@@ -280,6 +280,7 @@
             ui.maxPixels.value = psd.Height;
             ui.seqDlPrefix.value = psd.name;
             ui.seqDlNum.value = 0;
+            ui.showReadme.style.display = psd.Readme != '' ? 'block' : 'none';
             psdRoot = psd;
             ui.redraw();
             deferred.resolve();
@@ -647,6 +648,13 @@
          }), filename);
          return true;
       };
+
+      ui.showReadme = document.getElementById('show-readme');
+      ui.showReadme.addEventListener('click', function(e) {
+         var w = window.open("", "Readme - PSDTool");
+         w.document.body.innerHTML = '<pre></pre>';
+         w.document.querySelector('pre').textContent = psdRoot.Readme;
+      }, false);
 
       ui.invertInput = document.getElementById('invert-input');
       ui.invertInput.addEventListener('click', function(e) {
