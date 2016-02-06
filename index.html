@@ -25,11 +25,11 @@
 			<div class="col-sm-6">
 				<div class="panel panel-default">
 					<div class="panel-heading">
-						<h2 class="panel-title">*.psd ファイルを選択して開く</h2>
+						<h2 class="panel-title">ファイルを選択して開く</h2>
 					</div>
 					<div class="panel-body">
 						<div id="dropzone">
-							<input type="file" id="inputfile" accept=".psd">
+							<input type="file" id="inputfile" accept=".psd,.zip">
 							<p>この辺にファイルをドロップして読み込むこともできます。</p>
 						</div>
 					</div>
@@ -48,10 +48,10 @@
 							</p>
 							<small>
 								<p>
-									このイラストは<a href="https://twitter.com/hrowl">水梟る</a>さんが投稿されている 「<a href="http://seiga.nicovideo.jp/seiga/im5467479">さとうささら立ち絵集5</a>」を 許可をいただいて PSDTool 用のサンプルファイルとして使用させて頂いています。
+									こちらのサンプルは<a href="https://twitter.com/hrowl">水梟る</a>さんが投稿されている 「<a href="http://seiga.nicovideo.jp/seiga/im5467479">さとうささら立ち絵集5</a>」を許可をいただき PSDTool 用のサンプルファイルとして使用させて頂いているものです。
 								</p>
 								<p>
-									<a href="http://seiga.nicovideo.jp/seiga/im5467479">ニコニコ静画で配布されている *.psd ファイル</a> は PSDTool が持つ <a href="#original-feature">独自拡張機能</a> のサンプルにもなっています。
+									<a href="http://seiga.nicovideo.jp/seiga/im5467479">ニコニコ静画で配布されている *.psd ファイル</a> は PSDTool が持つ <a href="#original-feature">独自拡張機能</a> を使用したサンプルにもなっています。
 								</p>
 								<p>
 									「<a href="http://satosasara.com/">さとうささら</a>」はトーク・ソング対応音声合成ソフトウェア「<a href="http://cevio.jp/">CeVIO Creative Studio</a>」のキャラクターです。
@@ -83,8 +83,14 @@
 			このツールは「イラストを描く人がレイヤーの表示／非表示を切り替えた様々なパターンを PNG で書き出したものを配布する」といった時間の浪費と手間を減らすために、 また配布されているイラストを利用したい人がソフトウェアを何も用意しなくても最新のブラウザさえあれば *.psd ファイルを扱えるようにすることを目的に作りました。
 		</p>
 		<p>
-			Photoshop 形式は sai、CLIP STUDIO PAINT、Krita、メディバンペイント、FireAlpaca など様々なペイントソフトで保存可能な共通の保存フォーマットです。
+			Photoshop 形式は sai、CLIP STUDIO PAINT、openCanvas、Krita、メディバンペイント、FireAlpaca など様々なペイントソフトで保存可能な共通の保存フォーマットです。
 			<br>これを機に、是非 Photoshop 形式での配布を検討してみてください。
+		</p>
+		<h3>PSDTool 紹介用動画</h3>
+		<p>PSDTool の概要などを簡単に紹介した動画です。</p>
+		<p>
+			<iframe width="312" height="176" src="http://ext.nicovideo.jp/thumb/sm28057966" scrolling="no" style="border:solid 1px #CCC;" frameborder="0"><a href="http://www.nicovideo.jp/watch/sm28057966">【ニコニコ動画】ささらさん誕生日おめでとう、立ち絵用のツール作ったよ / CeVIO投稿祭</a></iframe>
+			<iframe width="312" height="176" src="http://ext.nicovideo.jp/thumb/sm28114677" scrolling="no" style="border:solid 1px #CCC;" frameborder="0"><a href="http://www.nicovideo.jp/watch/sm28114677">【ニコニコ動画】立ち絵支援ツール PSDTool 紹介2</a></iframe>
 		</p>
 		<h2>動作環境</h2>
 		<p>
@@ -105,7 +111,7 @@
 			<dd>
 				<p>
 					画像を左右反転します。
-					<br>画像内に文字やアクセサリー、髪型や服の装飾など反転すると問題がある場合もあるため、使用には注意が必要です。
+					<br>文字やアクセサリー、髪型や服の装飾などのように、反転すると問題がある場合もあるため使用には注意が必要です。
 				</p>
 			</dd>
 			<dt>縮小</dt>
@@ -119,7 +125,7 @@
 			<dd>
 				<p>
 					画像を通し番号付きで保存するための機能です。
-					<br>スクリーンショットのように入力欄がそれぞれ「file_」「0」の状態で「.png」ボタンを押すと、「file_0000.png」というファイル名で保存され、「0」が「1」に変わります。
+					<br>スクリーンショットのように入力欄がそれぞれ「file_」「0」の状態で「.png」ボタンを押すと「file_0000.png」というファイル名で保存され、そのまま同じボタンを押す度に数字が足されていきます。
 				</p>
 			</dd>
 		</dl>
@@ -131,7 +137,41 @@
 				<br>ただし合成モードの種類やブラウザによっては JavaScript による実装が使用されるため、処理速度が遅いことがあります。
 			</li>
 			<li>テキストレイヤー、調整レイヤー、シェイプレイヤーなどには対応していません。</li>
-			<li>ZIP ファイルに入っている PSD ファイルも直接読めます。複数の PSD ファイルがひとつの ZIP ファイルに格納されている場合、最初に見つかったものが展開されます。</li>
+			<li>
+				ZIP ファイルに入っている PSD ファイルも直接読めます。
+				<br>複数の PSD ファイルがひとつの ZIP ファイルに格納されている場合、最初に見つかったものが展開されます。
+				<br>また、もし ZIP ファイル内にテキストファイルが存在する場合、レイヤー一覧の一番上に表示用ボタンが現れます。
+			</li>
+		</ul>
+		<h3>ダイレクト読み込み</h3>
+		<p>
+			以下に示す条件のいずれかを満たすことで、PSDTool はあなたのサイトにあるファイルを読むことができます。
+			<br>あなたのサイトに配置された配布用の ZIP ファイルをこの仕組みで直接開くこともできます。
+		</p>
+		<ul>
+			<li>
+				（推奨）読み込むファイルを置くサーバと同じドメイン上に HTML ファイルを設置し、その HTML をブラウザで表示可能なこと。
+				<ul>
+					<li>これは自作の HTML ファイルが設置できるサービスの多くで使用可能な方法です。</li>
+					<li>以下の手順に従いアップロードした HTML ファイルをブラウザで開くと、ダイレクト読み込みで使用可能なリンクが表示されます。</li>
+					<ol>
+						<li><a class="btn btn-default" href="remote.html" download="remote.html">HTML ファイル をダウンロード（右クリック保存）</a></li>
+						<li>HTML ファイルをテキストエディタで開き、設定を記入</li>
+						<li>読み込むファイルと同じサーバにアップロード</li>
+					</ol>
+				</ul>
+			</li>
+			<li>
+				読みたいファイルの HTTP レスポンスのヘッダで Access-Control-Allow-Origin の値に「https://oov.github.io」「http://oov.github.io」「*」などが含まれていること。
+				<ul>
+					<li>これは主にレンタルサーバーで .htaccess や PHP などのスクリプトを使える環境の場合などに使用可能な方法です。</li>
+					<li>設定方法については「Access-Control-Allow-Origin htaccess」などで検索してください。</li>
+					<li>
+						適切に設置できている場合 &quot;https://oov.github.io/psdtool/#load:&quot; + encodeURIComponent(設置URL) のアドレスで読み込むことができます。
+						<br>読み込みたいファイルの配置場所が https ではなく http の場合、PSDTool の URL も http にする必要があります。
+					</li>
+				</ul>
+			</li>
 		</ul>
 		<h2 id="original-feature">独自機能</h2>
 		<p>
@@ -148,6 +188,7 @@
 			<li>グループ内でひとつのみ選択できるため、二種類の表情が同時に表示されたりするのを防ぐことができます。</li>
 			<li>項目を選択すると前に選択されていた項目の選択解除も行われるため、切り替えのクリック数が半分で済みます。</li>
 			<li>ラジオボタンは選択解除できませんが、親のグループレイヤーで非表示にもできます。</li>
+			<li>最後にクリックしたラジオボタンはキーボードの上下キーで選択を切り替えることもできます。</li>
 		</ul>
 		<p>
 			ラジオボタン内のレイヤーが複数表示されたまま *.psd ファイルが保存されていた場合、その中で一番上のものがデフォルト表示されます。
@@ -163,12 +204,14 @@
 			<li>選択項目を減らせるので、使う時に迷う要素を画面から減らすことができます。</li>
 		</ul>
 		<p>
-			強制表示設定にしたレイヤーを非表示にして *.psd ファイルを保存しても、強制的に表示状態になります。
+			強制表示設定にしたレイヤーを非表示にして *.psd ファイルを保存しても、PSDTool で表示する際は強制的に表示状態になります。
 		</p>
 		<h2>変更履歴</h2>
 		<dl>
 			<dt>2016-02-06</dt>
 			<dd>縮小のサイズ計算が誤っていたのを修正</dd>
+			<dd>ZIP ファイルを開いた時はテキストファイルを表示できる機能を追加</dd>
+			<dd>ダイレクト読み込み機能を追加</dd>
 			<dt>2016-02-05</dt>
 			<dd>ZIP 圧縮された PSD ファイルの読み込みに対応</dd>
 			<dt>2016-02-04</dt>
@@ -244,7 +287,9 @@
 					</div>
 				</div>
 			</div>
-			<div id="preview-container"><canvas id="preview"></div>
+			<div id="preview-container">
+				<canvas id="preview">
+			</div>
 		</div>
 	</div>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/mithril/0.2.2-rc.1/mithril.min.js"></script>

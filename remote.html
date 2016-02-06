@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>PSDTool ダイレクト読み込み</title>
+
+<h1>PSDTool ダイレクト読み込み</h1>
+
+<h2>1. 設定</h2>
+<p>この HTML ファイルをテキストエディタで編集して、以下に必要な情報を入力してください。</p>
+<dl id="url">
+   <dt>読み込みたいファイルへの URL（相対パスでも可）</dt>
+   <dd>http://example.com/your/psd.zip</dd>
+</dl>
+<dl id="name">
+   <dt>連番 DL ファイル名接頭辞のデフォルト値（省略可）</dt>
+   <dd></dd>
+</dl>
+
+<h2>2. リンクの取得</h2>
+<p id="addr">このファイルをサーバにアップロードしてブラウザで閲覧すると、ここに PSDTool でファイルを開くためのリンクが表示されます。</p>
+<p>表示されているリンクをコピーしてあなたのサイト、ブログや SNS などに使用できます。</p>
+
+<script>
+   var origin = 'oov.github.io';
+
+   function extractFilePrefixFromUrl(url) {
+      url = url.replace(/#[^#]*$/, '');
+      url = url.replace(/\?[^?]*$/, '');
+      url = url.replace(/^.*?([^\/]+)$/, '$1');
+      url = url.replace(/\..*$/i, '') + '_';
+      return url;
+   }
+
+   function load(e) {
+      var url = document.querySelector('#url dd').textContent.trim();
+      var namedd = document.querySelector('#name dd');
+      if (!namedd.textContent.trim()) {
+         namedd.textContent = extractFilePrefixFromUrl(url);
+      }
+      var addr = document.getElementById('addr');
+      var p = location.protocol;
+      if (p == 'http:' || p == 'https:') {
+         if ((url.substring(0, 7) == 'http://' || url.substring(0, 8) == 'https://') && url.indexOf(location.protocol + '//' + location.host) != 0) {
+            addr.textContent = '読み込みたいファイルとこの HTML ファイルが置かれているドメインまたはプロトコルが異なるためリンクを生成できません。';
+            return;
+         }
+         var a = document.createElement('a');
+         var url = p + '//' + origin + '/psdtool/#load:xd:' + encodeURIComponent(location.href);
+         a.href = url;
+         a.textContent = url;
+         a.target = '_blank';
+         addr.removeChild(addr.firstChild);
+         addr.appendChild(a);
+         return;
+      }
+   }
+
+   function message(e) {
+      if (e.data + '//' + origin != e.origin) {
+         return;
+      }
+      window.onmessage = null;
+
+      var port = e.ports[0];
+      port.postMessage('hello');
+
+      var url = document.querySelector('#url dd').textContent.trim();
+      var name = document.querySelector('#name dd').textContent.trim();
+      if (!name) {
+         name = extractFilePrefixFromUrl(url);
+      }
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = function(e) {
+         if (xhr.status == 200) {
+            port.postMessage({
+               type: 'complete',
+               name: name,
+               data: xhr.response
+            } /*, [xhr.response]*/ );
+            return;
+         }
+         port.postMessage({
+            type: 'error',
+            message: xhr.status + ' ' + xhr.statusText
+         });
+      };
+      xhr.onerror = function(e) {
+         port.postMessage({
+            type: 'error'
+         });
+      }
+      xhr.onprogress = function(e) {
+         port.postMessage({
+            type: 'progress',
+            loaded: e.loaded,
+            total: e.total
+         });
+      };
+      xhr.send(null);
+   }
+   window.onload = load;
+   window.onmessage = message;
+</script>
