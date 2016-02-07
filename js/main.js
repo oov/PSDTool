@@ -371,6 +371,9 @@
       }
       var bb = layer.Buffer;
       if (layer.currentState == layer.nextState) {
+         if (blendMode == 'pass-through') {
+            blendMode = 'source-over';
+         }
          draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
          return true;
       }
