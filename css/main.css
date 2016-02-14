@@ -85,11 +85,16 @@ label[for=invert-input] {
    margin: 0;
    overflow: auto;
 }
-#preview-container canvas {
+#preview-background {
    margin: auto;
    display: block;
+   box-sizing: content-box;
    background: url(../img/transparent.gif);
    border: 1px solid #888;
+}
+#preview {
+   margin: auto;
+   display: block;
 }
 label {
    user-select: none;

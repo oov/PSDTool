@@ -274,6 +274,7 @@
       setTimeout(function() {
          try {
             registerClippingGroup(psd.Child);
+            psd.canvas = document.createElement('canvas');
             buildTree(psd, function() {
                ui.redraw();
             });
@@ -457,7 +458,7 @@
       return true;
    }
 
-   function render(canvas, psd) {
+   function render(img, bg, psd) {
       var s = Date.now();
 
       psd.nextState = "";
@@ -510,6 +511,9 @@
       }
 
       s = Date.now();
+      var canvas = psd.canvas;
+      bg.style.width = (0 | w * scale) + 'px';
+      bg.style.height = (0 | h * scale) + 'px';
       canvas.width = 0 | w * scale;
       canvas.height = 0 | h * scale;
       ui.seqDl.disabled = true;
@@ -524,6 +528,7 @@
          }
          ctx.drawImage(c, autoTrim ? 0 : 0 | psd.RealX * scale, autoTrim ? 0 : 0 | psd.RealY * scale);
          ctx.restore();
+         img.src = canvas.toDataURL();
          ui.seqDl.disabled = phase != 1;
       });
    }
@@ -635,13 +640,13 @@
    }
 
    function initUI() {
-      ui.previewCanvas = document.getElementById('preview');
+      ui.previewImage = document.getElementById('preview');
+      ui.previewBackground = document.getElementById('preview-background');
       ui.redraw = function() {
-         render(ui.previewCanvas, psdRoot);
+         render(ui.previewImage, ui.previewBackground, psdRoot);
       };
       ui.save = function(filename) {
-         var b64 = ui.previewCanvas.toDataURL('image/png');
-         var bin = atob(b64.substring(b64.indexOf(',') + 1));
+         var bin = atob(ui.previewImage.src.substring(ui.previewImage.src.indexOf(',') + 1));
          var buf = new Uint8Array(bin.length);
          for (var i = 0; i < bin.length; ++i) {
             buf[i] = bin.charCodeAt(i);
