@@ -125,7 +125,9 @@ func (r *root) buildLayer(l *layer) error {
 	l.Y = rect.Min.Y
 	l.width = rect.Dx()
 	l.height = rect.Dy()
-	l.Buffer = createCanvas(l.width, l.height)
+	if l.width*l.height > 0 {
+		l.Buffer = createCanvas(l.width, l.height)
+	}
 
 	return nil
 }

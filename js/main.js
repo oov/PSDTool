@@ -367,7 +367,7 @@
    }
 
    function drawLayer(ctx, layer, x, y, opacity, blendMode) {
-      if (!layer.visibleInput.checked || opacity == 0) {
+      if (!layer.visibleInput.checked || opacity == 0 || (!layer.Child.length && !layer.Canvas)) {
          return false;
       }
       var bb = layer.Buffer;
