@@ -71,12 +71,12 @@ func arrayBufferToByteSlice(a *js.Object) []byte {
 func (r *root) buildLayer(l *layer) error {
 	var err error
 
-	if l.psdLayer.Name == l.psdLayer.MBCSName {
+	if l.psdLayer.UnicodeName == "" && l.psdLayer.MBCSName != "" {
 		if l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName); err != nil {
 			l.Name = l.psdLayer.MBCSName
 		}
 	} else {
-		l.Name = l.psdLayer.Name
+		l.Name = l.psdLayer.UnicodeName
 	}
 	if l.psdLayer.Folder() {
 		l.BlendMode = l.psdLayer.SectionDividerSetting.BlendMode.String()
