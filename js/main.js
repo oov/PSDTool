@@ -659,8 +659,8 @@
 
       ui.showReadme = document.getElementById('show-readme');
       ui.showReadme.addEventListener('click', function(e) {
-         var w = window.open("", "Readme - PSDTool");
-         w.document.body.innerHTML = '<pre></pre>';
+         var w = window.open("", null);
+         w.document.body.innerHTML = '<title>Readme - PSDTool</title><pre style="font: 12pt/1.7 monospace;"></pre>';
          w.document.querySelector('pre').textContent = psdRoot.Readme;
       }, false);
 
