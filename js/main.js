@@ -800,7 +800,7 @@
          icon.className = 'psdtool-icon glyphicon glyphicon-folder-open';
          icon.setAttribute('aria-hidden', 'true');
          name.appendChild(icon);
-      } else if (layer.Canvas) {
+      } else {
          if (layer.Clipping) {
             var clip = document.createElement('img');
             clip.className = 'psdtool-clipped-mark';
@@ -812,18 +812,20 @@
          thumb.className = 'psdtool-thumbnail';
          thumb.width = 96;
          thumb.height = 96;
-         var w = layer.Canvas.width,
-            h = layer.Canvas.height;
-         if (w > h) {
-            w = thumb.width;
-            h = thumb.width / layer.Canvas.width * h;
-         } else {
-            h = thumb.height;
-            w = thumb.height / layer.Canvas.height * w;
+         if (layer.Canvas) {
+            var w = layer.Canvas.width,
+               h = layer.Canvas.height;
+            if (w > h) {
+               w = thumb.width;
+               h = thumb.width / layer.Canvas.width * h;
+            } else {
+               h = thumb.height;
+               w = thumb.height / layer.Canvas.height * w;
+            }
+            var ctx = thumb.getContext('2d');
+            ctx.drawImage(
+               layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
          }
-         var ctx = thumb.getContext('2d');
-         ctx.drawImage(
-            layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
          name.appendChild(thumb);
       }
       name.appendChild(document.createTextNode(layerName));
