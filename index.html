@@ -23,13 +23,13 @@
 		</div>
 		<div class="row">
 			<div class="col-sm-6">
-				<div class="panel panel-default">
+				<div class="panel panel-primary">
 					<div class="panel-heading">
 						<h2 class="panel-title">ファイルを選択して開く</h2>
 					</div>
 					<div class="panel-body">
 						<div id="dropzone">
-							<input type="file" id="inputfile" accept=".psd,.zip">
+							<p><input type="file" id="inputfile" accept=".psd,.zip"></p>
 							<p>この辺にファイルをドロップして読み込むこともできます。</p>
 						</div>
 					</div>
@@ -62,6 +62,20 @@
 				</div>
 			</div>
 		</div>
+		<div class="row">
+			<div class="col-xs-12">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h2 class="panel-title">AviUtl で「拡張編集」プラグインをお使いの方へ</h2>
+					</div>
+					<div class="panel-body">
+						<p>
+							テスト公開中の AviUtl 用プラグイン 「ごちゃまぜドロップス（<a href="https://twitter.com/oovch/status/699737247260606465" target="_blank">30秒紹介動画</a> / <a href="https://github.com/oov/aviutl_oledd#readme" target="_blank">README</a> / <a href="https://github.com/oov/aviutl_oledd/releases" target="_blank">ダウンロード</a>）」 を使うと、PSDTool から直接「拡張編集」ウィンドウに画像をドラッグ＆ドロップして読み込むことができるようになります。
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 	<div id="file-loading-ui" class="container">
 		<div class="progress">
@@ -77,7 +91,7 @@
 		<p><img src="img/about.png" class="img-thumbnail" alt="PSDTool のスクリーンショット"></p>
 		<p>
 			PSDTool は Photoshop 形式(*.psd) のファイルをブラウザで読み込んでレイヤーの表示／非表示を切り替えたり、合成された画像に名前を付けて保存したりできるツールです。
-			<br>「ファイルを選択して開く」で読み込む画像はサーバーには一切送信されず完全にブラウザだけで処理されるため、プライベートな用途にも使用できます。
+			<br><strong>「ファイルを選択して開く」で読み込む画像はサーバーには一切送信されず完全にブラウザだけで処理される</strong>ため、プライベートな用途にも使用できます。
 		</p>
 		<p>
 			このツールは「イラストを描く人がレイヤーの表示／非表示を切り替えた様々なパターンを PNG で書き出したものを配布する」といった時間の浪費と手間を減らすために、 また配布されているイラストを利用したい人がソフトウェアを何も用意しなくても最新のブラウザさえあれば *.psd ファイルを扱えるようにすることを目的に作りました。
