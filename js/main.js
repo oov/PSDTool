@@ -278,7 +278,7 @@
             buildTree(psd, function() {
                ui.redraw();
             });
-            ui.maxPixels.value = psd.Height;
+            ui.maxPixels.value = ui.optionAutoTrim.checked ? psd.Buffer.height : psd.Height;
             ui.seqDlPrefix.value = psd.name;
             ui.seqDlNum.value = 0;
             ui.showReadme.style.display = psd.Readme != '' ? 'block' : 'none';
@@ -485,7 +485,7 @@
       }
       console.log("rendering: " + (Date.now() - s));
 
-      var autoTrim = false; // experimental feature
+      var autoTrim = ui.optionAutoTrim.checked;
       var scale = 1;
       var px = parseInt(ui.maxPixels.value, 10);
       var w = autoTrim ? psd.Buffer.width : psd.Width;
@@ -640,6 +640,9 @@
    }
 
    function initUI() {
+      ui.optionAutoTrim = document.getElementById('option-auto-trim');
+      ui.optionSafeMode = document.getElementById('option-safe-mode');
+
       ui.previewImage = document.getElementById('preview');
       ui.previewBackground = document.getElementById('preview-background');
       ui.redraw = function() {
@@ -767,30 +770,36 @@
       var name = document.createElement('label');
       var visible = document.createElement('input');
       var layerName = layer.Name;
-      switch (layerName.charAt(0)) {
-         case '!':
-            visible.className = 'psdtool-layer-visible';
-            visible.name = 'l' + layer.id;
-            visible.type = 'checkbox';
-            visible.checked = true;
-            visible.disabled = true;
-            visible.style.display = 'none';
-            layerName = layerName.substring(1);
-            break;
-         case '*':
-            visible.className = 'psdtool-layer-visible';
-            visible.name = 'r' + parentLayer.id;
-            visible.type = 'radio';
-            visible.checked = layer.Visible;
-            layerName = layerName.substring(1);
-            break;
-         default:
-            visible.className = 'psdtool-layer-visible';
-            visible.name = 'l' + layer.id;
-            visible.type = 'checkbox';
-            visible.checked = layer.Visible;
-            break;
-
+      if (!ui.optionSafeMode.checked) {
+         switch (layerName.charAt(0)) {
+            case '!':
+               visible.className = 'psdtool-layer-visible';
+               visible.name = 'l' + layer.id;
+               visible.type = 'checkbox';
+               visible.checked = true;
+               visible.disabled = true;
+               visible.style.display = 'none';
+               layerName = layerName.substring(1);
+               break;
+            case '*':
+               visible.className = 'psdtool-layer-visible';
+               visible.name = 'r' + parentLayer.id;
+               visible.type = 'radio';
+               visible.checked = layer.Visible;
+               layerName = layerName.substring(1);
+               break;
+            default:
+               visible.className = 'psdtool-layer-visible';
+               visible.name = 'l' + layer.id;
+               visible.type = 'checkbox';
+               visible.checked = layer.Visible;
+               break;
+         }
+      } else {
+         visible.className = 'psdtool-layer-visible';
+         visible.name = 'l' + layer.id;
+         visible.type = 'checkbox';
+         visible.checked = layer.Visible;
       }
       layer.visibleInput = visible;
       name.appendChild(visible);

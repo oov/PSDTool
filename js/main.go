@@ -151,6 +151,7 @@ func (r *root) Build(img *psd.PSD, progress func(processed, total int, l *layer)
 			return err
 		}
 	}
+	r.realRect = r.realRect.Intersect(image.Rect(0, 0, r.Width, r.Height))
 	r.RealX = r.realRect.Min.X
 	r.RealY = r.realRect.Min.Y
 	r.RealWidth = r.realRect.Dx()

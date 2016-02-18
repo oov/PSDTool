@@ -14,6 +14,9 @@ body {
    border: 1px dashed #4bf;
    background-color: #def;
 }
+#additional-options {
+   margin-top: 7rem;
+}
 #progress-bar {
    transition: none;
 }

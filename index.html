@@ -29,8 +29,23 @@
 					</div>
 					<div class="panel-body">
 						<div id="dropzone">
-							<p><input type="file" id="inputfile" accept=".psd,.zip"></p>
-							<p>この辺にファイルをドロップして読み込むこともできます。</p>
+							<p>
+								<input type="file" id="inputfile" accept=".psd,.zip">
+							</p>
+							<p>ここにファイルをドロップしても読み込めます。</p>
+							<dl id="additional-options">
+								<dt>オプション <small><a href="#manual-options">詳細</a></small></dt>
+								<dd class="checkbox">
+									<label for="option-auto-trim">
+										<input type="checkbox" id="option-auto-trim"> 自動トリミング
+									</label>
+								</dd>
+								<dd class="checkbox">
+									<label for="option-safe-mode">
+										<input type="checkbox" id="option-safe-mode"> 独自機能を無効化
+									</label>
+								</dd>
+							</dl>
 						</div>
 					</div>
 				</div>
@@ -70,7 +85,8 @@
 					</div>
 					<div class="panel-body">
 						<p>
-							テスト公開中の AviUtl 用プラグイン 「ごちゃまぜドロップス（<a href="https://twitter.com/oovch/status/699737247260606465" target="_blank">30秒紹介動画</a> / <a href="https://github.com/oov/aviutl_oledd#readme" target="_blank">README</a> / <a href="https://github.com/oov/aviutl_oledd/releases" target="_blank">ダウンロード</a>）」 を使うと、PSDTool から直接「拡張編集」ウィンドウに画像をドラッグ＆ドロップして読み込むことができるようになります。
+							テスト公開中の AviUtl 用プラグイン 「ごちゃまぜドロップス（<a href="https://twitter.com/oovch/status/699737247260606465" target="_blank">30秒紹介動画</a> / <a href="https://github.com/oov/aviutl_oledd#readme" target="_blank">README</a> / <a href="https://github.com/oov/aviutl_oledd/releases"
+										target="_blank">ダウンロード</a>）」 を使うと、PSDTool から直接「拡張編集」ウィンドウに画像をドラッグ＆ドロップして読み込むことができるようになります。
 						</p>
 					</div>
 				</div>
@@ -118,6 +134,33 @@
 			ブラウザは常に最新版をお使いください。
 		</p>
 		<h2>機能の説明</h2>
+		<h3 id="manual-options">オプション</h3>
+		<p>ファイルを開く際に、いくつかのオプションが設定可能です。</p>
+		<dl>
+			<dt>自動トリミング</dt>
+			<dd>
+				<p>
+					有効にすると PSD ファイルに存在する全てのレイヤーを表示したとしても使われることがない、完全な余白のみを削ります。
+					<br>ある瞬間に表示している内容でトリミングするわけではないので、「ウサギの耳」「翼」のように一部または全部の方向へ突出するようなレイヤーが存在する場合、その分の余白は常に確保されます。
+				</p>
+				<p><img src="img/trim-sample.png" class="img-thumbnail" alt="自動トリミングの使用サンプル"></p>
+				<p>
+					上記サンプルでは、自動トリミングありの場合は左右はギリギリまでカットされ、上部は「左向き用・主線」レイヤーを表示するための余白が数ピクセルだけ残っています。
+				</p>
+				<p>
+					なお縮小する場合、縮小後のサイズを例えば 320px としても上記サンプルのように余白の有無によって画像の縮小率が変わってきます。
+					余白を上手く使って複数の PSD ファイル間で同程度のサイズ感になるよう整えられている場合などもあるため、自動トリミングの使用には注意が必要です。
+				</p>
+			</dd>
+			<dt>独自機能を無効化</dt>
+			<dd>
+				<p>
+					これは PSDTool での使用を想定していない PSD ファイルを読む際に使う機能で、<a href="#original-feature">PSDTool が持つ独自機能</a> が認識されないようにします。
+					レイヤー名が独自機能と衝突してしまい、レイヤー表示切替のチェックボックスがラジオボタンになったりが消えてしまっている場合に有用です。
+				</p>
+			</dd>
+		</dl>
+		<h3>操作画面</h3>
 		<p>ファイルを開くと画面の上部には以下の様なインターフェイスが現れます。</p>
 		<p><img src="img/head.png" class="img-thumbnail" alt="PSDTool の画面上部にあるインターフェイス"></p>
 		<dl>
@@ -222,6 +265,8 @@
 		</p>
 		<h2>変更履歴</h2>
 		<dl>
+			<dt>2016-02-18</dt>
+			<dd>オプション「自動トリミング」「独自機能を無効化」を追加</dd>
 			<dt>2016-02-17</dt>
 			<dd>操作性の改善</dd>
 			<dd>バグ修正</dd>
