@@ -705,12 +705,31 @@
       }, false);
    }
 
+   function encodeLayerName(s) {
+      return s.replace(/[\x00-\x1f\x22\x27\x2f\x5c\x7f]/g, function(m) {
+         var s = '0' + m[0].charCodeAt(0).toString(16);
+         return '%' + s.substring(s.length - 2);
+      });
+   }
+
+   // Based on http://stackoverflow.com/a/7616484
+   function calcHash(s) {
+      if (s.length === 0) return 0;
+      var hash = 0;
+      for (var i = 0; i < s.length; ++i) {
+         hash = 0 | ((hash << 5) - hash + s.charCodeAt(i));
+      }
+      return hash >>> 0;
+   }
+
    function buildTree(psd, redraw) {
       var cid = 0;
+      var path = [];
 
       function r(ul, layer, parentLayer) {
          layer.id = ++cid;
          layer.parentLayer = parentLayer;
+         path.push(encodeLayerName(layer.Name));
 
          var li = document.createElement('li');
          if (layer.Folder) {
@@ -719,6 +738,9 @@
          layer.li = li;
 
          var prop = buildLayerProp(layer, parentLayer);
+         var fullpath = path.join('/');
+         layer.visibleInput.setAttribute('data-fullpath', fullpath);
+         layer.visibleInput.setAttribute('data-fullpath-hash', calcHash(fullpath).toString(16));
          layer.visibleInput.addEventListener('click', function() {
             for (var p = layer.parentLayer; p.visibleInput; p = p.parentLayer) {
                p.visibleInput.checked = true;
@@ -736,8 +758,8 @@
             r(children, layer.Child[i], layer);
          }
          li.appendChild(children);
-
          ul.appendChild(li);
+         path.pop();
       }
 
       var ul = document.getElementById('layer-tree');
@@ -746,23 +768,7 @@
       for (var i = psd.Child.length - 1; i >= 0; --i) {
          r(ul, psd.Child[i], psd);
       }
-
-      var set = {};
-      var radios = ul.querySelectorAll('.psdtool-layer-visible[type=radio]');
-      for (var i = 0; i < radios.length; ++i) {
-         if (radios[i].name in set) {
-            continue;
-         }
-         set[radios[i].name] = 1;
-         var rinShibuyas = ul.querySelectorAll('.psdtool-layer-visible[type=radio][name=' + radios[i].name + ']:checked');
-         if (!rinShibuyas.length) {
-            radios[i].checked = true;
-            continue;
-         }
-         for (var j = 1; j < rinShibuyas.length; ++j) {
-            rinShibuyas[j].checked = false;
-         }
-      }
+      normalizeRadioButtons();
       updateClass(psd);
    }
 
@@ -773,7 +779,7 @@
       if (!ui.optionSafeMode.checked) {
          switch (layerName.charAt(0)) {
             case '!':
-               visible.className = 'psdtool-layer-visible';
+               visible.className = 'psdtool-layer-visible psdtool-layer-force-visible';
                visible.name = 'l' + layer.id;
                visible.type = 'checkbox';
                visible.checked = true;
@@ -782,7 +788,7 @@
                layerName = layerName.substring(1);
                break;
             case '*':
-               visible.className = 'psdtool-layer-visible';
+               visible.className = 'psdtool-layer-visible psdtool-layer-radio';
                visible.name = 'r' + parentLayer.id;
                visible.type = 'radio';
                visible.checked = layer.Visible;
@@ -843,6 +849,122 @@
       div.className = 'psdtool-layer-name';
       div.appendChild(name);
       return div;
+   }
+
+   function normalizeRadioButtons() {
+      var ul = document.getElementById('layer-tree');
+      var set = {};
+      var radios = ul.querySelectorAll('.psdtool-layer-radio');
+      for (var i = 0; i < radios.length; ++i) {
+         if (radios[i].name in set) {
+            continue;
+         }
+         set[radios[i].name] = 1;
+         var rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name=' + radios[i].name + ']:checked');
+         if (!rinShibuyas.length) {
+            radios[i].checked = true;
+            continue;
+         }
+         for (var j = 1; j < rinShibuyas.length; ++j) {
+            rinShibuyas[j].checked = false;
+         }
+      }
+   }
+
+   function clearCheckState() {
+      var i, elems = document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
+      for (i = 0; i < elems.length; ++i) {
+         elems[i].checked = false;
+      }
+      elems = document.querySelectorAll('#layer-tree .psdtool-layer-force-visible');
+      for (i = 0; i < elems.length; ++i) {
+         elems[i].checked = true;
+      }
+      normalizeRadioButtons();
+   }
+
+   function serializeCheckState(allLayer) {
+      var elems = document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
+      var path = [],
+         pathMap = {};
+      for (var i = 0, s; i < elems.length; ++i) {
+         s = elems[i].getAttribute('data-fullpath');
+         path.push(s + '/'); // add '/' to adjust sort order.
+         pathMap[s] = true;
+      }
+      path.sort();
+
+      if (allLayer) {
+         for (var i = 0; i < path.length; ++i) {
+            path[i] = '/' + path[i].substring(0, path[i].length - 1);
+         }
+         return path.join('\n');
+      }
+
+      for (var i = 1, j, parts; i < path.length; ++i) {
+         // remove duplicated entry
+         if (path[i].indexOf(path[i - 1]) == 0) {
+            path.splice(--i, 1);
+            continue;
+         }
+         // remove hidden layer
+         parts = path[i].split('/');
+         for (j = 0; j < parts.length - 1; ++j) {
+            if (!pathMap[parts.slice(0, j + 1).join('/')]) {
+               path.splice(i--, 1);
+               break;
+            }
+         }
+      }
+      for (var i = 0; i < path.length; ++i) {
+         path[i] = path[i].substring(0, path[i].length - 1);
+      }
+      return path.join('\n');
+   }
+
+   function deserializeCheckState(state) {
+      function checkLayer(name) {
+         var i, j, elems = document.querySelectorAll('#layer-tree .psdtool-layer-visible[data-fullpath-hash=\'' + calcHash(name).toString(16) + '\']');
+         for (i = 0, j = -1; i < elems.length; ++i) {
+            if (elems[i].getAttribute('data-fullpath') == name) {
+               if (j != -1) {
+                  throw new Error('found more than one layers: ' + name);
+               }
+               j = i;
+            }
+         }
+         if (j == -1) {
+            throw new Error('layer not found: ' + name);
+         }
+         elems[j].checked = true;
+      }
+
+      var old = serializeCheckState(true); // for backup
+      clearCheckState();
+      try {
+         var i, j, parts, lines = state.replace(/\r/g, '').split('\n');
+         for (i = 0; i < lines.length; ++i) {
+            if (lines[i].charAt(0) == '/') {
+               // all layer mode
+               checkLayer(lines[i].substring(1));
+               continue;
+            }
+            parts = lines[i].split('/');
+            for (j = 1; j < parts.length; ++j) {
+               checkLayer(parts.slice(0, j).join('/'));
+            }
+         }
+      } catch (e) {
+         // We can also use deserializeCheckState here,
+         // but if it failed then we may not be able to escape from the recursion.
+         // Therefore we don't use it.
+         clearCheckState();
+         var i, lines = old.replace(/\r/g, '').split('\n');
+         for (i = 0; i < lines.length; ++i) {
+            checkLayer(lines[i].substring(1));
+         }
+         throw e;
+      }
    }
 
    document.addEventListener('DOMContentLoaded', init, false);
