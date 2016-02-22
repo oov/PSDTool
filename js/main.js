@@ -950,7 +950,7 @@
                continue;
             }
             parts = lines[i].split('/');
-            for (j = 1; j < parts.length; ++j) {
+            for (j = 1; j <= parts.length; ++j) {
                checkLayer(parts.slice(0, j).join('/'));
             }
          }
