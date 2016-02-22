@@ -647,6 +647,7 @@
       ui.previewBackground = document.getElementById('preview-background');
       ui.redraw = function() {
          render(ui.previewImage, ui.previewBackground, psdRoot);
+         updateClass(psdRoot);
       };
       ui.save = function(filename) {
          var bin = atob(ui.previewImage.src.substring(ui.previewImage.src.indexOf(',') + 1));
@@ -749,7 +750,6 @@
                layer.clippedBy.visibleInput.checked = true;
             }
             redraw();
-            updateClass(psd);
          }, false);
          li.appendChild(prop);
 
@@ -769,7 +769,6 @@
          r(ul, psd.Child[i], psd);
       }
       normalizeRadioButtons();
-      updateClass(psd);
    }
 
    function buildLayerProp(layer, parentLayer) {
