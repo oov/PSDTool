@@ -809,19 +809,20 @@
       layer.visibleInput = visible;
       name.appendChild(visible);
 
+      if (layer.Clipping) {
+         var clip = document.createElement('img');
+         clip.className = 'psdtool-clipped-mark';
+         clip.src = 'img/clipped.svg';
+         clip.alt = 'clipped mark';
+         name.appendChild(clip);
+      }
+
       if (layer.Folder) {
          var icon = document.createElement('span');
          icon.className = 'psdtool-icon glyphicon glyphicon-folder-open';
          icon.setAttribute('aria-hidden', 'true');
          name.appendChild(icon);
       } else {
-         if (layer.Clipping) {
-            var clip = document.createElement('img');
-            clip.className = 'psdtool-clipped-mark';
-            clip.src = 'img/clipped.svg';
-            clip.alt = 'clipped mark';
-            name.appendChild(clip);
-         }
          var thumb = document.createElement('canvas');
          thumb.className = 'psdtool-thumbnail';
          thumb.width = 96;
