@@ -458,7 +458,7 @@
       return true;
    }
 
-   function render(img, bg, psd) {
+   function render(img, bg, psd, callback) {
       var s = Date.now();
 
       psd.nextState = "";
@@ -528,8 +528,12 @@
          }
          ctx.drawImage(c, autoTrim ? 0 : 0 | psd.RealX * scale, autoTrim ? 0 : 0 | psd.RealY * scale);
          ctx.restore();
-         img.src = canvas.toDataURL();
+         var src = canvas.toDataURL();
+         img.src = src;
          ui.seqDl.disabled = phase != 1;
+         if (phase == 1 && callback) {
+            setTimeout(callback.bind(this, src), 0);
+         }
       });
    }
 
@@ -645,8 +649,8 @@
 
       ui.previewImage = document.getElementById('preview');
       ui.previewBackground = document.getElementById('preview-background');
-      ui.redraw = function() {
-         render(ui.previewImage, ui.previewBackground, psdRoot);
+      ui.redraw = function(callback) {
+         render(ui.previewImage, ui.previewBackground, psdRoot, callback);
          updateClass(psdRoot);
       };
       ui.save = function(filename) {
