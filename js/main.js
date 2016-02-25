@@ -458,7 +458,7 @@
       return true;
    }
 
-   function render(img, bg, psd, callback) {
+   function render(psd, callback) {
       var s = Date.now();
 
       psd.nextState = "";
@@ -514,11 +514,6 @@
       var canvas = psd.canvas;
       canvas.width = 0 | w * scale;
       canvas.height = 0 | h * scale;
-      if (bg) {
-         bg.style.width = canvas.width + 'px';
-         bg.style.height = canvas.height + 'px';
-      }
-      ui.seqDl.disabled = true;
       downScaleCanvas(psd.Buffer, scale, function(phase, c) {
          console.log("scaling: " + (Date.now() - s) + '(phase:' + phase + ')');
          var ctx = canvas.getContext('2d');
@@ -530,12 +525,7 @@
          }
          ctx.drawImage(c, autoTrim ? 0 : 0 | psd.RealX * scale, autoTrim ? 0 : 0 | psd.RealY * scale);
          ctx.restore();
-         var src = canvas.toDataURL();
-         img.src = src;
-         ui.seqDl.disabled = phase != 1;
-         if (phase == 1 && callback) {
-            setTimeout(callback.bind(this, src), 0);
-         }
+         setTimeout(callback.bind(null, phase, canvas.toDataURL(), canvas.width, canvas.height), 0);
       });
    }
 
@@ -651,8 +641,14 @@
 
       ui.previewImage = document.getElementById('preview');
       ui.previewBackground = document.getElementById('preview-background');
-      ui.redraw = function(callback) {
-         render(ui.previewImage, ui.previewBackground, psdRoot, callback);
+      ui.redraw = function() {
+         ui.seqDl.disabled = true;
+         render(psdRoot, function(phase, img, width, height) {
+            ui.previewBackground.style.width = width + 'px';
+            ui.previewBackground.style.height = height + 'px';
+            ui.previewImage.src = img;
+            ui.seqDl.disabled = phase != 1;
+         });
          updateClass(psdRoot);
       };
       ui.save = function(filename) {
