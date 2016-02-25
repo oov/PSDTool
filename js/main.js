@@ -512,10 +512,12 @@
 
       s = Date.now();
       var canvas = psd.canvas;
-      bg.style.width = (0 | w * scale) + 'px';
-      bg.style.height = (0 | h * scale) + 'px';
       canvas.width = 0 | w * scale;
       canvas.height = 0 | h * scale;
+      if (bg) {
+         bg.style.width = canvas.width + 'px';
+         bg.style.height = canvas.height + 'px';
+      }
       ui.seqDl.disabled = true;
       downScaleCanvas(psd.Buffer, scale, function(phase, c) {
          console.log("scaling: " + (Date.now() - s) + '(phase:' + phase + ')');
