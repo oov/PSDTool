@@ -702,11 +702,7 @@
          if (num < 0) {
             num = 0;
          }
-         var s = num.toString();
-         if (s.length < 4) {
-            s = ("0000" + s).substring(s.length);
-         }
-         if (ui.save(prefix + s + '.png')) {
+         if (ui.save(prefix + ("0000" + num).slice(-4) + '.png')) {
             ui.seqDlNum.value = num + 1;
          }
       }, false);
