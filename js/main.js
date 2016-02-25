@@ -905,19 +905,19 @@
          return path.join('\n');
       }
 
-      for (var i = 1, j, parts; i < path.length; ++i) {
-         // remove duplicated entry
-         if (path[i].indexOf(path[i - 1]) == 0) {
-            path.splice(--i, 1);
-            continue;
-         }
+      for (var i = 0, j, parts; i < path.length; ++i) {
          // remove hidden layer
          parts = path[i].split('/');
          for (j = 0; j < parts.length - 1; ++j) {
             if (!pathMap[parts.slice(0, j + 1).join('/')]) {
                path.splice(i--, 1);
+               j = -1;
                break;
             }
+         }
+         // remove duplicated entry
+         if (j != -1 && i && path[i].indexOf(path[i - 1]) == 0) {
+            path.splice(--i, 1);
          }
       }
       for (var i = 0; i < path.length; ++i) {
