@@ -893,22 +893,29 @@
          pathMap = {};
       for (var i = 0, s; i < elems.length; ++i) {
          s = elems[i].getAttribute('data-fullpath');
-         path.push(s + '/'); // add '/' to adjust sort order.
+         path.push({
+            s: s,
+            i: i
+         });
          pathMap[s] = true;
       }
-      path.sort();
-
       if (allLayer) {
          for (var i = 0; i < path.length; ++i) {
-            path[i] = '/' + path[i].substring(0, path[i].length - 1);
+            path[i] = '/' + path[i].s;
          }
          return path.join('\n');
       }
 
+      path.sort(function(a, b) {
+         var as = a.s + '/',
+            bs = b.s + '/';
+         return as > bs ? 1 : as < bs ? -1 : 0;
+      });
+
       for (var i = 0, j, parts; i < path.length; ++i) {
          // remove hidden layer
-         parts = path[i].split('/');
-         for (j = 0; j < parts.length - 1; ++j) {
+         parts = path[i].s.split('/');
+         for (j = 0; j < parts.length; ++j) {
             if (!pathMap[parts.slice(0, j + 1).join('/')]) {
                path.splice(i--, 1);
                j = -1;
@@ -916,12 +923,17 @@
             }
          }
          // remove duplicated entry
-         if (j != -1 && i && path[i].indexOf(path[i - 1]) == 0) {
+         if (j != -1 && i > 0 && path[i].s.indexOf(path[i - 1].s) == 0) {
             path.splice(--i, 1);
          }
       }
+
+      path.sort(function(a, b) {
+         return a.i > b.i ? 1 : a.i < b.i ? -1 : 0;
+      });
+
       for (var i = 0; i < path.length; ++i) {
-         path[i] = path[i].substring(0, path[i].length - 1);
+         path[i] = path[i].s;
       }
       return path.join('\n');
    }
