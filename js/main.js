@@ -61,6 +61,14 @@
       }
    }
 
+   function updateProgress(barElem, captionElem, progress, caption) {
+      var p = progress * 100;
+      barElem.style.width = p + '%';
+      barElem.setAttribute('aria-valuenow', p.toFixed(0) + '%');
+      removeAllChild(captionElem);
+      captionElem.appendChild(document.createTextNode(caption));
+   }
+
    function loadAndParse(file_or_url) {
       var fileOpenUi = document.getElementById('file-open-ui');
       var manual = document.getElementById('manual');
@@ -75,47 +83,36 @@
       errorReportUi.style.display = 'none';
       main.style.display = 'none';
 
-      var barCaptionContainer = bar.querySelector('.psdtool-progress-bar-caption');
-      var barCaption = document.createTextNode('0% Complete');
-      var captionContainer = document.getElementById('progress-caption');
-      var caption = document.createTextNode('Now loading...');
+      var caption = document.getElementById('progress-caption');
       var errorMessageContainer = document.getElementById('error-message');
       var errorMessage = document.createTextNode('');
 
-      removeAllChild(barCaptionContainer);
-      barCaptionContainer.appendChild(barCaption);
-      removeAllChild(captionContainer);
-      captionContainer.appendChild(caption);
       removeAllChild(errorMessageContainer);
       errorMessageContainer.appendChild(errorMessage);
 
       function progress(step, progress, layer) {
-         var p, msg, ptext;
+         var p, msg;
          switch (step) {
             case 'prepare':
                p = 0;
                msg = 'Getting ready...';
                break;
             case 'receive':
-               p = progress * 100;
+               p = progress;
                msg = 'Receiving file...';
                break;
             case 'parse':
-               p = progress * 50;
+               p = progress * 0.5;
                msg = 'Parsing psd file...';
                break;
             case 'draw':
-               p = 50 + progress * 50;
+               p = 0.5 + progress * 0.5;
                msg = 'Drawing "' + layer.Name + '" layer image...';
                break;
          }
-         ptext = p.toFixed(0) + '%';
-         bar.style.width = p + '%';
-         bar.setAttribute('aria-valuenow', ptext);
-         barCaption.textContent = ptext + ' Complete';
-         caption.textContent = ptext + ' ' + msg;
+         updateProgress(bar, caption, p, msg);
       }
-
+      updateProgress(bar, caption, 0, 'Now loading...');
       loadAsArrayBuffer(progress, file_or_url)
          .then(parse.bind(this, progress))
          .then(initMain)
