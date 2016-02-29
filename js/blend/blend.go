@@ -1,4 +1,4 @@
-// +build ignore
+//go:generate go run blend.go
 
 package main
 

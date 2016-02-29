@@ -1,11 +1,13 @@
-//go:generate gopherjs build -m -o psdtool.js
-//go:generate go run blend.go
+//go:generate gopherjs build -m
 
 package main
 
 import (
 	"archive/zip"
+	"crypto/md5"
 	"errors"
+	"fmt"
+	"hash"
 	"image"
 	"image/color"
 	"io"
@@ -32,6 +34,8 @@ type root struct {
 	processed  int
 	progress   func(l *layer)
 	realRect   image.Rectangle
+	Hash       string
+	PFV        string
 	Readme     string
 }
 
@@ -248,6 +252,7 @@ func createCanvas(width, height int) *js.Object {
 
 type progressReader struct {
 	Buf      []byte
+	Hash     hash.Hash
 	Progress func(float64)
 	pos      int
 }
@@ -256,6 +261,9 @@ func (r *progressReader) Read(p []byte) (int, error) {
 	l := copy(p, r.Buf[r.pos:])
 	if l == 0 {
 		return 0, io.EOF
+	}
+	if r.Hash != nil {
+		r.Hash.Write(p[:l])
 	}
 	if r.Progress != nil && (r.pos & ^0x3ffff != (r.pos+l) & ^0x3ffff) {
 		r.Progress(float64(r.pos+l) / float64(len(r.Buf)))
@@ -275,8 +283,16 @@ func (r *progressReader) ReadAt(p []byte, off int64) (n int, err error) {
 	return r.Read(p)
 }
 
+func (r *progressReader) Sum() []byte {
+	if r.Hash != nil {
+		return r.Hash.Sum(nil)
+	}
+	return nil
+}
+
 type genericProgressReader struct {
 	R        io.Reader
+	Hash     hash.Hash
 	Progress func(float64)
 	pos      int64
 	ln       int64
@@ -287,12 +303,22 @@ func (r *genericProgressReader) Read(p []byte) (int, error) {
 	if err != nil {
 		return l, err
 	}
+	if r.Hash != nil {
+		r.Hash.Write(p[:l])
+	}
 	l64 := int64(l)
 	if r.Progress != nil && (r.pos & ^0x3ffff != (r.pos+l64) & ^0x3ffff) {
 		r.Progress(float64(r.pos+l64) / float64(r.ln))
 	}
 	r.pos += l64
 	return l, err
+}
+
+func (r *genericProgressReader) Sum() []byte {
+	if r.Hash != nil {
+		return r.Hash.Sum(nil)
+	}
+	return nil
 }
 
 func readTextFile(r io.Reader) (string, error) {
@@ -324,30 +350,53 @@ func readTextFile(r io.Reader) (string, error) {
 	return string(b), nil
 }
 
+type reader interface {
+	io.Reader
+	Sum() []byte
+}
+
 func parse(b []byte, progress func(step string, progress float64, l *layer)) (*root, error) {
 	var r root
 	s := time.Now().UnixNano()
 	if len(b) < 4 {
 		return nil, errors.New("unsupported file type")
 	}
-	var reader io.Reader
+	var reader reader
 	switch string(b[:4]) {
 	case "PK\x03\x04": // zip archive
 		zr, err := zip.NewReader(&progressReader{Buf: b}, int64(len(b)))
 		if err != nil {
 			return nil, err
 		}
-		var psdf, txtf *zip.File
+		var psdf, pfvf, txtf *zip.File
 		for _, f := range zr.File {
 			if psdf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".psd" {
 				psdf = f
+				continue
+			}
+			if pfvf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".pfv" {
+				pfvf = f
+				continue
 			}
 			if txtf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".txt" {
 				txtf = f
+				continue
 			}
 		}
 		if psdf == nil {
 			return nil, errors.New("psd file is not found from given zip archive")
+		}
+
+		if pfvf != nil {
+			pfvr, err := pfvf.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer pfvr.Close()
+			r.PFV, err = readTextFile(pfvr)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if txtf != nil {
@@ -369,6 +418,7 @@ func parse(b []byte, progress func(step string, progress float64, l *layer)) (*r
 		defer rc.Close()
 		reader = &genericProgressReader{
 			R:        rc,
+			Hash:     md5.New(),
 			Progress: func(p float64) { progress("parse", p, nil) },
 			ln:       int64(psdf.UncompressedSize64),
 		}
@@ -377,15 +427,14 @@ func parse(b []byte, progress func(step string, progress float64, l *layer)) (*r
 	case "8BPS": // psd file
 		reader = &progressReader{
 			Buf:      b,
+			Hash:     md5.New(),
 			Progress: func(p float64) { progress("parse", p, nil) },
 		}
 		break
 	default:
 		return nil, errors.New("unsupported file type")
 	}
-	psdImg, _, err := psd.Decode(reader, &psd.DecodeOptions{
-		SkipMergedImage: true,
-	})
+	psdImg, _, err := psd.Decode(reader, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -398,6 +447,7 @@ func parse(b []byte, progress func(step string, progress float64, l *layer)) (*r
 	}
 
 	s = time.Now().UnixNano()
+	r.Hash = fmt.Sprintf("%x", reader.Sum())
 	if err = r.Build(psdImg, func(processed, total int, l *layer) {
 		progress("draw", float64(processed)/float64(total), l)
 	}); err != nil {
