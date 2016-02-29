@@ -722,7 +722,7 @@
    }
 
    function encodeLayerName(s) {
-      return s.replace(/[\x00-\x1f\x22\x27\x2f\x5c\x7f]/g, function(m) {
+      return s.replace(/[\x00-\x1f\x22\x27\x2f\x5c\x7e\x7f]/g, function(m) {
          var s = '0' + m[0].charCodeAt(0).toString(16);
          return '%' + s.substring(s.length - 2);
       });
