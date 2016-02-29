@@ -708,14 +708,8 @@
       });
    }
 
-   // Based on http://stackoverflow.com/a/7616484
-   function calcHash(s) {
-      if (s.length === 0) return 0;
-      var hash = 0;
-      for (var i = 0; i < s.length; ++i) {
-         hash = 0 | ((hash << 5) - hash + s.charCodeAt(i));
-      }
-      return hash >>> 0;
+   function decodeLayerName(s) {
+      return decodeURIComponent(s);
    }
 
    function buildTree(psd, redraw) {
@@ -736,7 +730,6 @@
          var prop = buildLayerProp(layer, parentLayer);
          var fullpath = path.join('/');
          layer.visibleInput.setAttribute('data-fullpath', fullpath);
-         layer.visibleInput.setAttribute('data-fullpath-hash', calcHash(fullpath).toString(16));
          layer.visibleInput.addEventListener('click', function() {
             for (var p = layer.parentLayer; p.visibleInput; p = p.parentLayer) {
                p.visibleInput.checked = true;
@@ -886,6 +879,7 @@
          s = elems[i].getAttribute('data-fullpath');
          path.push({
             s: s,
+            ss: s + '/',
             i: i
          });
          pathMap[s] = true;
@@ -898,9 +892,7 @@
       }
 
       path.sort(function(a, b) {
-         var as = a.s + '/',
-            bs = b.s + '/';
-         return as > bs ? 1 : as < bs ? -1 : 0;
+         return a.ss > b.ss ? 1 : a.ss < b.ss ? -1 : 0;
       });
 
       for (var i = 0, j, parts; i < path.length; ++i) {
@@ -914,7 +906,7 @@
             }
          }
          // remove duplicated entry
-         if (j != -1 && i > 0 && path[i].s.indexOf(path[i - 1].s) == 0) {
+         if (j != -1 && i > 0 && path[i].ss.indexOf(path[i - 1].ss) == 0) {
             path.splice(--i, 1);
          }
       }
@@ -930,46 +922,65 @@
    }
 
    function deserializeCheckState(state) {
-      function checkLayer(name) {
-         var i, j, elems = document.querySelectorAll('#layer-tree .psdtool-layer-visible[data-fullpath-hash=\'' + calcHash(name).toString(16) + '\']');
-         for (i = 0, j = -1; i < elems.length; ++i) {
-            if (elems[i].getAttribute('data-fullpath') == name) {
-               if (j != -1) {
-                  throw new Error('found more than one layers: ' + name);
+      function buildStateTree(state) {
+         var allLayer = state.charAt(0) == '/';
+         var stateTree = {
+            allLayer: allLayer,
+            children: {}
+         };
+         var i, j, obj, node, parts, part, lines = state.replace(/\r/g, '').split('\n');
+         for (i = 0; i < lines.length; ++i) {
+            parts = lines[i].split('/');
+            for (j = allLayer ? 1 : 0, node = stateTree; j < parts.length; ++j) {
+               part = decodeLayerName(parts[j]);
+               if (!(part in node.children)) {
+                  obj = {
+                     children: {}
+                  };
+                  if (!allLayer || (allLayer && j == parts.length - 1)) {
+                     obj.checked = true;
+                  }
+                  node.children[part] = obj;
                }
-               j = i;
+               node = node.children[part];
             }
          }
-         if (j == -1) {
-            throw new Error('layer not found: ' + name);
-         }
-         elems[j].checked = true;
+         return stateTree;
       }
 
-      var old = serializeCheckState(true); // for backup
-      clearCheckState();
-      try {
-         var i, j, parts, lines = state.replace(/\r/g, '').split('\n');
-         for (i = 0; i < lines.length; ++i) {
-            if (lines[i].charAt(0) == '/') {
-               // all layer mode
-               checkLayer(lines[i].substring(1));
+      function apply(stateNode, psdNode, allLayer) {
+         if (allLayer === undefined) {
+            allLayer = stateNode.allLayer;
+            if (allLayer) {
+               clearCheckState();
+            }
+         }
+         var psdChild, stateChild, founds = {};
+         for (var i = 0; i < psdNode.Child.length; ++i) {
+            psdChild = psdNode.Child[i];
+            if (psdChild.Name in founds) {
+               throw new Error('found more than one same name layer: ' + psdChild.Name);
+            }
+            founds[psdChild.Name] = true;
+            stateChild = stateNode.children[psdChild.Name];
+            if (!stateChild) {
+               psdChild.visibleInput.checked = false;
                continue;
             }
-            parts = lines[i].split('/');
-            for (j = 1; j <= parts.length; ++j) {
-               checkLayer(parts.slice(0, j).join('/'));
+            if ('checked' in stateChild) {
+               psdChild.visibleInput.checked = stateChild.checked;
+            }
+            if (allLayer || stateChild.checked) {
+               apply(stateChild, psdChild, allLayer);
             }
          }
+      }
+
+      var old = serializeCheckState(true);
+      try {
+         apply(buildStateTree(state), psdRoot);
       } catch (e) {
-         // We can also use deserializeCheckState here,
-         // but if it failed then we may not be able to escape from the recursion.
-         // Therefore we don't use it.
-         clearCheckState();
-         var i, lines = old.replace(/\r/g, '').split('\n');
-         for (i = 0; i < lines.length; ++i) {
-            checkLayer(lines[i].substring(1));
-         }
+         apply(buildStateTree(old), psdRoot);
          throw e;
       }
    }
