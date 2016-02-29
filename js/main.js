@@ -632,6 +632,15 @@
       }
    }
 
+   function dataSchemeURIToArrayBuffer(str) {
+      var bin = atob(str.substring(str.indexOf(',') + 1));
+      var buf = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; ++i) {
+         buf[i] = bin.charCodeAt(i);
+      }
+      return buf.buffer;
+   }
+
    function initUI() {
       ui.optionAutoTrim = document.getElementById('option-auto-trim');
       ui.optionSafeMode = document.getElementById('option-safe-mode');
@@ -648,13 +657,11 @@
          });
          updateClass(psdRoot);
       };
+
       ui.save = function(filename) {
-         var bin = atob(ui.previewImage.src.substring(ui.previewImage.src.indexOf(',') + 1));
-         var buf = new Uint8Array(bin.length);
-         for (var i = 0; i < bin.length; ++i) {
-            buf[i] = bin.charCodeAt(i);
-         }
-         saveAs(new Blob([buf.buffer], {
+         saveAs(new Blob([
+            dataSchemeURIToArrayBuffer(ui.previewCanvas.toDataURL())
+         ], {
             type: 'image/png'
          }), filename);
          return true;
