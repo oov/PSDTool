@@ -641,6 +641,12 @@
       return buf.buffer;
    }
 
+   function normalizeNumber(s) {
+      return s.replace(/[\uff10-\uff19]/g, function(m) {
+         return m.charCodeAt(0) - 0xff10;
+      });
+   }
+
    function initUI() {
       ui.optionAutoTrim = document.getElementById('option-auto-trim');
       ui.optionSafeMode = document.getElementById('option-safe-mode');
@@ -686,10 +692,12 @@
       var lastPx;
       ui.maxPixels = document.getElementById('max-pixels');
       ui.maxPixels.addEventListener('blur', function(e) {
-         if (this.value == lastPx) {
+         var v = normalizeNumber(this.value);
+         if (v == lastPx) {
             return;
          }
-         lastPx = this.value;
+         lastPx = v;
+         this.value = v;
          ui.redraw();
       }, false);
 
@@ -698,7 +706,7 @@
       ui.seqDl = document.getElementById('seq-dl');
       ui.seqDl.addEventListener('click', function(e) {
          var prefix = ui.seqDlPrefix.value;
-         var num = parseInt(ui.seqDlNum.value, 10);
+         var num = parseInt(normalizeNumber(ui.seqDlNum.value), 10);
          if (num < 0) {
             num = 0;
          }
