@@ -43,6 +43,12 @@
 
       initUI();
       hashchanged();
+
+      var elems = document.querySelectorAll('.psdtool-loading');
+      for (var i = 0; i < elems.length; ++i) {
+         elems[i].classList.add('psdtool-loaded');
+         elems[i].classList.remove('psdtool-loading');
+      }
    }
 
    function resized() {
@@ -80,14 +86,12 @@
 
    function loadAndParse(file_or_url) {
       var fileOpenUi = document.getElementById('file-open-ui');
-      var manual = document.getElementById('manual');
       var fileLoadingUi = document.getElementById('file-loading-ui');
       var errorReportUi = document.getElementById('error-report-ui');
       var main = document.getElementById('main');
       var bar = document.getElementById('progress-bar');
 
       fileOpenUi.style.display = 'none';
-      manual.style.display = 'none';
       fileLoadingUi.style.display = 'block';
       errorReportUi.style.display = 'none';
       main.style.display = 'none';
@@ -129,7 +133,6 @@
          .then(function() {
             fileLoadingUi.style.display = 'none';
             fileOpenUi.style.display = 'none';
-            manual.style.display = 'none';
             errorReportUi.style.display = 'none';
             main.style.display = 'block';
             Mousetrap.unpause();
@@ -137,7 +140,6 @@
          }, function(e) {
             fileLoadingUi.style.display = 'none';
             fileOpenUi.style.display = 'block';
-            manual.style.display = 'block';
             errorReportUi.style.display = 'block';
             main.style.display = 'none';
             Mousetrap.pause();

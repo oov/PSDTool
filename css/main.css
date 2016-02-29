@@ -7,16 +7,33 @@ body {
    margin-right: 8px;
    margin-bottom: 8px;
 }
-#file-open-ui h1 {
+h1 {
    margin: 4rem 0 4rem;
    font-size: 5rem;
    font-family: 'Roboto Condensed', sans-serif;
    letter-spacing: -1px;
 }
-#file-open-ui h1 small {
+h1 small {
    font-family: 'Hiragino Kaku Gothic ProN', 'ヒラギノ角ゴ ProN W3', Meiryo, メイリオ, Osaka, 'MS PGothic', arial, helvetica, sans-serif;
    font-size: 30%;
    letter-spacing: 0;
+}
+.psdtool-header {
+   margin: 4rem 0;
+   line-height: 5rem;
+   text-align: right;
+}
+.psdtool-header a {
+   vertical-align: bottom;
+}
+.psdtool-loading {
+   visibility: hidden;
+   opacity: 0;
+}
+.psdtool-loaded {
+   transition: opacity 0.25s;
+   visibility: visible;
+   opacity: 1;
 }
 #manual dt {
    margin-top: 1em;
@@ -24,9 +41,6 @@ body {
 }
 #manual dd {
    padding-left: 2em;
-}
-#manual {
-   margin-top: 4rem;
 }
 #manual h2 {
    border-bottom: 0.25em solid #dde;

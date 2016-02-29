@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSDTool Reference Manual</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+<link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto+Condensed:700'>
+<link href="css/main.css" rel="stylesheet">
+
+<body>
+	<div id="manual" class="container">
+		<h1>
+			PSDTool Reference Manual
+			<small>取扱説明書</small>
+		</h1>
+		<ol>
+			<li>
+				<a href="#about">PSDTool とは？</a>
+				<ol>
+					<li><a href="#about-movie">PSDTool 紹介用動画</a></li>
+				</ol>
+			</li>
+			<li><a href="#env">動作環境</a></li>
+			<li>
+				<a href="#feature">機能の説明</a>
+				<ol>
+					<li><a href="#feature-options">オプション</a></li>
+					<li><a href="#feature-mainview">メイン画面</a></li>
+					<li><a href="#feature-favview">お気に入り編集画面</a></li>
+				</ol>
+			</li>
+			<li>
+				<a href="#supported-filetype">読み込める PSD ファイル</a>
+				<ol>
+					<li><a href="#supported-filetype-zip">ZIP ファイルの読み込み</a></li>
+					<li><a href="#supported-filetype-direct">ダイレクト読み込み</a></li>
+				</ol>
+			</li>
+			<li>
+				<a href="#original-feature">独自拡張機能</a>
+				<ol>
+					<li><a href="#original-feature-asterisk">アスタリスク「*」</a></li>
+					<li><a href="#supported-filetype-direct">エクスクラメーションマーク「!」</a></li>
+				</ol>
+			</li>
+			<li><a href="#changes">変更履歴</a></li>
+		</ol>
+
+		<h2 id="about">PSDTool とは？</h2>
+		<p><img src="img/about.png" class="img-thumbnail" alt="PSDTool のスクリーンショット"></p>
+		<p>
+			PSDTool は Photoshop 形式(*.psd) のファイルをブラウザで読み込んでレイヤーの表示／非表示を切り替えたり、合成された画像に名前を付けて保存したりできるツールです。
+			<br><strong>読み込む PSD ファイルはサーバーには一切送信されず完全にブラウザだけで処理される</strong>ため、プライベートな用途にも使用できます。
+		</p>
+		<p>
+			このツールは「イラストを描く人がレイヤーの表示／非表示を切り替えた様々なパターンを PNG で書き出したものを配布する」といった時間の浪費と手間を減らすために、 また配布されているイラストを利用したい人がソフトウェアを何も用意しなくても最新のブラウザさえあれば *.psd ファイルを扱えるようにすることを目的に作りました。
+		</p>
+		<p>
+			Photoshop 形式は sai、CLIP STUDIO PAINT、openCanvas、Krita、メディバンペイント、FireAlpaca など様々なペイントソフトで保存可能な共通の保存フォーマットです。
+			<br>これを機に、是非 Photoshop 形式での配布を検討してみてください。
+		</p>
+		<h3 id="about-movie">PSDTool 紹介用動画</h3>
+		<p>PSDTool の概要などを簡単に紹介した動画です。</p>
+		<ul>
+			<li><a target="_blank" href="http://www.nicovideo.jp/watch/sm28057966">【ニコニコ動画】ささらさん誕生日おめでとう、立ち絵用のツール作ったよ / CeVIO投稿祭</a></li>
+			<li><a target="_blank" href="http://www.nicovideo.jp/watch/sm28114677">【ニコニコ動画】立ち絵支援ツール PSDTool 紹介2</a></li>
+		</ul>
+		<h2 id="env">動作環境</h2>
+		<p>
+			Microsoft Edge / Google Chrome / Mozilla Firefox 上でブラウザ画面サイズ 1024x600 以上を基準に動作確認しています。
+			<br>Mac を持っていないので Apple Safari ではテストしていません。
+		</p>
+		<p>
+			ブラウザは常に最新版をお使いください。
+		</p>
+		<h2 id="feature">機能の説明</h2>
+		<ol>
+			<li><a href="#feature-options">オプション</a></li>
+			<li><a href="#feature-mainview">メイン画面</a></li>
+			<li><a href="#feature-favview">お気に入り編集画面</a></li>
+		</ol>
+		<h3 id="feature-options">オプション</h3>
+		<p>ファイルを開く際に、いくつかのオプションが設定可能です。</p>
+		<dl>
+			<dt>自動トリミング</dt>
+			<dd>
+				<p>
+					有効にすると PSD ファイルに存在する全てのレイヤーを表示したとしても使われることがない、完全な余白のみを削ります。
+					<br>ある瞬間に表示している内容でトリミングするわけではないので、「ウサギの耳」「翼」のように一部または全部の方向へ突出するようなレイヤーが存在する場合、その分の余白は常に確保されます。
+				</p>
+				<p><img src="img/trim-sample.png" class="img-thumbnail" alt="自動トリミングの使用サンプル"></p>
+				<p>
+					上記サンプルでは、自動トリミングありの場合は左右はギリギリまでカットされ、上部は「左向き用・主線」レイヤーを表示するための余白が数ピクセルだけ残っています。
+				</p>
+				<p>
+					なお縮小する場合、縮小後のサイズを例えば 320px としても上記サンプルのように余白の有無によって画像の縮小率が変わってきます。 余白を上手く使って複数の PSD ファイル間で同程度のサイズ感になるよう整えられている場合などもあるため、自動トリミングの使用には注意が必要です。
+				</p>
+			</dd>
+			<dt>独自拡張機能を無効化</dt>
+			<dd>
+				<p>
+					これは PSDTool での使用を想定していない PSD ファイルを読む際に使う機能で、<a href="#original-feature">PSDTool が持つ独自拡張機能</a> が認識されないようにします。 レイヤー名が独自拡張機能と衝突してしまい、レイヤー表示切替のチェックボックスがラジオボタンになったり消えてしまっている場合に有用です。
+				</p>
+			</dd>
+		</dl>
+		<h3 id="feature-mainview">メイン画面</h3>
+		<p>ファイルを開くと画面には以下の様なインターフェイスが現れます。</p>
+		<p><img src="img/head.png" class="img-thumbnail" alt="PSDTool の画面上部にあるインターフェイスのスクリーンショット"></p>
+		<dl>
+			<dt>1. タブ</dt>
+			<dd>
+				<p>レイヤー操作画面と<a href="#feature-favview">お気に入り編集画面</a>を切り替えるためのタブです。</p>
+			</dd>
+			<dt>2. レイヤー</dt>
+			<dd>
+				<p>
+					チェックボックスやラジオボタンをクリックしてレイヤーの表示を切り替えることができます。 切り替えた結果は逐一合成結果プレビューに反映されます。
+				</p>
+			</dd>
+			<dt>3. 左右反転</dt>
+			<dd>
+				<p>
+					画像を左右反転します。 文字やアクセサリー、髪型や服の装飾などのように、反転すると問題がある場合もあるため使用には注意が必要です。
+				</p>
+			</dd>
+			<dt>4. 縮小</dt>
+			<dd>
+				<p>
+					読み込んだ画像が大きすぎる場合、ここで保存前に縮小することができます。 縦か横のどちらかの最大ピクセル数を指定すると、その大きさに合わせてサイズが決定されます。この設定によって元のサイズより画像が拡大されることはありません。
+				</p>
+			</dd>
+			<dt>5. 連番ダウンロード</dt>
+			<dd>
+				<p>
+					画像を通し番号付きで保存するための機能です。 スクリーンショットのように入力欄がそれぞれ「im5467479_」「0」の状態で「.png」ボタンを押すと「im5467479_0000.png」というファイル名で保存され、そのまま同じボタンを押す度に数字が足されていきます。
+				</p>
+			</dd>
+			<dt>6. 合成結果プレビュー / お気に入りプレビュー</dt>
+			<dd>
+				<p>
+					合成結果プレビューには現在のレイヤー選択状態が表示されます。
+				</p>
+				<p>
+					また、お気に入りを選択した時は一時的にお気に入りの内容を表示するお気に入りプレビューに変化します。 お気に入りプレビューモードはレイヤータブに切り替えたりすることで解除されます。
+				</p>
+			</dd>
+		</dl>
+		<h3 id="feature-favview">お気に入り編集画面</h3>
+		<p>タブで「お気に入り」を選ぶとお気に入り編集画面が表示されます。</p>
+		<p><img src="img/fav.png" class="img-thumbnail" alt="お気に入り編集画面のスクリーンショット"></p>
+		<p>作成したお気に入りはシングルクリックでプレビュー、ダブルクリックでレイヤー一覧に読み込むことができます。</p>
+		<dl>
+			<dt><span class="glyphicon glyphicon-star"></span> 現在のレイヤー表示をお気に入りに追加（Ctrl + B / Option + B）</dt>
+			<dd>
+				<p>
+					現在レイヤータブで選択している構成をお気に入りに追加します。
+				</p>
+				<p>
+					ショートカットキーを使用するとレイヤータブを表示していてもお気に入りに追加することができます。
+				</p>
+			</dd>
+			<dt><span class="glyphicon glyphicon-folder-open"></span> 新規フォルダー（Ctrl + D / Option + D）</dt>
+			<dd>
+				<p>
+					項目の整理に利用可能なフォルダーを追加します。
+				</p>
+			</dd>
+			<dt><span class="glyphicon glyphicon-pencil"></span> 名前の変更（F2）</dt>
+			<dd>
+				<p>
+					項目の名前を変更します。
+				</p>
+			</dd>
+			<dt><span class="glyphicon glyphicon-remove"></span> 削除</dt>
+			<dd>
+				<p>
+					項目を削除します。 削除の際には確認ダイアログはなく、元に戻す手段も用意されていないので気をつけて使用する必要があります。
+				</p>
+			</dd>
+			<dt><span class="glyphicon glyphicon-menu-hamburger"></span> → <span class="glyphicon glyphicon-open-file"></span> インポート</dt>
+			<dd>
+				<p>
+					選ぶとダイアログが表示されます。
+				</p>
+				<dl>
+					<dt>PFV ファイルをインポート</dt>
+					<dd>
+						<p>
+							保存された PFV ファイルを読み込みます。
+						</p>
+						<p>
+							このダイアログを開かなくても、PSD ファイルを開く際に PFV ファイルも一緒にドラッグ＆ドロップしたり、お気に入りタブ内のツールアイコンが並んでいる辺りに PFV ファイルをドラッグ＆ドロップすることで読み込むこともできます。できますが、マニュアルを読まない人は恐らく PFV ファイルを開くためにインポート内を探しに来ると思ったので、ここにも用意してある、というわけなんですよ。
+						</p>
+					</dd>
+					<dt>最近使ったお気に入りからインポート</dt>
+					<dd>
+						<p>
+							ブラウザに自動保存されたお気に入りからインポートします。手動でインポートしなくても PSD ファイルを読み込んだ時に、読むべき PFV ファイルが特になければこの中からひとつ自動的に読み込まれます。
+						</p>
+						<p>
+							青い項目は同じ画像から作成されたお気に入りで、読み込んで利用できることが期待できます。
+							<br>白い項目は読み込んでも画像のレイヤー構造の違いにより利用できない可能性もありますが、PFV ファイルにエクスポートし直すことはできます。
+						</p>
+						<p>
+							ここに現れるデータはブラウザのデータ削除などにより意図しないタイミングで読めなくなる可能性があるため、重要なデータは別途保存しておくことを推奨します。
+						</p>
+					</dd>
+				</dl>
+			</dd>
+			<dt><span class="glyphicon glyphicon-menu-hamburger"></span> → <span class="glyphicon glyphicon-save-file"></span> エクスポート</dt>
+			<dd>
+				<p>
+					選ぶとダイアログが表示されます。
+				</p>
+				<dl>
+					<dt>PFV ファイルをエクスポート</dt>
+					<dd>
+						<p>
+							お気に入りの情報を PFV(Psdtool FaVorites) ファイルに書き出します。
+						</p>
+						<p>
+							書き出した PFV ファイルはあとで自分でインポートして使用したり、PFV ファイルを配布して他人に利用してもらうこともできます。
+						</p>
+						<p>
+							また PFV ファイルは UTF-8 のテキストファイルなので、テキストエディタで開いて直接編集することもできます。
+						</p>
+						<p>
+							PSD ファイル / PFV ファイル / テキストファイルの3つを ZIP ファイルに入れておき、解凍せずに直接 PSDTool で開くと全てを読み込むことができます。
+							<br>この仕組みにより、ZIP ファイルを PSDTool で読み込むだけでおすすめのレイヤー表示構成を最初からお気に入りに読み込んだ状態にもできます。
+						</p>
+					</dd>
+					<dt>画像を ZIP ファイルでエクスポート</dt>
+					<dd>
+						<p>
+							お気に入りのすべての項目を PNG ファイルで ZIP ファイルに書き出すことができます。 書き出す際には現在の左右反転や縮小の設定が適用されます。
+						</p>
+						<p>
+							ZIP ファイルには PFV ファイルも一緒に書き出されており、これを読み込むことで左右反転や縮小率を変えて書き出し直したり、お気に入りに更に項目を追加したい場合などにも利用できます。
+						</p>
+						<p>
+							ZIP ファイルの作成処理はメモリ上で行われるため、巨大な ZIP ファイルを作成する場合メモリも大きく消費します。 また処理速度を確保するため ZIP ファイルは無圧縮で作成されます。
+						</p>
+					</dd>
+				</dl>
+			</dd>
+		</dl>
+		<h2 id="supported-filetype">読み込める PSD ファイル</h2>
+		<ul>
+			<li>カラーモードは「RGB カラー（8bit/チャンネル）」にのみ対応しています。</li>
+			<li>クリッピングマスク、レイヤーマスクに対応しています。</li>
+			<li>
+				レイヤーの合成モードは以下のものに対応しています。
+				<br>ただし合成モードの種類やブラウザによっては JavaScript による実装が使用されるため、処理速度が遅いことがあります。
+				<ul>
+					<li>通過（グループレイヤーのみ）</li>
+					<li>通常</li>
+					<li>比較（暗）</li>
+					<li>乗算</li>
+					<li>焼き込みカラー</li>
+					<li>焼き込み（リニア）</li>
+					<li>カラー比較（暗）</li>
+					<li>比較（明）</li>
+					<li>スクリーン</li>
+					<li>覆い焼きカラー</li>
+					<li>覆い焼き（リニア）</li>
+					<li>カラー比較（明）</li>
+					<li>オーバーレイ</li>
+					<li>ソフトライト</li>
+					<li>ハードライト</li>
+					<li>ビビッドライト</li>
+					<li>リニアライト</li>
+					<li>ピンライト</li>
+					<li>ハードミックス</li>
+					<li>差の絶対値</li>
+					<li>除外</li>
+					<li>減算</li>
+					<li>除算</li>
+					<li>色相</li>
+					<li>彩度</li>
+					<li>カラー</li>
+					<li>輝度</li>
+				</ul>
+			</li>
+			<li>テキストレイヤー、調整レイヤー、シェイプレイヤーなどには対応していません。</li>
+		</ul>
+		<h3 id="supported-filetype-zip">ZIP ファイルの読み込み</h3>
+		<p>
+			ZIP ファイルで圧縮された PSD ファイルは、解凍せずにそのまま開くことができます。
+		</p>
+		<ul>
+			<li>複数の PSD ファイルが ZIP ファイル内に存在する場合、最初に見つかったものが読み込まれます。</li>
+			<li>PFV ファイルが ZIP ファイル内に存在する場合、自動的にお気に入りに読み込まれます。</li>
+			<li>テキストファイルが ZIP ファイル内に存在する場合、レイヤー一覧の一番上にテキストファイル表示用のボタンが現れます。</li>
+		</ul>
+		<h3 id="supported-filetype-direct">ダイレクト読み込み</h3>
+		<p>
+			以下に示す条件のいずれかを満たすことで、PSDTool はあなたのサイトにあるファイルを読むことができます。
+			<br>あなたのサイトに配置された配布用の ZIP ファイルをこの仕組みで直接開くこともできます。
+		</p>
+		<ul>
+			<li>
+				読み込むファイルを置くサーバと同じドメイン上に HTML ファイルを設置し、その HTML をブラウザで表示可能なこと。
+				<ul>
+					<li>これは自作の HTML ファイルが設置できるサービスの多くで使用可能な、簡単な導入方法です。</li>
+					<li>以下の手順に従いアップロードした HTML ファイルをブラウザで開くと、ダイレクト読み込みで使用可能なリンクが表示されます。</li>
+					<ol>
+						<li><a href="remote.html" download="remote.html">HTML ファイル をダウンロード（右クリック保存）</a></li>
+						<li>HTML ファイルをテキストエディタで開き、設定を記入</li>
+						<li>読み込むファイルと同じサーバにアップロード</li>
+					</ol>
+				</ul>
+			</li>
+			<li>
+				読みたいファイルの HTTP レスポンスのヘッダで Access-Control-Allow-Origin の値に「https://oov.github.io」「http://oov.github.io」「*」などが含まれていること。
+				<ul>
+					<li>これは主にレンタルサーバーで .htaccess や PHP などのスクリプトを使える環境の場合などに使用可能な方法です。</li>
+					<li>設定方法については「Access-Control-Allow-Origin htaccess」などで検索してください。</li>
+					<li>
+						適切に設置できている場合 &quot;https://oov.github.io/psdtool/#load:&quot; + encodeURIComponent(設置URL) のアドレスで読み込むことができます。
+						<br>読み込みたいファイルの配置場所が https ではなく http の場合、PSDTool の URL も http にする必要があります。
+					</li>
+				</ul>
+			</li>
+		</ul>
+		<h2 id="original-feature">独自拡張機能</h2>
+		<p>
+			PSD ファイルを作る際にレイヤー名の先頭に特定の記号を付けることで、レイヤーの表示／非表示の使い勝手を改善することができます。
+			<br>これらの機能を使用しても画像編集ソフトで開く際には今まで通り使用でき、編集が不便になることはありません。
+		</p>
+		<h3 id="original-feature-asterisk">アスタリスク「*」</h3>
+		<p><img src="img/asterisk.png" class="img-rounded" alt="アスタリスクの使用例"></p>
+		<p>
+			レイヤー名の先頭に半角のアスタリスク「*」をつけると、選択項目がチェックボックスではなくラジオボタンになります。
+			<br>ラジオボタンは親のグループレイヤー（画像例では「口」）に所属するようになります。
+		</p>
+		<ul>
+			<li>グループ内でひとつのみ選択できるため、二種類の表情が同時に表示されたりするのを防ぐことができます。</li>
+			<li>項目を選択すると前に選択されていた項目の選択解除も行われるため、切り替えのクリック数が半分で済みます。</li>
+			<li>ラジオボタンは選択解除できませんが、親のグループレイヤーで非表示にもできます。</li>
+			<li>最後にクリックしたラジオボタンはキーボードの上下キーで選択を切り替えることもできます。</li>
+		</ul>
+		<p>
+			ラジオボタン内のレイヤーが複数表示されたまま *.psd ファイルが保存されていた場合、その中で一番上のものがデフォルト表示されます。
+		</p>
+		<h3 id="original-feature-exclamation">エクスクラメーションマーク「!」</h3>
+		<p><img src="img/exclamation.png" class="img-rounded" alt="エクスクラメーションマークの使用例"></p>
+		<p>
+			レイヤー名の先頭に半角のエクスクラメーションマーク「!」をつけると、選択項目からチェックボックスが消えます。
+			<br>チェックボックスがない項目は表示状態になり、非表示にできなくなります。
+		</p>
+		<ul>
+			<li>必須のパーツが外れるのを防ぐことができます。</li>
+			<li>選択項目を減らせるので、使う時に迷う要素を画面から減らすことができます。</li>
+		</ul>
+		<p>
+			強制表示設定にしたレイヤーを非表示にして PSD ファイルを保存しても、PSDTool で表示する際は強制的に表示状態になります。
+		</p>
+		<h2 id="changes">変更履歴</h2>
+		<dl>
+			<dt>2016-03-XX</dt>
+			<dd>お気に入り機能を追加</dd>
+			<dd>連番ダウンロードで番号の省略を可能にした</dd>
+			<dd>デザインの調整</dd>
+			<dd>ドキュメントを整理</dd>
+			<dd>左カラムの幅をドラッグで変えられるように</dd>
+			<dd>縮小と連番ダウンロードに全角数字を入れても認識するように</dd>
+			<dt>2016-02-18</dt>
+			<dd>オプション「自動トリミング」「独自機能を無効化」を追加</dd>
+			<dt>2016-02-17</dt>
+			<dd>操作性の改善</dd>
+			<dd>バグ修正</dd>
+			<dt>2016-02-15</dt>
+			<dd>バグ修正</dd>
+			<dt>2016-02-07</dt>
+			<dd>バグ修正</dd>
+			<dt>2016-02-06</dt>
+			<dd>縮小のサイズ計算が誤っていたのを修正</dd>
+			<dd>ZIP ファイルを開いた時はテキストファイルを表示できる機能を追加</dd>
+			<dd>ダイレクト読み込み機能を追加</dd>
+			<dt>2016-02-05</dt>
+			<dd>ZIP 圧縮された PSD ファイルの読み込みに対応</dd>
+			<dt>2016-02-04</dt>
+			<dd>合成モード「通過（グループレイヤーのみ）」「通常」「比較（暗）」「乗算」「焼き込みカラー」「焼き込み（リニア）」「カラー比較（暗）」「比較（明）」「スクリーン」「覆い焼きカラー」「覆い焼き（リニア）」「カラー比較（明）」「オーバーレイ」「ソフトライト」「ハードライト」「ビビッドライト」「リニアライト」「ピンライト」「ハードミックス」「差の絶対値」「除外」「減算」「除算」「色相」「彩度」「カラー」「輝度」の実装を追加</dd>
+			<dt>2016-02-02</dt>
+			<dd>操作性の改善</dd>
+			<dt>2016-02-01</dt>
+			<dd>描画負荷の軽減</dd>
+			<dd>縮小処理中にUIが硬直しないように</dd>
+			<dt>2016-01-29</dt>
+			<dd>透過領域でアニメーション</dd>
+			<dd>縮小機能を追加</dd>
+			<dd>連番ダウンロード機能を追加</dd>
+			<dd>バグ修正</dd>
+			<dt>2016-01-28</dt>
+			<dd>合成モード「覆い焼き（リニア）」に対応</dd>
+			<dd>レイヤーマスク、ベクトルマスクに対応</dd>
+			<dd>バグ修正</dd>
+			<dt>2016-01-26</dt>
+			<dd>クリッピングマスクに対応</dd>
+			<dd>読み込み状況の進捗表示</dd>
+			<dd>バグ修正</dd>
+			<dt>2016-01-22</dt>
+			<dd>初版</dd>
+		</dl>
+
+		<div class="well text-center">
+			<small>
+				Created by <a href="https://github.com/oov/psdtool" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a> | Please listen to <a href="https://www.youtube.com/watch?v=SldjqJz3thA" target="_blank">my song</a>
+			</small>
+		</div>
+	</div>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha256-KXn5puMvxCw+dAYznun+drMdG1IFl3agK0p/pqT9KAo= sha512-2e8qq0ETcfWRI4HJBzQiA3UoyFk6tbNyG+qSaIBZLyW9Xf3sWZHN/lxe9fTh1U45DpPf07yj94KsUHHWe4Yk1A==" crossorigin="anonymous"></script>
+</body>
+
+</html>
