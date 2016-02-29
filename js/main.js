@@ -706,6 +706,11 @@
       ui.seqDl = document.getElementById('seq-dl');
       ui.seqDl.addEventListener('click', function(e) {
          var prefix = ui.seqDlPrefix.value;
+         if (ui.seqDlNum.value == '') {
+            ui.save(prefix + '.png');
+            return;
+         }
+
          var num = parseInt(normalizeNumber(ui.seqDlNum.value), 10);
          if (num < 0) {
             num = 0;
