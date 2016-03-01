@@ -937,6 +937,7 @@
          // workaround that an error happens when deletes node during editing.
          jst.delete_node(jst.create_node(null, 'dummy', 'last'));
       }
+      leaveReaderMode();
    }
 
    function pfvOnDrop(files) {
