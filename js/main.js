@@ -786,6 +786,13 @@
          }
          process(data.node, data.original);
       });
+      ui.favoriteTree.on('move_node.jstree', function(e, data) {
+         var jst = $(this).jstree();
+         var text = suggestUniqueName(jst, data.node, data.text);
+         if (data.text != text) {
+            jst.rename_node(data.node, text);
+         }
+      });
       ui.favoriteTree.on('create_node.jstree', function(e, data) {
          var jst = $(this).jstree();
          var text = suggestUniqueName(jst, data.node);
