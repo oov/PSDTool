@@ -913,8 +913,7 @@
       leaveReaderMode();
 
       if (!usePrompt) {
-         jst.edit(id);
-         return;
+         return id;
       }
 
       var oldText = jst.get_text(id);
@@ -927,6 +926,7 @@
       if (text != oldText) {
          jst.rename_node(id, text);
       }
+      return id;
    }
 
    function removeSelectedNode(jst) {
@@ -962,7 +962,7 @@
 
       jQuery('button[data-psdtool-tree-add-item]').on('click', function(e) {
          var jst = jQuery(this.getAttribute('data-psdtool-tree-add-item')).jstree();
-         addNewNode(jst, 'item');
+         jst.edit(addNewNode(jst, 'item'));
       });
       Mousetrap.bind('mod+b', function(e) {
          e.preventDefault();
@@ -971,7 +971,7 @@
       });
       jQuery('button[data-psdtool-tree-add-folder]').on('click', function(e) {
          var jst = jQuery(this.getAttribute('data-psdtool-tree-add-folder')).jstree();
-         addNewNode(jst, 'folder');
+         jst.edit(addNewNode(jst, 'folder'));
       });
       Mousetrap.bind('mod+d', function(e) {
          e.preventDefault();
