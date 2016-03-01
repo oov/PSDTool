@@ -40,9 +40,10 @@
 				<a href="#original-feature">独自拡張機能</a>
 				<ol>
 					<li><a href="#original-feature-asterisk">アスタリスク「*」</a></li>
-					<li><a href="#supported-filetype-direct">エクスクラメーションマーク「!」</a></li>
+					<li><a href="#original-feature-exclamation">エクスクラメーションマーク「!」</a></li>
 				</ol>
 			</li>
+			<li><a href="#pfv-spec">PFV ファイルについて</a></li>
 			<li><a href="#changes">変更履歴</a></li>
 		</ol>
 
@@ -247,10 +248,10 @@
 		<h2 id="supported-filetype">読み込める PSD ファイル</h2>
 		<ul>
 			<li>カラーモードは「RGB カラー（8bit/チャンネル）」にのみ対応しています。</li>
+			<li>グループレイヤー（フォルダーレイヤー）に対応しています。</li>
 			<li>クリッピングマスク、レイヤーマスクに対応しています。</li>
 			<li>
 				レイヤーの合成モードは以下のものに対応しています。
-				<br>ただし合成モードの種類やブラウザによっては JavaScript による実装が使用されるため、処理速度が遅いことがあります。
 				<ul>
 					<li>通過（グループレイヤーのみ）</li>
 					<li>通常</li>
@@ -355,6 +356,30 @@
 		<p>
 			強制表示設定にしたレイヤーを非表示にして PSD ファイルを保存しても、PSDTool で表示する際は強制的に表示状態になります。
 		</p>
+		<h2 id="pfv-spec">PFV ファイルについて</h2>
+		<p>PFV ファイルは PSDTool で登録したお気に入りの情報が格納された PSDTool 独自のファイル形式です。</p>
+		<p>ファイルの実態は BOM なし UTF-8、改行コード &#x27;\n&#x27; のテキストファイルで、概ね以下の構造になっています。</p>
+
+		<pre>[PSDToolFavorites-v1]
+root-name/お気に入り
+
+//フォルダー名/お気に入り登録名
+グループ1/レイヤー1
+グループ2/*グループ3
+</pre>
+		<p>まず固定のヘッダーとして必ずファイルの先頭から <code>[PSDToolFavorites-v1]</code> が現れ、行頭に <code>//</code> が現れるまではファイル全体に対する設定が続きます。<code>//</code> が現れたあとは次の <code>//</code> が現れるまでがそのお気に入りの設定です。</p>
+		<p>
+			日本語で書かれている箇所は実際にはそれぞれが以下の JavaScript で示す URL エンコードの亜種によりエンコードされています。 テキストエディタによる編集を容易にするためエンコードされる文字種は絞られていますが、デコードには通常の URL デコーダーが使用できます。
+		</p>
+		<pre>function encode(s) {
+   return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, function(m) {
+      return &#x27;%&#x27; + (&#x27;0&#x27; + m[0].charCodeAt(0).toString(16)).slice(-2);
+   });
+}</pre>
+
+		<p>例えば「グループ1/レイヤー1」などを階層ごとに取得したい場合、まず &#x27;/&#x27; で分割し、その後各要素を URL デコードすることで正しい値を取り出すことができます。</p>
+		<p><code>root-name</code> にはお気に入りツリーの一番上の名前が保存されています。</p>
+		<p>その他のデータはだいたいフィーリングで分かると思います。</p>
 		<h2 id="changes">変更履歴</h2>
 		<dl>
 			<dt>2016-03-XX</dt>
