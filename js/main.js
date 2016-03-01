@@ -548,7 +548,7 @@
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
          }
-         ctx.drawImage(c, autoTrim ? 0 : 0 | psd.RealX * scale, autoTrim ? 0 : 0 | psd.RealY * scale);
+         ctx.drawImage(c, autoTrim ? 0 : Math.ceil(psd.RealX * scale), autoTrim ? 0 : Math.ceil(psd.RealY * scale));
          ctx.restore();
          callback(phase, canvas, canvas.width, canvas.height);
       });
