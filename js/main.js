@@ -970,6 +970,7 @@
          var jst = ui.favoriteTree.jstree();
          addNewNode(jst, 'item', true);
       });
+
       jQuery('button[data-psdtool-tree-add-folder]').on('click', function(e) {
          var jst = jQuery(this.getAttribute('data-psdtool-tree-add-folder')).jstree();
          jst.edit(addNewNode(jst, 'folder'));
@@ -979,6 +980,7 @@
          var jst = ui.favoriteTree.jstree();
          addNewNode(jst, 'folder', true);
       });
+
       jQuery('button[data-psdtool-tree-rename]').on('click', function(e) {
          var jst = jQuery(this.getAttribute('data-psdtool-tree-rename')).jstree();
          jst.edit(jst.get_top_selected());
@@ -988,9 +990,32 @@
          var jst = ui.favoriteTree.jstree();
          jst.edit(jst.get_top_selected());
       });
+
       jQuery('button[data-psdtool-tree-remove]').on('click', function(e) {
          var jst = jQuery(this.getAttribute('data-psdtool-tree-remove')).jstree();
          removeSelectedNode(jst);
+      });
+
+      Mousetrap.bind('shift+mod+g', function(e) {
+         if (!e.target.classList.contains('psdtool-layer-visible')) {
+            return;
+         }
+         e.preventDefault();
+         var jst = ui.favoriteTree.jstree();
+         if (e.target.classList.contains('psdtool-layer-radio')) {
+            var old = serializeCheckState(true);
+            var created = [];
+            var id, elems = document.querySelectorAll('input[name="' + e.target.name + '"].psdtool-layer-radio');
+            for (var i = 0; i < elems.length; ++i) {
+               elems[i].checked = true;
+               id = addNewNode(jst, 'item');
+               jst.rename_node(id, elems[i].getAttribute('data-name'));
+               created.push(jst.get_text(id));
+            }
+            deserializeCheckState(old);
+            ui.redraw();
+            alert(created.length + ' favorite item(s) has been added.\n\n' + created.join('\n'));
+         }
       });
 
       initDropZone('pfv-dropzone', pfvOnDrop);
@@ -1422,6 +1447,7 @@
          visible.checked = layer.Visible;
       }
       layer.visibleInput = visible;
+      layer.visibleInput.setAttribute('data-name', layerName);
       name.appendChild(visible);
 
       if (layer.Clipping) {
