@@ -1099,6 +1099,12 @@
          var backup = serializeCheckState(true);
          var w = new Worker('js/zipbuilder.js');
          w.onmessage = function(e) {
+            if (e.data.error) {
+               console.error(e.data.error);
+               alert('cannot create zip archive: '+e.data.error);
+               ui.exportProgressDialog.modal('hide');
+               return;
+            }
             ui.exportProgressDialog.modal('hide');
             saveAs(new Blob([e.data.buffer], {
                type: 'application/zip'
@@ -1139,7 +1145,7 @@
                updateProgress(
                   ui.exportProgressDialogProgressBar,
                   ui.exportProgressDialogProgressCaption,
-                  i / files.length, decodeLayerName(files[i].name));
+                  i / files.length, '('+i+'/'+files.length+') '+decodeLayerName(files[i].name));
                ++i;
                setTimeout(process, 0);
             });
