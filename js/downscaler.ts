@@ -7,19 +7,13 @@
 //   use web worker
 //   convert to type script
 class DownScaler {
-   private destWidth: number;
-   private destHeight: number;
-   private dest: HTMLCanvasElement;
-
-   constructor(private src: HTMLCanvasElement, private scale: number) {
-      this.destWidth = 0 | this.src.width * scale;
-      this.destHeight = 0 | this.src.height * scale;
-      this.dest = document.createElement('canvas');
-   }
+   get destWidth(): number { return 0 | this.src.width * this.scale; }
+   get destHeight(): number { return 0 | this.src.height * this.scale; }
+   private dest: HTMLCanvasElement = document.createElement('canvas');
+   constructor(private src: HTMLCanvasElement, private scale: number) { }
 
    public fast(): HTMLCanvasElement {
-      this.dest.width = this.destWidth;
-      this.dest.height = this.destHeight;
+      this.adjustSize();
       let ctx: CanvasRenderingContext2D = this.dest.getContext('2d');
       ctx.drawImage(
          this.src,
@@ -29,25 +23,33 @@ class DownScaler {
       return this.dest;
    }
 
+   private adjustSize(): void {
+      const dw = this.destWidth;
+      if (this.dest.width !== dw) {
+         this.dest.width = dw;
+      }
+      const dh = this.destHeight;
+      if (this.dest.height !== dh) {
+         this.dest.height = dh;
+      }
+   }
+
    public beautiful(): HTMLCanvasElement {
       let srcImageData = this.src.getContext('2d').getImageData(0, 0, this.src.width, this.src.height);
       let tmp = new Float32Array(this.destWidth * this.destHeight << 2);
       DownScaler.calculate(tmp, srcImageData.data, this.scale, this.src.width, this.src.height);
-      this.dest.width = this.destWidth;
-      this.dest.height = this.destHeight;
+      this.adjustSize();
       let ctx = this.dest.getContext('2d');
       let imgData = ctx.createImageData(this.destWidth, this.destHeight);
-      DownScaler.float32ToUint8ClampedArray(imgData.data, tmp, this.dest.width, this.dest.height, imgData.width);
+      DownScaler.float32ToUint8ClampedArray(imgData.data, tmp, this.destWidth, this.destHeight, imgData.width);
       ctx.putImageData(imgData, 0, 0);
       return this.dest;
    }
 
    public beautifulWorker(callback: (dest: HTMLCanvasElement) => void): void {
-      DownScaler.createWorkerURL();
-      let w = new Worker(DownScaler.workerURL);
+      let w = new Worker(DownScaler.createWorkerURL());
       w.onmessage = (e: MessageEvent): void => {
-         this.dest.width = this.destWidth;
-         this.dest.height = this.destHeight;
+         this.adjustSize();
          let ctx = this.dest.getContext('2d');
          let imgData = ctx.createImageData(this.destWidth, this.destHeight);
          DownScaler.copyBuffer(imgData.data, new Uint8Array(e.data.buffer), this.destWidth, this.destHeight, imgData.width);
@@ -60,18 +62,18 @@ class DownScaler {
          srcWidth: this.src.width,
          srcHeight: this.src.height,
          scale: this.scale,
-         destWidth: 0 | this.src.width * this.scale,
-         destHeight: 0 | this.src.height * this.scale
+         destWidth: this.destWidth,
+         destHeight: this.destHeight
       }, [srcImageData.data.buffer]);
    }
 
    static copyBuffer(dest: Uint8ClampedArray, src: Uint8Array, srcWidth: number, srcHeight: number, destWidth: number) {
       srcWidth *= 4;
       destWidth *= 4;
-      for (let y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
+      for (let x, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
          sl = srcWidth * y;
          dl = destWidth * y;
-         for (let x = 0; x < srcWidth; x += 4) {
+         for (x = 0; x < srcWidth; x += 4) {
             dest[dl + x] = src[sl + x];
             dest[dl + x + 1] = src[sl + x + 1];
             dest[dl + x + 2] = src[sl + x + 2];
@@ -82,9 +84,9 @@ class DownScaler {
 
    static workerURL: string;
 
-   static createWorkerURL(): void {
+   static createWorkerURL(): string {
       if (DownScaler.workerURL) {
-         return;
+         return DownScaler.workerURL;
       }
       let sourceCode: string[] = [];
       sourceCode.push('\'use strict\';\n');
@@ -95,13 +97,15 @@ class DownScaler {
       sourceCode.push(DownScaler.float32ToUint8ClampedArray.toString());
       sourceCode.push(';\n');
       sourceCode.push(`onmessage = function(e) {
-    var tmp = new Float32Array(e.data.destWidth * e.data.destHeight << 2);
-    calculate(tmp, new Uint8ClampedArray(e.data.src), e.data.scale, e.data.srcWidth, e.data.srcHeight);
-    var dest = new Uint8ClampedArray(e.data.destWidth * e.data.destHeight << 2);
-    float32ToUint8ClampedArray(dest, tmp, e.data.destWidth, e.data.destHeight, e.data.destWidth);
+    var d = e.data;
+    var tmp = new Float32Array(d.destWidth * d.destHeight << 2);
+    calculate(tmp, new Uint8Array(d.src), d.scale, d.srcWidth, d.srcHeight);
+    var dest = new Uint8ClampedArray(d.destWidth * d.destHeight << 2);
+    float32ToUint8ClampedArray(dest, tmp, d.destWidth, d.destHeight, d.destWidth);
     postMessage({buffer: dest.buffer}, [dest.buffer]);
 };`);
       DownScaler.workerURL = URL.createObjectURL(new Blob([sourceCode.join('')], { type: 'text/javascript' }));
+      return DownScaler.workerURL;
    }
 
    static revokeWorkerURL(): void {
@@ -111,16 +115,17 @@ class DownScaler {
       }
    }
 
-   static float32ToUint8ClampedArray(dest: Uint8ClampedArray, src: Float32Array, sw: number, sh: number, dw: number) {
-      sw *= 4;
-      dw *= 4;
-      for (let x, y = 0, sl = 0, dl = 0; y < sh; ++y) {
-         sl = sw * y;
-         dl = dw * y;
-         for (x = 0; x < sw; x += 4) {
-            dest[dl + x] = src[sl + x];
-            dest[dl + x + 1] = src[sl + x + 1];
-            dest[dl + x + 2] = src[sl + x + 2];
+   static float32ToUint8ClampedArray(dest: Uint8ClampedArray, src: Float32Array, srcWidth: number, srcHeight: number, destWidth: number) {
+      srcWidth *= 4;
+      destWidth *= 4;
+      for (let ma, x, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
+         sl = srcWidth * y;
+         dl = destWidth * y;
+         for (x = 0; x < srcWidth; x += 4) {
+            ma = 255 / src[sl + x + 3];
+            dest[dl + x] = src[sl + x] * ma;
+            dest[dl + x + 1] = src[sl + x + 1] * ma;
+            dest[dl + x + 2] = src[sl + x + 2] * ma;
             dest[dl + x + 3] = src[sl + x + 3];
          }
       }
