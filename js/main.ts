@@ -315,7 +315,7 @@ declare var blend: any;
       var deferred = m.deferred();
       setTimeout(function() {
          try {
-            registerClippingGroup(psd.Child);
+            registerClippingGroup(psd.Children);
             psd.canvas = document.createElement('canvas');
             buildTree(psd, function() {
                ui.redraw();
@@ -375,12 +375,12 @@ declare var blend: any;
       }
 
       layer.nextState = '';
-      if (layer.Child.length) {
+      if (layer.Children.length) {
          if (blendMode === 'pass-through') {
             layer.nextState += layer.parentLayer.nextState + '+';
          }
-         for (var i = 0, child; i < layer.Child.length; ++i) {
-            child = layer.Child[i];
+         for (var i = 0, child; i < layer.Children.length; ++i) {
+            child = layer.Children[i];
             if (!child.Clipping) {
                if (calculateNextState(child, child.Opacity / 255, child.BlendMode)) {
                   layer.nextState += child.nextState + '+';
@@ -423,7 +423,7 @@ declare var blend: any;
    }
 
    function drawLayer(ctx, layer, x, y, opacity, blendMode) {
-      if (!layer.visibleInput.checked || opacity === 0 || (!layer.Child.length && !layer.Canvas)) {
+      if (!layer.visibleInput.checked || opacity === 0 || (!layer.Children.length && !layer.Canvas)) {
          return false;
       }
       var bb = layer.Buffer;
@@ -438,13 +438,13 @@ declare var blend: any;
       var bbctx = bb.getContext('2d');
 
       clear(bbctx);
-      if (layer.Child.length) {
+      if (layer.Children.length) {
          if (blendMode === 'pass-through') {
             draw(bbctx, layer.parentLayer.Buffer, -x - layer.X, -y - layer.Y, 1, 'source-over');
             blendMode = 'source-over';
          }
-         for (var i = 0, child; i < layer.Child.length; ++i) {
-            child = layer.Child[i];
+         for (var i = 0, child; i < layer.Children.length; ++i) {
+            child = layer.Children[i];
             if (!child.Clipping) {
                drawLayer(bbctx, child, -layer.X, -layer.Y, child.Opacity / 255, child.BlendMode);
             }
@@ -518,8 +518,8 @@ declare var blend: any;
       let s = Date.now();
 
       psd.nextState = '';
-      for (var i = 0, layer; i < psd.Child.length; ++i) {
-         layer = psd.Child[i];
+      for (var i = 0, layer; i < psd.Children.length; ++i) {
+         layer = psd.Children[i];
          if (!layer.Clipping) {
             if (calculateNextState(layer, layer.Opacity / 255, layer.BlendMode)) {
                psd.nextState += layer.nextState + '+';
@@ -531,10 +531,10 @@ declare var blend: any;
       if (psd.currentState !== psd.nextState) {
          var bbctx = bb.getContext('2d');
          clear(bbctx);
-         for (var i = 0, layer; i < psd.Child.length; ++i) {
-            layer = psd.Child[i];
+         for (var i = 0, layer; i < psd.Children.length; ++i) {
+            layer = psd.Children[i];
             if (!layer.Clipping) {
-               drawLayer(bbctx, layer, -psd.RealX, -psd.RealY, layer.Opacity / 255, layer.BlendMode);
+               drawLayer(bbctx, layer, -psd.X, -psd.Y, layer.Opacity / 255, layer.BlendMode);
             }
          }
          psd.currentState = psd.nextState;
@@ -544,8 +544,8 @@ declare var blend: any;
       var autoTrim = ui.optionAutoTrim.checked;
       var scale = 1;
       var px = parseInt(ui.maxPixels.value, 10);
-      var w = autoTrim ? psd.Buffer.width : psd.Width;
-      var h = autoTrim ? psd.Buffer.height : psd.Height;
+      var w = autoTrim ? psd.Width : psd.CanvasWidth;
+      var h = autoTrim ? psd.Height : psd.CanvasHeight;
       switch (ui.fixedSide.value) {
          case 'w':
             if (w > px) {
@@ -579,7 +579,7 @@ declare var blend: any;
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
          }
-         ctx.drawImage(c, autoTrim ? 0 : Math.ceil(psd.RealX * scale), autoTrim ? 0 : Math.ceil(psd.RealY * scale));
+         ctx.drawImage(c, autoTrim ? 0 : Math.ceil(psd.X * scale), autoTrim ? 0 : Math.ceil(psd.Y * scale));
          ctx.restore();
          callback(progress, canvas);
       });
@@ -612,12 +612,12 @@ declare var blend: any;
                layer.clip[i].li.classList.add('psdtool-hidden-by-clipping');
             }
          }
-         for (var i = 0; i < layer.Child.length; ++i) {
-            r(layer.Child[i]);
+         for (var i = 0; i < layer.Children.length; ++i) {
+            r(layer.Children[i]);
          }
       }
-      for (var i = 0; i < psd.Child.length; ++i) {
-         r(psd.Child[i]);
+      for (var i = 0; i < psd.Children.length; ++i) {
+         r(psd.Children[i]);
       }
    }
 
@@ -625,7 +625,7 @@ declare var blend: any;
       var clip = [];
       for (var i = layers.length - 1; i >= 0; --i) {
          var layer = layers[i];
-         registerClippingGroup(layer.Child);
+         registerClippingGroup(layer.Children);
          if (layer.Clipping) {
             clip.unshift(layer);
             layer.clip = [];
@@ -1406,8 +1406,8 @@ declare var blend: any;
          li.appendChild(prop);
 
          var children = document.createElement('ul');
-         for (var i = layer.Child.length - 1; i >= 0; --i) {
-            r(children, layer.Child[i], layer);
+         for (var i = layer.Children.length - 1; i >= 0; --i) {
+            r(children, layer.Children[i], layer);
          }
          li.appendChild(children);
          ul.appendChild(li);
@@ -1417,8 +1417,8 @@ declare var blend: any;
       var ul = document.getElementById('layer-tree');
       removeAllChild(ul);
       psd.id = 'r';
-      for (var i = psd.Child.length - 1; i >= 0; --i) {
-         r(ul, psd.Child[i], psd);
+      for (var i = psd.Children.length - 1; i >= 0; --i) {
+         r(ul, psd.Children[i], psd);
       }
       normalizeRadioButtons();
    }
@@ -1619,8 +1619,8 @@ declare var blend: any;
             }
          }
          var psdChild, stateChild, founds = {};
-         for (var i = 0; i < psdNode.Child.length; ++i) {
-            psdChild = psdNode.Child[i];
+         for (var i = 0; i < psdNode.Children.length; ++i) {
+            psdChild = psdNode.Children[i];
             if (psdChild.Name in founds) {
                throw new Error('found more than one same name layer: ' + psdChild.Name);
             }

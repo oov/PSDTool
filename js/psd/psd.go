@@ -23,23 +23,31 @@ import (
 )
 
 type root struct {
-	Width      int
-	Height     int
-	RealX      int
-	RealY      int
-	RealWidth  int
-	RealHeight int
-	Buffer     *js.Object
-	Child      []layer
-	processed  int
-	progress   func(l *layer)
-	realRect   image.Rectangle
-	Hash       string
-	PFV        string
-	Readme     string
+	X        int
+	Y        int
+	Width    int
+	Height   int
+	Children []layer
+
+	CanvasWidth  int
+	CanvasHeight int
+	Buffer       *js.Object
+	Hash         string
+	PFV          string
+	Readme       string
+
+	processed int
+	progress  func(l *layer)
+	realRect  image.Rectangle
 }
 
 type layer struct {
+	X        int
+	Y        int
+	Width    int
+	Height   int
+	Children []layer
+
 	Name                  string
 	BlendMode             string
 	Opacity               uint8
@@ -47,8 +55,6 @@ type layer struct {
 	BlendClippedElements  bool
 	TransparencyProtected bool
 	Visible               bool
-	X                     int
-	Y                     int
 	Canvas                *js.Object
 	MaskX                 int
 	MaskY                 int
@@ -57,10 +63,7 @@ type layer struct {
 	Buffer                *js.Object
 	Folder                bool
 	FolderOpen            bool
-	Child                 []layer
 	psdLayer              *psd.Layer
-	width                 int
-	height                int
 }
 
 func main() {
@@ -114,23 +117,23 @@ func (r *root) buildLayer(l *layer) error {
 
 	rect := l.psdLayer.Rect
 	for i := range l.psdLayer.Layer {
-		l.Child = append(l.Child, layer{psdLayer: &l.psdLayer.Layer[i]})
-		if err = r.buildLayer(&l.Child[i]); err != nil {
+		l.Children = append(l.Children, layer{psdLayer: &l.psdLayer.Layer[i]})
+		if err = r.buildLayer(&l.Children[i]); err != nil {
 			return err
 		}
 		rect = rect.Union(image.Rect(
-			l.Child[i].X,
-			l.Child[i].Y,
-			l.Child[i].X+l.Child[i].width,
-			l.Child[i].Y+l.Child[i].height,
+			l.Children[i].X,
+			l.Children[i].Y,
+			l.Children[i].X+l.Children[i].Width,
+			l.Children[i].Y+l.Children[i].Height,
 		))
 	}
 	l.X = rect.Min.X
 	l.Y = rect.Min.Y
-	l.width = rect.Dx()
-	l.height = rect.Dy()
-	if l.width*l.height > 0 {
-		l.Buffer = createCanvas(l.width, l.height)
+	l.Width = rect.Dx()
+	l.Height = rect.Dy()
+	if l.Width*l.Height > 0 {
+		l.Buffer = createCanvas(l.Width, l.Height)
 	}
 
 	return nil
@@ -146,21 +149,21 @@ func countLayers(l []psd.Layer) int {
 
 func (r *root) Build(img *psd.PSD, progress func(processed, total int, l *layer)) error {
 	numLayers := countLayers(img.Layer)
-	r.Width = img.Config.Rect.Dx()
-	r.Height = img.Config.Rect.Dy()
+	r.CanvasWidth = img.Config.Rect.Dx()
+	r.CanvasHeight = img.Config.Rect.Dy()
 	r.progress = func(l *layer) { progress(r.processed, numLayers, l) }
 	for i := range img.Layer {
-		r.Child = append(r.Child, layer{psdLayer: &img.Layer[i]})
-		if err := r.buildLayer(&r.Child[i]); err != nil {
+		r.Children = append(r.Children, layer{psdLayer: &img.Layer[i]})
+		if err := r.buildLayer(&r.Children[i]); err != nil {
 			return err
 		}
 	}
-	r.realRect = r.realRect.Intersect(image.Rect(0, 0, r.Width, r.Height))
-	r.RealX = r.realRect.Min.X
-	r.RealY = r.realRect.Min.Y
-	r.RealWidth = r.realRect.Dx()
-	r.RealHeight = r.realRect.Dy()
-	r.Buffer = createCanvas(r.RealWidth, r.RealHeight)
+	r.realRect = r.realRect.Intersect(image.Rect(0, 0, r.CanvasWidth, r.CanvasHeight))
+	r.X = r.realRect.Min.X
+	r.Y = r.realRect.Min.Y
+	r.Width = r.realRect.Dx()
+	r.Height = r.realRect.Dy()
+	r.Buffer = createCanvas(r.Width, r.Height)
 	return nil
 }
 
