@@ -1,7 +1,8 @@
+/// <reference path="../typings/browser.d.ts" />
 'use strict';
 importScripts('3rd/jszip.min.js');
 
-var z = new JSZip();
+let z = new JSZip();
 onmessage = function(e) {
    try {
       switch (e.data.method) {
@@ -9,17 +10,17 @@ onmessage = function(e) {
             z.file(e.data.name, e.data.buffer);
             break;
          case 'end':
-            var ab = z.generate({
+            let ab: ArrayBuffer = z.generate({
                type: 'arraybuffer'
             });
             postMessage({
                buffer: ab
-            }, [ab]);
+            }, <any>[ab]);
             break;
       }
    } catch (e) {
       postMessage({
          error: e
-      });
+      }, undefined);
    }
 };

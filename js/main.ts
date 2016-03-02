@@ -1,5 +1,11 @@
-(function() {
-   var originalStopCallback = Mousetrap.prototype.stopCallback;
+/// <reference path="../typings/browser.d.ts" />
+/// <reference path="downscaler.ts" />
+declare var parsePSD: any;
+declare var blend: any;
+
+'use strict';
+(function(Mousetrap) {
+   let originalStopCallback = Mousetrap.prototype.stopCallback;
    Mousetrap.prototype.stopCallback = function(e, element, combo) {
       if (!this.paused) {
          if (element.classList.contains('psdtool-layer-visible')) {
@@ -9,27 +15,51 @@
       return originalStopCallback.call(this, e, element, combo);
    };
    Mousetrap.init();
-})();
+})(Mousetrap);
 (function() {
-   'use strict';
 
-   var ui = {},
-      psdRoot,
+   var ui = {
+      redraw: null,
+      save: null,
+      maxPixels: null,
+      optionAutoTrim: null,
+      optionSafeMode: null,
+      seqDlPrefix: null,
+      seqDlNum: null,
+      favoriteTree: null,
+      FavoriteTreeDefaultRootName: null,
+      favoriteTreeChangedTimer: null,
+      seqDl: null,
+      exportFavoritesPFV: null,
+      exportFavoritesZIP: null,
+      sideBody: null,
+      sideBodyScrollPos: null,
+      previewCanvas: null,
+      previewBackground: null,
+      showReadme: null,
+      invertInput: null,
+      fixedSide: null,
+      exportProgressDialog: null,
+      exportProgressDialogProgressBar: null,
+      exportProgressDialogProgressCaption: null,
+      normalModeState: null
+   };
+   var psdRoot,
       droppedPFV,
       uniqueId = Date.now().toString() + Math.random().toString().substring(2);
 
    function init() {
       initDropZone('dropzone', function(files) {
-         for (var i = 0; i < files.length; ++i) {
-            var ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
-            if (ext == '.pfv') {
+         for (let i = 0; i < files.length; ++i) {
+            let ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
+            if (ext === '.pfv') {
                droppedPFV = files[i];
                break;
             }
          }
-         for (var i = 0; i < files.length; ++i) {
-            var ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
-            if (ext != '.pfv') {
+         for (let i = 0; i < files.length; ++i) {
+            let ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
+            if (ext !== '.pfv') {
                loadAndParse(files[i]);
                return;
             }
@@ -71,7 +101,7 @@
 
    function hashchanged() {
       var hashData = decodeURIComponent(location.hash.substring(1));
-      if (hashData.substring(0, 5) == 'load:') {
+      if (hashData.substring(0, 5) === 'load:') {
          loadAndParse(hashData.substring(5));
       }
    }
@@ -95,7 +125,7 @@
       fileLoadingUi.style.display = 'block';
       errorReportUi.style.display = 'none';
       main.style.display = 'none';
-      Mousetrap.pause();
+      (<any>Mousetrap).pause();
 
       var caption = document.getElementById('progress-caption');
       var errorMessageContainer = document.getElementById('error-message');
@@ -131,19 +161,19 @@
          .then(parse.bind(this, progress))
          .then(initMain)
          .then(function() {
-            fileLoadingUi.style.display = 'none';
-            fileOpenUi.style.display = 'none';
-            errorReportUi.style.display = 'none';
-            main.style.display = 'block';
-            Mousetrap.unpause();
-            resized();
-         }, function(e) {
+         fileLoadingUi.style.display = 'none';
+         fileOpenUi.style.display = 'none';
+         errorReportUi.style.display = 'none';
+         main.style.display = 'block';
+         (<any>Mousetrap).unpause();
+         resized();
+      }, function(e) {
             fileLoadingUi.style.display = 'none';
             fileOpenUi.style.display = 'block';
             errorReportUi.style.display = 'block';
             main.style.display = 'none';
-            Mousetrap.pause();
-            errorMessage.textContent = e;
+            (<any>Mousetrap).pause();
+            errorMessage.textContent = e.toString();
             console.error(e);
          });
    }
@@ -151,13 +181,13 @@
    function loadAsArrayBuffer(progress, file_or_url) {
       var deferred = m.deferred();
       progress('prepare', 0);
-      if (typeof file_or_url == 'string') {
+      if (typeof file_or_url === 'string') {
          var crossDomain = false;
-         if (file_or_url.substring(0, 3) == 'xd:') {
+         if (file_or_url.substring(0, 3) === 'xd:') {
             file_or_url = file_or_url.substring(3);
             crossDomain = true;
          }
-         if (location.protocol == 'https:' && file_or_url.substring(0, 5) == 'http:') {
+         if (location.protocol === 'https:' && file_or_url.substring(0, 5) === 'http:') {
             setTimeout(function() {
                deferred.reject(new Error('cannot access to the insecure content from HTTPS.'));
             }, 0);
@@ -171,7 +201,7 @@
                document.body.removeChild(ifr);
                deferred.reject(new Error('something went wrong'));
             }, 20000);
-            ifr.sandbox = 'allow-scripts allow-same-origin';
+            (<any>ifr).sandbox = 'allow-scripts allow-same-origin';
             ifr.onload = function() {
                var msgCh = new MessageChannel();
                port = msgCh.port1;
@@ -210,8 +240,8 @@
                ifr.contentWindow.postMessage(
                   location.protocol,
                   file_or_url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]
-               );
-            }
+                  );
+            };
             ifr.src = file_or_url;
             ifr.style.display = 'none';
             document.body.appendChild(ifr);
@@ -222,7 +252,7 @@
          xhr.responseType = 'arraybuffer';
          xhr.onload = function(e) {
             progress('receive', 1);
-            if (xhr.status == 200) {
+            if (xhr.status === 200) {
                deferred.resolve({
                   buffer: xhr.response,
                   name: extractFilePrefixFromUrl(file_or_url)
@@ -234,7 +264,7 @@
          xhr.onerror = function(e) {
             console.error(e);
             deferred.reject(new Error('could not receive data'));
-         }
+         };
          xhr.onprogress = function(e) {
             progress('receive', e.loaded / e.total);
          };
@@ -251,7 +281,7 @@
       };
       r.onerror = function(e) {
          deferred.reject(e);
-      }
+      };
       return deferred.promise;
    }
 
@@ -269,8 +299,8 @@
          psd.name = obj.name;
          deferred.resolve(psd);
       }, function(e) {
-         deferred.reject(e);
-      });
+            deferred.reject(e);
+         });
       return deferred.promise;
    }
 
@@ -292,7 +322,7 @@
             ui.maxPixels.value = ui.optionAutoTrim.checked ? psd.Buffer.height : psd.Height;
             ui.seqDlPrefix.value = psd.name;
             ui.seqDlNum.value = 0;
-            ui.showReadme.style.display = psd.Readme != '' ? 'block' : 'none';
+            ui.showReadme.style.display = psd.Readme !== '' ? 'block' : 'none';
             loadPFVFromDroppedFile().then(function(f) {
                if (!f) {
                   return loadPFVFromString(psd.PFV);
@@ -333,19 +363,19 @@
    }
 
    function clear(ctx) {
-      ctx.globalAlpha = 1
+      ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
    }
 
    function calculateNextState(layer, opacity, blendMode) {
-      if (!layer.visibleInput.checked || opacity == 0) {
+      if (!layer.visibleInput.checked || opacity === 0) {
          return false;
       }
 
-      layer.nextState = "";
+      layer.nextState = '';
       if (layer.Child.length) {
-         if (blendMode == 'pass-through') {
+         if (blendMode === 'pass-through') {
             layer.nextState += layer.parentLayer.nextState + '+';
          }
          for (var i = 0, child; i < layer.Child.length; ++i) {
@@ -392,12 +422,12 @@
    }
 
    function drawLayer(ctx, layer, x, y, opacity, blendMode) {
-      if (!layer.visibleInput.checked || opacity == 0 || (!layer.Child.length && !layer.Canvas)) {
+      if (!layer.visibleInput.checked || opacity === 0 || (!layer.Child.length && !layer.Canvas)) {
          return false;
       }
       var bb = layer.Buffer;
-      if (layer.currentState == layer.nextState) {
-         if (blendMode == 'pass-through') {
+      if (layer.currentState === layer.nextState) {
+         if (blendMode === 'pass-through') {
             blendMode = 'source-over';
          }
          draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
@@ -408,7 +438,7 @@
 
       clear(bbctx);
       if (layer.Child.length) {
-         if (blendMode == 'pass-through') {
+         if (blendMode === 'pass-through') {
             draw(bbctx, layer.parentLayer.Buffer, -x - layer.X, -y - layer.Y, 1, 'source-over');
             blendMode = 'source-over';
          }
@@ -430,7 +460,7 @@
             layer.MaskY - layer.Y,
             1,
             layer.MaskDefaultColor ? 'destination-out' : 'destination-in'
-         );
+            );
       }
 
       if (!layer.clip.length) {
@@ -453,7 +483,7 @@
                child, -layer.X, -layer.Y,
                child.Opacity / 255,
                child.BlendMode
-            ) || changed;
+               ) || changed;
          }
          if (changed) {
             draw(cbbctx, bb, 0, 0, 1, 'destination-in');
@@ -483,10 +513,10 @@
       return true;
    }
 
-   function render(psd, callback) {
-      var s = Date.now();
+   function render(psd: any, callback: (progress: number, canvas: HTMLCanvasElement) => void): void {
+      let s = Date.now();
 
-      psd.nextState = "";
+      psd.nextState = '';
       for (var i = 0, layer; i < psd.Child.length; ++i) {
          layer = psd.Child[i];
          if (!layer.Clipping) {
@@ -497,7 +527,7 @@
       }
 
       var bb = psd.Buffer;
-      if (psd.currentState != psd.nextState) {
+      if (psd.currentState !== psd.nextState) {
          var bbctx = bb.getContext('2d');
          clear(bbctx);
          for (var i = 0, layer; i < psd.Child.length; ++i) {
@@ -508,7 +538,7 @@
          }
          psd.currentState = psd.nextState;
       }
-      console.log("rendering: " + (Date.now() - s));
+      console.log('rendering: ' + (Date.now() - s));
 
       var autoTrim = ui.optionAutoTrim.checked;
       var scale = 1;
@@ -536,12 +566,12 @@
       }
 
       s = Date.now();
-      var canvas = psd.canvas;
+      let canvas = psd.canvas;
       canvas.width = 0 | w * scale;
       canvas.height = 0 | h * scale;
-      downScaleCanvas(psd.Buffer, scale, function(phase, c) {
-         console.log("scaling: " + (Date.now() - s) + '(phase:' + phase + ')');
-         var ctx = canvas.getContext('2d');
+      downScale(psd.Buffer, scale, function(progress: number, c: HTMLCanvasElement) {
+         console.log('scaling: ' + (Date.now() - s) + '(phase:' + progress + ')');
+         let ctx = canvas.getContext('2d');
          clear(ctx);
          ctx.save();
          if (ui.invertInput.checked) {
@@ -550,69 +580,20 @@
          }
          ctx.drawImage(c, autoTrim ? 0 : Math.ceil(psd.RealX * scale), autoTrim ? 0 : Math.ceil(psd.RealY * scale));
          ctx.restore();
-         callback(phase, canvas, canvas.width, canvas.height);
+         callback(progress, canvas);
       });
    }
 
-   // this code is based on http://jsfiddle.net/gamealchemist/kpQyE/14/
-   // changes are:
-   //   added alpha-channel support
-   //   avoid "optimized too many times" in chrome
-   //   use web worker
-   function downScaleCanvas(src, scale, callback) {
-      if (scale == 1) {
+   function downScale(src: HTMLCanvasElement, scale: number, callback: (progress: number, image: HTMLCanvasElement) => void): void {
+      if (scale === 1) {
          callback(1, src);
          return;
       }
-
-      var sw = src.width,
-         sh = src.height,
-         dw = Math.floor(sw * scale),
-         dh = Math.floor(sh * scale);
-
-      var dest = document.createElement('canvas');
-      dest.width = dw;
-      dest.height = dh;
-      var ctx = dest.getContext('2d');
-      ctx.drawImage(src, 0, 0, sw, sh, 0, 0, Math.round(sw * scale), Math.round(sh * scale));
-      callback(0, dest);
-
-      var w = new Worker('js/resizer.js');
-      w.onmessage = function(e) {
-         var ctx = dest.getContext('2d');
-         var imgData = ctx.createImageData(dw, dh);
-         downScaleCanvasFinalize(
-            imgData.data,
-            new Uint8Array(e.data.buf),
-            dw,
-            dh,
-            imgData.width
-         );
-         ctx.putImageData(imgData, 0, 0);
-         callback(1, dest);
-      };
-      var sbuf = src.getContext('2d').getImageData(0, 0, sw, sh);
-      w.postMessage({
-         scale: scale,
-         buf: sbuf.data.buffer,
-         width: sbuf.width,
-         height: sbuf.height
-      }, [sbuf.data.buffer]);
-   }
-
-   function downScaleCanvasFinalize(d, s, w, h, dw) {
-      w *= 4;
-      dw *= 4;
-      for (var y = 0, sl = 0, dl = 0; y < h; ++y) {
-         sl = w * y;
-         dl = dw * y;
-         for (var x = 0; x < w; x += 4) {
-            d[dl + x] = s[sl + x];
-            d[dl + x + 1] = s[sl + x + 1];
-            d[dl + x + 2] = s[sl + x + 2];
-            d[dl + x + 3] = s[sl + x + 3];
-         }
-      }
+      let ds = new DownScaler(src, scale);
+      callback(0, ds.fast());
+      ds.beautifulWorker((canvas: HTMLCanvasElement): void => {
+         callback(1, canvas);
+      });
    }
 
    function updateClass(psd) {
@@ -667,16 +648,16 @@
       ui.favoriteTreeChangedTimer = setTimeout(function() {
          ui.favoriteTreeChangedTimer = null;
          var pfv = buildPFV(ui.favoriteTree.jstree('get_json'));
-         if (countPFVEntries(pfv) == 0) {
+         if (countPFVEntries(pfv) === 0) {
             return;
          }
 
          var pfvs = [];
          if ('psdtool_pfv' in localStorage) {
-            pfvs = JSON.parse(localStorage.psdtool_pfv);
+            pfvs = JSON.parse(localStorage['psdtool_pfv']);
          }
          for (var i = 0; i < pfvs.length; ++i) {
-            if (pfvs[i].id == uniqueId && pfvs[i].hash == psdRoot.Hash) {
+            if (pfvs[i].id === uniqueId && pfvs[i].hash === psdRoot.Hash) {
                pfvs.splice(i, 1);
                break;
             }
@@ -690,26 +671,26 @@
          while (pfvs.length > 8) {
             pfvs.shift();
          }
-         localStorage.psdtool_pfv = JSON.stringify(pfvs);
+         localStorage['psdtool_pfv'] = JSON.stringify(pfvs);
       }, 100);
    }
 
-   function initFavoriteTree(data) {
+   function initFavoriteTree(data?: any) {
       var treeSettings = {
          core: {
             animation: false,
             check_callback: function(op, node, parent) {
                switch (op) {
                   case 'create_node':
-                     return node.type != 'root';
+                     return node.type !== 'root';
                   case 'rename_node':
                      return true;
                   case 'delete_node':
-                     return node.type != 'root';
+                     return node.type !== 'root';
                   case 'move_node':
-                     return node.type != 'root' && parent.id != '#' && parent.type != 'item';
+                     return node.type !== 'root' && parent.id !== '#' && parent.type !== 'item';
                   case 'copy_node':
-                     return node.type != 'root' && parent.id != '#' && parent.type != 'item';
+                     return node.type !== 'root' && parent.id !== '#' && parent.type !== 'item';
                }
 
             },
@@ -719,7 +700,7 @@
             },
             data: data ? data : [{
                id: 'root',
-               text: ui.FavoritesTreeDefaultRootName,
+               text: ui.FavoriteTreeDefaultRootName,
                type: 'root',
             }]
          },
@@ -728,27 +709,36 @@
                icon: false,
             },
             item: {
-               icon: "glyphicon glyphicon-picture"
+               icon: 'glyphicon glyphicon-picture'
             },
             folder: {
-               icon: "glyphicon glyphicon-folder-open"
+               icon: 'glyphicon glyphicon-folder-open'
             }
          },
-         plugins: ["types", "dnd", "wholerow"],
+         plugins: ['types', 'dnd', 'wholerow'],
       };
       if (ui.favoriteTree) {
          ui.favoriteTree.jstree('destroy');
       }
       ui.favoriteTree = jQuery('#favorite-tree').jstree(treeSettings);
-      ui.favoriteTree.on('set_text.jstree create_node.jstree rename_node.jstree delete_node.jstree move_node.jstree copy_node.jstree cut.jstree paste.jstree', favoriteTreeChanged);
+      ui.favoriteTree.on([
+         'set_text.jstree',
+         'create_node.jstree',
+         'rename_node.jstree',
+         'delete_node.jstree',
+         'move_node.jstree',
+         'copy_node.jstree',
+         'cut.jstree',
+         'paste.jstree'
+      ].join(' '), favoriteTreeChanged);
       ui.favoriteTree.on('changed.jstree', function(e) {
          var jst = $(this).jstree();
-         var selected = jst.get_top_selected(true);
-         if (selected.length == 0) {
+         var selectedList = jst.get_top_selected(true);
+         if (selectedList.length === 0) {
             return;
          }
-         selected = selected[0];
-         if (selected.type != 'item') {
+         var selected = selectedList[0];
+         if (selected.type !== 'item') {
             leaveReaderMode();
             return;
          }
@@ -767,7 +757,7 @@
 
          function process(node, original) {
             var text = suggestUniqueName(jst, node);
-            if (node.text != text) {
+            if (node.text !== text) {
                jst.rename_node(node, text);
             }
             switch (node.type) {
@@ -789,28 +779,28 @@
       ui.favoriteTree.on('move_node.jstree', function(e, data) {
          var jst = $(this).jstree();
          var text = suggestUniqueName(jst, data.node, data.text);
-         if (data.text != text) {
+         if (data.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
       ui.favoriteTree.on('create_node.jstree', function(e, data) {
          var jst = $(this).jstree();
          var text = suggestUniqueName(jst, data.node);
-         if (data.node.text != text) {
+         if (data.node.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
       ui.favoriteTree.on('rename_node.jstree', function(e, data) {
          var jst = $(this).jstree();
          var text = suggestUniqueName(jst, data.node, data.text);
-         if (data.text != text) {
+         if (data.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
       ui.favoriteTree.on('dblclick.jstree', function(e) {
          var jst = $(this).jstree();
          var selected = jst.get_node(e.target);
-         if (selected.type != 'item') {
+         if (selected.type !== 'item') {
             jst.toggle_node(selected);
             return;
          }
@@ -826,12 +816,12 @@
       });
    }
 
-   function suggestUniqueName(jst, node, newText) {
+   function suggestUniqueName(jst, node, newText?: string) {
       var n = jst.get_node(node),
          parent = jst.get_node(n.parent);
       var nameMap = {};
       for (var i = 0; i < parent.children.length; ++i) {
-         if (parent.children[i] == n.id) {
+         if (parent.children[i] === n.id) {
             continue;
          }
          nameMap[jst.get_text(parent.children[i])] = true;
@@ -856,7 +846,7 @@
       if (root && root.text) {
          return root.text;
       }
-      return ui.FavoritesTreeDefaultRootName;
+      return ui.FavoriteTreeDefaultRootName;
    }
 
    function cleanForFilename(f) {
@@ -876,11 +866,11 @@
    function addNewNode(jst, objType, usePrompt) {
       function createNode(obj) {
          var selected = jst.get_top_selected(true);
-         if (selected.length == 0) {
+         if (selected.length === 0) {
             return jst.create_node('root', obj, 'last');
          }
          selected = selected[0];
-         if (selected.type != 'item') {
+         if (selected.type !== 'item') {
             var r = jst.create_node(selected, obj, 'last');
             if (!selected.state.opened) {
                jst.open_node(selected, null);
@@ -889,7 +879,7 @@
          }
          var parent = jst.get_node(selected.parent);
          var idx = parent.children.indexOf(selected.id);
-         return jst.create_node(parent, obj, idx != -1 ? idx + 1 : 'last');
+         return jst.create_node(parent, obj, idx !== -1 ? idx + 1 : 'last');
       }
 
       var obj, selector;
@@ -930,7 +920,7 @@
          return;
       }
       text = suggestUniqueName(jst, id, oldText);
-      if (text != oldText) {
+      if (text !== oldText) {
          jst.rename_node(id, text);
       }
       return id;
@@ -951,8 +941,8 @@
       leaveReaderMode();
       for (var i = 0; i < files.length; ++i) {
          var ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
-         if (ext == '.pfv') {
-            loadAsArrayBuffer(function() {}, files[i]).then(function(buffer) {
+         if (ext === '.pfv') {
+            loadAsArrayBuffer(function() { ; }, files[i]).then(function(buffer: any) {
                loadPFV(arrayBufferToString(buffer.buffer));
                jQuery('#import-dialog').modal('hide');
             }).then(null, function(e) {
@@ -965,12 +955,12 @@
    }
 
    function initFavoriteUI() {
-      ui.FavoritesTreeDefaultRootName = document.getElementById('favorite-tree').getAttribute('data-root-name');
+      ui.FavoriteTreeDefaultRootName = document.getElementById('favorite-tree').getAttribute('data-root-name');
       initFavoriteTree();
 
       jQuery('button[data-psdtool-tree-add-item]').on('click', function(e) {
          var jst = jQuery(this.getAttribute('data-psdtool-tree-add-item')).jstree();
-         jst.edit(addNewNode(jst, 'item'));
+         jst.edit(addNewNode(jst, 'item', false));
       });
       Mousetrap.bind('mod+b', function(e) {
          e.preventDefault();
@@ -980,7 +970,7 @@
 
       jQuery('button[data-psdtool-tree-add-folder]').on('click', function(e) {
          var jst = jQuery(this.getAttribute('data-psdtool-tree-add-folder')).jstree();
-         jst.edit(addNewNode(jst, 'folder'));
+         jst.edit(addNewNode(jst, 'folder', false));
       });
       Mousetrap.bind('mod+d', function(e) {
          e.preventDefault();
@@ -1004,18 +994,19 @@
       });
 
       Mousetrap.bind('shift+mod+g', function(e) {
-         if (!e.target.classList.contains('psdtool-layer-visible')) {
+         var target = <HTMLElement>e.target;
+         if (!target.classList.contains('psdtool-layer-visible')) {
             return;
          }
          e.preventDefault();
          var jst = ui.favoriteTree.jstree();
-         if (e.target.classList.contains('psdtool-layer-radio')) {
+         if (target.classList.contains('psdtool-layer-radio')) {
             var old = serializeCheckState(true);
             var created = [];
-            var id, elems = document.querySelectorAll('input[name="' + e.target.name + '"].psdtool-layer-radio');
+            var id, elems = document.querySelectorAll('input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
             for (var i = 0; i < elems.length; ++i) {
-               elems[i].checked = true;
-               id = addNewNode(jst, 'item');
+               (<HTMLInputElement>elems[i]).checked = true;
+               id = addNewNode(jst, 'item', false);
                jst.rename_node(id, elems[i].getAttribute('data-name'));
                created.push(jst.get_text(id));
             }
@@ -1035,13 +1026,13 @@
          var pfv = [],
             btn;
          if ('psdtool_pfv' in localStorage) {
-            pfv = JSON.parse(localStorage.psdtool_pfv);
+            pfv = JSON.parse(localStorage['psdtool_pfv']);
          }
          for (var i = pfv.length - 1; i >= 0; --i) {
             btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'list-group-item';
-            if (pfv[i].hash == psdRoot.Hash) {
+            if (pfv[i].hash === psdRoot.Hash) {
                btn.className += ' list-group-item-info';
             }
             btn.setAttribute('data-dismiss', 'modal');
@@ -1051,12 +1042,16 @@
                   loadPFVFromString(data).then(function() {
                      uniqueId = id;
                   }, function(e) {
-                     console.error(e);
-                     alert(e);
-                  });
+                        console.error(e);
+                        alert(e);
+                     });
                }, false);
             })(btn, pfv[i].data, pfv[i].id);
-            btn.appendChild(document.createTextNode(countPFVEntries(pfv[i].data) + ' item(s) / Created at ' + formateDate(new Date(pfv[i].time))));
+            btn.appendChild(document.createTextNode(
+               countPFVEntries(pfv[i].data) +
+               ' item(s) / Created at ' +
+               formateDate(new Date(pfv[i].time))
+               ));
             recents.appendChild(btn);
          }
       });
@@ -1127,7 +1122,7 @@
          var i = 0;
 
          function process() {
-            if (i == files.length) {
+            if (i === files.length) {
                deserializeCheckState(backup);
                updateProgress(
                   ui.exportProgressDialogProgressBar,
@@ -1139,8 +1134,8 @@
                return;
             }
             deserializeCheckState(files[i].value);
-            render(psdRoot, function(phase, canvas, width, height) {
-               if (phase != 1) {
+            render(psdRoot, function(progress: number, canvas: HTMLCanvasElement) {
+               if (progress !== 1) {
                   return;
                }
                var b = dataSchemeURIToArrayBuffer(canvas.toDataURL());
@@ -1221,14 +1216,14 @@
       }, false);
       ui.redraw = function() {
          ui.seqDl.disabled = true;
-         render(psdRoot, function(phase, canvas, width, height) {
-            ui.previewBackground.style.width = width + 'px';
-            ui.previewBackground.style.height = height + 'px';
-            ui.seqDl.disabled = phase != 1;
-            ui.previewCanvas.draggable = phase != 1 ? 'false' : 'true';
+         render(psdRoot, function(progress: number, canvas: HTMLCanvasElement) {
+            ui.previewBackground.style.width = canvas.width + 'px';
+            ui.previewBackground.style.height = canvas.height + 'px';
+            ui.seqDl.disabled = progress !== 1;
+            ui.previewCanvas.draggable = progress !== 1 ? 'false' : 'true';
             setTimeout(function() {
-               ui.previewCanvas.width = width;
-               ui.previewCanvas.height = height;
+               ui.previewCanvas.width = canvas.width;
+               ui.previewCanvas.height = canvas.height;
                var ctx = ui.previewCanvas.getContext('2d');
                ctx.drawImage(canvas, 0, 0);
             }, 0);
@@ -1240,19 +1235,19 @@
          saveAs(new Blob([
             dataSchemeURIToArrayBuffer(ui.previewCanvas.toDataURL())
          ], {
-            type: 'image/png'
-         }), filename);
+               type: 'image/png'
+            }), filename);
          return true;
       };
 
       ui.showReadme = document.getElementById('show-readme');
       ui.showReadme.addEventListener('click', function(e) {
-         var w = window.open("", null);
+         var w = window.open('', null);
          w.document.body.innerHTML = '<title>Readme - PSDTool</title><pre style="font: 12pt/1.7 monospace;"></pre>';
          w.document.querySelector('pre').textContent = psdRoot.Readme;
       }, false);
 
-      jQuery('#main').on('splitpaneresize', resized).splitPane();
+      (<any>jQuery('#main').on('splitpaneresize', resized)).splitPane();
 
       ui.invertInput = document.getElementById('invert-input');
       ui.invertInput.addEventListener('click', function(e) {
@@ -1267,7 +1262,7 @@
       ui.maxPixels = document.getElementById('max-pixels');
       ui.maxPixels.addEventListener('blur', function(e) {
          var v = normalizeNumber(this.value);
-         if (v == lastPx) {
+         if (v === lastPx) {
             return;
          }
          lastPx = v;
@@ -1280,7 +1275,7 @@
       ui.seqDl = document.getElementById('seq-dl');
       ui.seqDl.addEventListener('click', function(e) {
          var prefix = ui.seqDlPrefix.value;
-         if (ui.seqDlNum.value == '') {
+         if (ui.seqDlNum.value === '') {
             ui.save(prefix + '.png');
             return;
          }
@@ -1289,12 +1284,12 @@
          if (num < 0) {
             num = 0;
          }
-         if (ui.save(prefix + ("0000" + num).slice(-4) + '.png')) {
+         if (ui.save(prefix + ('0000' + num).slice(-4) + '.png')) {
             ui.seqDlNum.value = num + 1;
          }
       }, false);
 
-      Mousetrap.pause();
+      (<any>Mousetrap).pause();
    }
 
    function enterReaderMode(state, filename) {
@@ -1312,7 +1307,7 @@
       ui.redraw();
    }
 
-   function leaveReaderMode(state) {
+   function leaveReaderMode(state?: String) {
       if (ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.remove('reader');
       }
@@ -1358,7 +1353,7 @@
          e.stopPropagation();
          return false;
       }, false);
-      var f = dz.querySelector('input[type=file]');
+      var f = <HTMLInputElement>dz.querySelector('input[type=file]');
       if (f) {
          f.addEventListener('change', function(e) {
             loader(f.files);
@@ -1417,7 +1412,7 @@
 
       var ul = document.getElementById('layer-tree');
       removeAllChild(ul);
-      psd.id = 'r'
+      psd.id = 'r';
       for (var i = psd.Child.length - 1; i >= 0; --i) {
          r(ul, psd.Child[i], psd);
       }
@@ -1508,7 +1503,7 @@
    function normalizeRadioButtons() {
       var ul = document.getElementById('layer-tree');
       var set = {};
-      var radios = ul.querySelectorAll('.psdtool-layer-radio');
+      var radios = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-radio');
       for (var i = 0; i < radios.length; ++i) {
          if (radios[i].name in set) {
             continue;
@@ -1519,18 +1514,16 @@
             radios[i].checked = true;
             continue;
          }
-         for (var j = 1; j < rinShibuyas.length; ++j) {
-            rinShibuyas[j].checked = false;
-         }
       }
    }
 
    function clearCheckState() {
-      var i, elems = document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
+      var i: number;
+      var elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
       for (i = 0; i < elems.length; ++i) {
          elems[i].checked = false;
       }
-      elems = document.querySelectorAll('#layer-tree .psdtool-layer-force-visible');
+      elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-force-visible');
       for (i = 0; i < elems.length; ++i) {
          elems[i].checked = true;
       }
@@ -1572,7 +1565,7 @@
             }
          }
          // remove duplicated entry
-         if (j != -1 && i > 0 && path[i].ss.indexOf(path[i - 1].ss) == 0) {
+         if (j !== -1 && i > 0 && path[i].ss.indexOf(path[i - 1].ss) === 0) {
             path.splice(--i, 1);
          }
       }
@@ -1589,7 +1582,7 @@
 
    function deserializeCheckState(state) {
       function buildStateTree(state) {
-         var allLayer = state.charAt(0) == '/';
+         var allLayer = state.charAt(0) === '/';
          var stateTree = {
             allLayer: allLayer,
             children: {}
@@ -1603,7 +1596,7 @@
                   obj = {
                      children: {}
                   };
-                  if (!allLayer || (allLayer && j == parts.length - 1)) {
+                  if (!allLayer || (allLayer && j === parts.length - 1)) {
                      obj.checked = true;
                   }
                   node.children[part] = obj;
@@ -1614,7 +1607,7 @@
          return stateTree;
       }
 
-      function apply(stateNode, psdNode, allLayer) {
+      function apply(stateNode, psdNode, allLayer?: boolean) {
          if (allLayer === undefined) {
             allLayer = stateNode.allLayer;
             if (allLayer) {
@@ -1652,7 +1645,7 @@
    }
 
    function buildPFV(json) {
-      if (json.length != 1) {
+      if (json.length !== 1) {
          throw new Error('sorry but favorite tree data is broken');
       }
 
@@ -1691,7 +1684,7 @@
       var lines = pfv.replace(/\r/g, '').split('\n'),
          c = 0;
       for (var i = 1; i < lines.length; ++i) {
-         if (lines[i].length > 2 && lines[i].substring(0, 2) == '//') {
+         if (lines[i].length > 2 && lines[i].substring(0, 2) === '//') {
             ++c;
          }
       }
@@ -1700,7 +1693,7 @@
 
    // https://gist.github.com/boushley/5471599
    function arrayBufferToString(arrayBuffer) {
-      var result = "";
+      var result = '';
       var i = 0;
       var c = 0;
       var c2 = 0;
@@ -1721,14 +1714,14 @@
             i++;
          } else if (c > 191 && c < 224) {
             if (i + 1 >= data.length) {
-               throw "UTF-8 Decode failed. Two byte character was truncated.";
+               throw 'UTF-8 Decode failed. Two byte character was truncated.';
             }
             c2 = data[i + 1];
             result += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
             i += 2;
          } else {
             if (i + 2 >= data.length) {
-               throw "UTF-8 Decode failed. Multi byte character was truncated.";
+               throw 'UTF-8 Decode failed. Multi byte character was truncated.';
             }
             c2 = data[i + 1];
             c3 = data[i + 2];
@@ -1746,7 +1739,7 @@
             deferred.resolve(false);
             return;
          }
-         loadAsArrayBuffer(function() {}, droppedPFV).then(function(buffer) {
+         loadAsArrayBuffer(function() { ; }, droppedPFV).then(function(buffer: any) {
             loadPFV(arrayBufferToString(buffer.buffer));
             deferred.resolve(true);
          }).then(deferred.resolve.bind(deferred), deferred.reject.bind(deferred));
@@ -1775,16 +1768,16 @@
       var deferred = m.deferred();
       var pfv = [];
       if ('psdtool_pfv' in localStorage) {
-         pfv = JSON.parse(localStorage.psdtool_pfv);
+         pfv = JSON.parse(localStorage['psdtool_pfv']);
       }
       for (var i = pfv.length - 1; i >= 0; --i) {
-         if (pfv[i].hash == hash) {
+         if (pfv[i].hash === hash) {
             loadPFVFromString(pfv[i].data).then(function() {
                uniqueId = pfv[i].id;
                deferred.resolve(true);
             }, function(e) {
-               deferred.reject(e);
-            });
+                  deferred.reject(e);
+               });
             return deferred.promise;
          }
       }
@@ -1796,7 +1789,7 @@
 
    function loadPFV(s) {
       var lines = s.replace(/\r/g, '').split('\n');
-      if (lines[0] != '[PSDToolFavorites-v1]') {
+      if (lines[0] !== '[PSDToolFavorites-v1]') {
          throw new Error('given PFV file does not have a valid header');
       }
 
@@ -1805,18 +1798,18 @@
          for (i = 0, c = json; i < p.length; ++i) {
             n = decodeLayerName(p[i]);
             for (j = 0; j < c.length; ++j) {
-               if (c[j].text == n) {
+               if (c[j].text === n) {
                   c = c[j].children;
                   j = -1;
                   break;
                }
             }
-            if (j != -1) {
+            if (j !== -1) {
                c.push({
                   text: n,
                   children: []
                });
-               if (i == p.length - 1) {
+               if (i === p.length - 1) {
                   c[j].type = 'item';
                   c[j].data = {
                      value: data
@@ -1834,7 +1827,7 @@
 
       var json = [{
          id: 'root',
-         text: ui.FavoritesTreeDefaultRootName,
+         text: ui.FavoriteTreeDefaultRootName,
          type: 'root',
          state: {
             opened: true
@@ -1842,17 +1835,17 @@
          children: []
       }];
       var setting = {
-         'root-name': ui.FavoritesTreeDefaultRootName
-      }
+         'root-name': ui.FavoriteTreeDefaultRootName
+      };
       var name = '',
          data = [],
          first = true,
          value;
       for (var i = 1; i < lines.length; ++i) {
-         if (lines[i] == '') {
+         if (lines[i] === '') {
             continue;
          }
-         if (lines[i].length > 2 && lines[i].substring(0, 2) == '//') {
+         if (lines[i].length > 2 && lines[i].substring(0, 2) === '//') {
             if (first) {
                json[0].text = setting['root-name'];
                first = false;
