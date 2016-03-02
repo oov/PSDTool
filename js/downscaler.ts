@@ -14,7 +14,7 @@ class DownScaler {
 
    public fast(): HTMLCanvasElement {
       this.adjustSize();
-      let ctx: CanvasRenderingContext2D = this.dest.getContext('2d');
+      let ctx = this.dest.getContext('2d');
       ctx.drawImage(
          this.src,
          0, 0, this.src.width, this.src.height,
@@ -70,7 +70,7 @@ class DownScaler {
    static copyBuffer(dest: Uint8ClampedArray, src: Uint8Array, srcWidth: number, srcHeight: number, destWidth: number) {
       srcWidth *= 4;
       destWidth *= 4;
-      for (let x, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
+      for (let x: number, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
          sl = srcWidth * y;
          dl = destWidth * y;
          for (x = 0; x < srcWidth; x += 4) {
@@ -118,7 +118,7 @@ class DownScaler {
    static float32ToUint8ClampedArray(dest: Uint8ClampedArray, src: Float32Array, srcWidth: number, srcHeight: number, destWidth: number) {
       srcWidth *= 4;
       destWidth *= 4;
-      for (let ma, x, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
+      for (let ma: number, x: number, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
          sl = srcWidth * y;
          dl = destWidth * y;
          for (x = 0; x < srcWidth; x += 4) {
