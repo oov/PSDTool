@@ -5,8 +5,8 @@ declare var blend: any;
 
 'use strict';
 (function(Mousetrap) {
-   let originalStopCallback = Mousetrap.prototype.stopCallback;
-   Mousetrap.prototype.stopCallback = function(e, element, combo) {
+   let originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;
+   Mousetrap.prototype.stopCallback = (e: KeyboardEvent, element: HTMLElement, combo?: string): boolean => {
       if (!this.paused) {
          if (element.classList.contains('psdtool-layer-visible')) {
             return false;
@@ -49,16 +49,17 @@ declare var blend: any;
       uniqueId = Date.now().toString() + Math.random().toString().substring(2);
 
    function init() {
-      initDropZone('dropzone', function(files) {
-         for (let i = 0; i < files.length; ++i) {
-            let ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
+      initDropZone('dropzone', (files: FileList): void => {
+         let i, ext;
+         for (i = 0; i < files.length; ++i) {
+            ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
             if (ext === '.pfv') {
                droppedPFV = files[i];
                break;
             }
          }
-         for (let i = 0; i < files.length; ++i) {
-            let ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
+         for (i = 0; i < files.length; ++i) {
+            ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
             if (ext !== '.pfv') {
                loadAndParse(files[i]);
                return;
@@ -937,12 +938,13 @@ declare var blend: any;
       leaveReaderMode();
    }
 
-   function pfvOnDrop(files) {
+   function pfvOnDrop(files: FileList): void {
       leaveReaderMode();
-      for (var i = 0; i < files.length; ++i) {
-         var ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
+      let i, ext;
+      for (i = 0; i < files.length; ++i) {
+         ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
          if (ext === '.pfv') {
-            loadAsArrayBuffer(function() { ; }, files[i]).then(function(buffer: any) {
+            loadAsArrayBuffer((): void => { ; }, files[i]).then(function(buffer: any) {
                loadPFV(arrayBufferToString(buffer.buffer));
                jQuery('#import-dialog').modal('hide');
             }).then(null, function(e) {
@@ -1324,7 +1326,7 @@ declare var blend: any;
       ui.normalModeState = null;
    }
 
-   function initDropZone(dropZoneId, loader) {
+   function initDropZone(dropZoneId: string, loader: (files: FileList) => void): void {
       var dz = document.getElementById(dropZoneId);
       dz.addEventListener('dragenter', function(e) {
          this.classList.add('psdtool-drop-active');
@@ -1362,13 +1364,13 @@ declare var blend: any;
       }
    }
 
-   function encodeLayerName(s) {
-      return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, function(m) {
+   function encodeLayerName(s: string): string {
+      return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, (m): string => {
          return '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2);
       });
    }
 
-   function decodeLayerName(s) {
+   function decodeLayerName(s: string): string {
       return decodeURIComponent(s);
    }
 
