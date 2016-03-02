@@ -592,9 +592,11 @@ declare var blend: any;
       }
       let ds = new DownScaler(src, scale);
       callback(0, ds.fast());
-      ds.beautifulWorker((canvas: HTMLCanvasElement): void => {
-         callback(1, canvas);
-      });
+      setTimeout((): void => {
+         ds.beautifulWorker((canvas: HTMLCanvasElement): void => {
+            callback(1, canvas);
+         });
+      }, 0);
    }
 
    function updateClass(psd) {
