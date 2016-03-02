@@ -1108,7 +1108,7 @@
          w.onmessage = function(e) {
             if (e.data.error) {
                console.error(e.data.error);
-               alert('cannot create zip archive: '+e.data.error);
+               alert('cannot create zip archive: ' + e.data.error);
                ui.exportProgressDialog.modal('hide');
                return;
             }
@@ -1152,7 +1152,7 @@
                updateProgress(
                   ui.exportProgressDialogProgressBar,
                   ui.exportProgressDialogProgressCaption,
-                  i / files.length, '('+i+'/'+files.length+') '+decodeLayerName(files[i].name));
+                  i / files.length, '(' + i + '/' + files.length + ') ' + decodeLayerName(files[i].name));
                ++i;
                setTimeout(process, 0);
             });
