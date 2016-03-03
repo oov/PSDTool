@@ -400,19 +400,20 @@
       ui.favoriteTreeChangedTimer = setTimeout(() => {
          ui.favoriteTreeChangedTimer = null;
          let pfv = buildPFV(ui.favoriteTree.jstree('get_json'));
-         if (countPFVEntries(pfv) === 0) {
-            return;
-         }
-
-         var pfvs = [];
+         let pfvs: any[] = [];
          if ('psdtool_pfv' in localStorage) {
             pfvs = JSON.parse(localStorage['psdtool_pfv']);
          }
-         for (var i = 0; i < pfvs.length; ++i) {
+         let found = false;
+         for (let i = 0; i < pfvs.length; ++i) {
             if (pfvs[i].id === uniqueId && pfvs[i].hash === psdRoot.Hash) {
                pfvs.splice(i, 1);
+               found = true;
                break;
             }
+         }
+         if (!found && countPFVEntries(pfv) === 0) {
+            return;
          }
          pfvs.push({
             id: uniqueId,
@@ -465,6 +466,9 @@
             },
             folder: {
                icon: 'glyphicon glyphicon-folder-open'
+            },
+            filter: {
+               icon: 'glyphicon glyphicon-filter'
             }
          },
          plugins: ['types', 'dnd', 'wholerow'],
@@ -520,6 +524,11 @@
                   }
                   break;
                case 'folder':
+                  for (let i = 0; i < node.children.length; ++i) {
+                     process(jst.get_node(node.children[i]), jst.get_node(original.children[i]));
+                  }
+                  break;
+               case 'filter':
                   for (let i = 0; i < node.children.length; ++i) {
                      process(jst.get_node(node.children[i]), jst.get_node(original.children[i]));
                   }
@@ -653,6 +662,13 @@
                type: 'folder'
             };
             selector = 'button[data-psdtool-tree-add-folder]';
+            break;
+         case 'filter':
+            obj = {
+               text: 'New Filter',
+               type: 'filter'
+            };
+            selector = 'button[data-psdtool-tree-add-filter]';
             break;
          default:
             throw new Error('unsupported object type: ' + objType);
@@ -835,6 +851,9 @@
                      path.push('');
                      break;
                   case 'folder':
+                     r(item.children);
+                     break;
+                  case 'filter':
                      r(item.children);
                      break;
                   case 'item':
@@ -1418,6 +1437,17 @@
                   path.push('');
                   break;
                case 'folder':
+                  if (item.children.length) {
+                     r(item.children);
+                  } else {
+                     lines.push('//' + path.join('/') + '~folder');
+                     lines.push('');
+                  }
+                  break;
+               case 'filter':
+                  lines.push('//' + path.join('/') + '~filter');
+                  lines.push(item.data.value);
+                  lines.push('');
                   r(item.children);
                   break;
                case 'item':
@@ -1540,39 +1570,62 @@
          throw new Error('given PFV file does not have a valid header');
       }
 
-      function addNode(json, name, data) {
-         var i, j, c, n, p = name.split('/');
-         for (i = 0, c = json; i < p.length; ++i) {
-            n = decodeLayerName(p[i]);
+      function addNode(json: any[], name: string, type: string, data: any): void {
+         console.log(name, type);
+         let i: number, j: number, c: any[], partName: string, nameParts = name.split('/');
+         for (i = 0, c = json; i < nameParts.length; ++i) {
+            partName = decodeLayerName(nameParts[i]);
             for (j = 0; j < c.length; ++j) {
-               if (c[j].text === n) {
+               if (c[j].text === partName) {
                   c = c[j].children;
                   j = -1;
                   break;
                }
             }
-            if (j !== -1) {
-               c.push({
-                  text: n,
-                  children: []
-               });
-               if (i === p.length - 1) {
-                  c[j].type = 'item';
-                  c[j].data = {
-                     value: data
-                  };
-                  return;
-               }
+            if (j !== c.length) {
+               continue;
+            }
+            c.push({
+               text: partName,
+               children: []
+            });
+            if (i !== nameParts.length - 1) {
                c[j].type = 'folder';
                c[j].state = {
                   opened: true
                };
                c = c[j].children;
+               continue;
+            }
+            switch (type) {
+               case 'item':
+                  c[j].type = 'item';
+                  c[j].data = {
+                     value: data
+                  };
+                  return;
+               case 'folder':
+                  c[j].type = 'folder';
+                  c[j].state = {
+                     opened: true
+                  };
+                  return;
+               case 'filter':
+                  c[j].type = 'item';
+                  c[j].data = {
+                     value: data
+                  };
+                  c[j].state = {
+                     opened: true
+                  };
+                  return;
+               default:
+                  throw new Error('unknown node type: ' + type);
             }
          }
       }
 
-      var json = [{
+      let json = [{
          id: 'root',
          text: ui.FavoriteTreeDefaultRootName,
          type: 'root',
@@ -1581,14 +1634,15 @@
          },
          children: []
       }];
-      var setting = {
+      let setting = {
          'root-name': ui.FavoriteTreeDefaultRootName
       };
-      var name = '',
-         data = [],
+      let name: string,
+         type: string,
+         data: string[] = [],
          first = true,
-         value;
-      for (var i = 1; i < lines.length; ++i) {
+         value: string;
+      for (let i = 1; i < lines.length; ++i) {
          if (lines[i] === '') {
             continue;
          }
@@ -1596,10 +1650,17 @@
             if (first) {
                json[0].text = setting['root-name'];
                first = false;
-            } else if (data.length) {
-               addNode(json, encodeLayerName(setting['root-name']) + '/' + name, data.join('\n'));
+            } else {
+               addNode(json, encodeLayerName(setting['root-name']) + '/' + name, type, data.join('\n'));
             }
             name = lines[i].substring(2);
+            if (name.indexOf('~') !== -1) {
+               data = name.split('~');
+               name = data[0];
+               type = data[1];
+            } else {
+               type = 'item';
+            }
             data = [];
             continue;
          }
@@ -1613,9 +1674,7 @@
             data.push(lines[i]);
          }
       }
-      if (data.length) {
-         addNode(json, encodeLayerName(setting['root-name']) + '/' + name, data.join('\n'));
-      }
+      addNode(json, encodeLayerName(setting['root-name']) + '/' + name, type, data.join('\n'));
       initFavoriteTree(json);
    }
 
