@@ -19,10 +19,7 @@ class StateNode {
    public clippedBy: StateNode;
    public clippingBuffer: HTMLCanvasElement;
    constructor(public layer: psd.Layer, public parent: StateNode, public id: string) {
-      if (!layer) {
-         return;
-      }
-      if (layer.Width * layer.Height > 0) {
+      if (layer && layer.Width * layer.Height > 0) {
          this.buffer = document.createElement('canvas');
          this.buffer.width = layer.Width;
          this.buffer.height = layer.Height;
@@ -124,13 +121,13 @@ class Renderer {
       console.log('rendering: ' + (Date.now() - s));
 
       s = Date.now();
-      const w = autoTrim ? this.psd.Width : this.psd.CanvasWidth;
-      const h = autoTrim ? this.psd.Height : this.psd.CanvasHeight;
-      let canvas = this.canvas;
-      canvas.width = 0 | w * scale;
-      canvas.height = 0 | h * scale;
       this.downScale(bb, scale, (progress: number, c: HTMLCanvasElement): void => {
          console.log('scaling: ' + (Date.now() - s) + '(phase:' + progress + ')');
+         const w = autoTrim ? this.psd.Width : this.psd.CanvasWidth;
+         const h = autoTrim ? this.psd.Height : this.psd.CanvasHeight;
+         let canvas = this.canvas;
+         canvas.width = 0 | w * scale;
+         canvas.height = 0 | h * scale;
          let ctx = canvas.getContext('2d');
          this.clear(ctx);
          ctx.save();
