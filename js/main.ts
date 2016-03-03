@@ -5,7 +5,7 @@
 'use strict';
 (function(Mousetrap) {
    let originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;
-   Mousetrap.prototype.stopCallback = (e: KeyboardEvent, element: HTMLElement, combo?: string): boolean => {
+   Mousetrap.prototype.stopCallback = function(e: KeyboardEvent, element: HTMLElement, combo?: string): boolean {
       if (!this.paused) {
          if (element.classList.contains('psdtool-layer-visible')) {
             return false;
@@ -504,7 +504,7 @@
             alert(e);
          }
       });
-      ui.favoriteTree.on('copy_node.jstree', (e: any, data: any) => {
+      ui.favoriteTree.on('copy_node.jstree', function(e: any, data: any) {
          let jst = $(this).jstree();
 
          function process(node: any, original: any): void {
@@ -528,28 +528,28 @@
          }
          process(data.node, data.original);
       });
-      ui.favoriteTree.on('move_node.jstree', (e: any, data: any) => {
+      ui.favoriteTree.on('move_node.jstree', function(e: any, data: any) {
          let jst = $(this).jstree();
          let text = suggestUniqueName(jst, data.node, data.text);
          if (data.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
-      ui.favoriteTree.on('create_node.jstree', (e: any, data: any) => {
+      ui.favoriteTree.on('create_node.jstree', function(e: any, data: any) {
          let jst = $(this).jstree();
          let text = suggestUniqueName(jst, data.node);
          if (data.node.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
-      ui.favoriteTree.on('rename_node.jstree', (e: any, data: any) => {
+      ui.favoriteTree.on('rename_node.jstree', function(e: any, data: any) {
          let jst = $(this).jstree();
          let text = suggestUniqueName(jst, data.node, data.text);
          if (data.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
-      ui.favoriteTree.on('dblclick.jstree', (e: any) => {
+      ui.favoriteTree.on('dblclick.jstree', function(e: any) {
          let jst = $(this).jstree();
          let selected = jst.get_node(e.target);
          if (selected.type !== 'item') {
@@ -713,7 +713,7 @@
       ui.FavoriteTreeDefaultRootName = document.getElementById('favorite-tree').getAttribute('data-root-name');
       initFavoriteTree();
 
-      jQuery('button[data-psdtool-tree-add-item]').on('click', (e) => {
+      jQuery('button[data-psdtool-tree-add-item]').on('click', function(e) {
          let jst = jQuery(this.getAttribute('data-psdtool-tree-add-item')).jstree();
          jst.edit(addNewNode(jst, 'item', false));
       });
@@ -723,7 +723,7 @@
          addNewNode(jst, 'item', true);
       });
 
-      jQuery('button[data-psdtool-tree-add-folder]').on('click', (e) => {
+      jQuery('button[data-psdtool-tree-add-folder]').on('click', function(e) {
          let jst = jQuery(this.getAttribute('data-psdtool-tree-add-folder')).jstree();
          jst.edit(addNewNode(jst, 'folder', false));
       });
@@ -733,7 +733,7 @@
          addNewNode(jst, 'folder', true);
       });
 
-      jQuery('button[data-psdtool-tree-rename]').on('click', (e) => {
+      jQuery('button[data-psdtool-tree-rename]').on('click', function(e) {
          let jst = jQuery(this.getAttribute('data-psdtool-tree-rename')).jstree();
          jst.edit(jst.get_top_selected());
       });
@@ -743,7 +743,7 @@
          jst.edit(jst.get_top_selected());
       });
 
-      jQuery('button[data-psdtool-tree-remove]').on('click', (e) => {
+      jQuery('button[data-psdtool-tree-remove]').on('click', function(e) {
          let jst = jQuery(this.getAttribute('data-psdtool-tree-remove')).jstree();
          removeSelectedNode(jst);
       });
@@ -957,7 +957,7 @@
 
       ui.previewBackground = document.getElementById('preview-background');
       ui.previewCanvas = document.getElementById('preview');
-      ui.previewCanvas.addEventListener('dragstart', (e) => {
+      ui.previewCanvas.addEventListener('dragstart', function(e) {
          let s = this.toDataURL();
          let name = this.getAttribute('data-filename');
          if (name) {
