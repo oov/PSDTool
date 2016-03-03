@@ -107,7 +107,7 @@
       }
    }
 
-   function updateProgress(barElem, captionElem, progress, caption) {
+   function updateProgress(barElem: HTMLElement, captionElem: HTMLElement, progress: number, caption: string): void {
       var p = progress * 100;
       barElem.style.width = p + '%';
       barElem.setAttribute('aria-valuenow', p.toFixed(0) + '%');
@@ -286,7 +286,7 @@
       return deferred.promise;
    }
 
-   function extractFilePrefixFromUrl(url) {
+   function extractFilePrefixFromUrl(url: string): string {
       url = url.replace(/#[^#]*$/, '');
       url = url.replace(/\?[^?]*$/, '');
       url = url.replace(/^.*?([^\/]+)$/, '$1');
@@ -294,44 +294,37 @@
       return url;
    }
 
-   function parse(progress, obj) {
+   function parse(progress: (phase: string, progress: number, layer?: psd.Layer) => void, obj) {
       var deferred = m.deferred();
-      parsePSD(obj.buffer, progress, function(psd) {
-         deferred.resolve({ psd: psd, name: obj.name });
-      }, function(e) {
-            deferred.reject(e);
-         });
+      parsePSD(
+         obj.buffer,
+         progress,
+         (psd: psd.Root): void => { deferred.resolve({ psd: psd, name: obj.name }); },
+         (error: any): void => { deferred.reject(error); }
+         );
       return deferred.promise;
    }
 
-   function removeAllChild(elem) {
-      for (var i = elem.childNodes.length - 1; i >= 0; --i) {
+   function removeAllChild(elem: HTMLElement): void {
+      for (let i = elem.childNodes.length - 1; i >= 0; --i) {
          elem.removeChild(elem.firstChild);
       }
    }
 
-   function initMain(psd: psd.Root, name) {
+   function initMain(psd: psd.Root, name: string) {
       var deferred = m.deferred();
       setTimeout(function() {
          try {
             renderer = new Renderer(psd);
-            buildLayerTree(renderer, function() {
-               ui.redraw();
-            });
-            ui.maxPixels.value = ui.optionAutoTrim.checked ? psd.Height : psd.CanvasHeight;
+            buildLayerTree(renderer, () => { ui.redraw(); });
+            ui.maxPixels.value = ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight;
             ui.seqDlPrefix.value = name;
             ui.seqDlNum.value = 0;
             ui.showReadme.style.display = psd.Readme !== '' ? 'block' : 'none';
-            loadPFVFromDroppedFile().then(function(f) {
-               if (!f) {
-                  return loadPFVFromString(psd.PFV);
-               }
-               return true;
-            }).then(function(f) {
-               if (!f) {
-                  return loadPFVFromLocalStorage(psd.Hash);
-               }
-               return true;
+            loadPFVFromDroppedFile().then((loaded: boolean): any => {
+               return loaded ? true : loadPFVFromString(psd.PFV);
+            }).then((loaded: boolean): any => {
+               return loaded ? true : loadPFVFromLocalStorage(psd.Hash);
             }).then(null, function(e) {
                console.error(e);
                alert(e);
@@ -342,7 +335,7 @@
          } catch (e) {
             deferred.reject(e);
          }
-      }, 1);
+      }, 0);
       return deferred.promise;
    }
 
@@ -400,13 +393,13 @@
       }
    }
 
-   function favoriteTreeChanged() {
+   function favoriteTreeChanged(): void {
       if (ui.favoriteTreeChangedTimer) {
          clearTimeout(ui.favoriteTreeChangedTimer);
       }
-      ui.favoriteTreeChangedTimer = setTimeout(function() {
+      ui.favoriteTreeChangedTimer = setTimeout(() => {
          ui.favoriteTreeChangedTimer = null;
-         var pfv = buildPFV(ui.favoriteTree.jstree('get_json'));
+         let pfv = buildPFV(ui.favoriteTree.jstree('get_json'));
          if (countPFVEntries(pfv) === 0) {
             return;
          }
@@ -438,7 +431,7 @@
       var treeSettings = {
          core: {
             animation: false,
-            check_callback: function(op, node, parent) {
+            check_callback: (op, node, parent): boolean => {
                switch (op) {
                   case 'create_node':
                      return node.type !== 'root';
@@ -491,12 +484,12 @@
          'paste.jstree'
       ].join(' '), favoriteTreeChanged);
       ui.favoriteTree.on('changed.jstree', function(e) {
-         var jst = $(this).jstree();
-         var selectedList = jst.get_top_selected(true);
+         let jst = $(this).jstree();
+         let selectedList = jst.get_top_selected(true);
          if (selectedList.length === 0) {
             return;
          }
-         var selected = selectedList[0];
+         let selected = selectedList[0];
          if (selected.type !== 'item') {
             leaveReaderMode();
             return;
@@ -511,11 +504,11 @@
             alert(e);
          }
       });
-      ui.favoriteTree.on('copy_node.jstree', function(e, data) {
-         var jst = $(this).jstree();
+      ui.favoriteTree.on('copy_node.jstree', (e: any, data: any) => {
+         let jst = $(this).jstree();
 
-         function process(node, original) {
-            var text = suggestUniqueName(jst, node);
+         function process(node: any, original: any): void {
+            const text = suggestUniqueName(jst, node);
             if (node.text !== text) {
                jst.rename_node(node, text);
             }
@@ -527,7 +520,7 @@
                   }
                   break;
                case 'folder':
-                  for (var i = 0; i < node.children.length; ++i) {
+                  for (let i = 0; i < node.children.length; ++i) {
                      process(jst.get_node(node.children[i]), jst.get_node(original.children[i]));
                   }
                   break;
@@ -535,30 +528,30 @@
          }
          process(data.node, data.original);
       });
-      ui.favoriteTree.on('move_node.jstree', function(e, data) {
-         var jst = $(this).jstree();
-         var text = suggestUniqueName(jst, data.node, data.text);
+      ui.favoriteTree.on('move_node.jstree', (e: any, data: any) => {
+         let jst = $(this).jstree();
+         let text = suggestUniqueName(jst, data.node, data.text);
          if (data.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
-      ui.favoriteTree.on('create_node.jstree', function(e, data) {
-         var jst = $(this).jstree();
-         var text = suggestUniqueName(jst, data.node);
+      ui.favoriteTree.on('create_node.jstree', (e: any, data: any) => {
+         let jst = $(this).jstree();
+         let text = suggestUniqueName(jst, data.node);
          if (data.node.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
-      ui.favoriteTree.on('rename_node.jstree', function(e, data) {
-         var jst = $(this).jstree();
-         var text = suggestUniqueName(jst, data.node, data.text);
+      ui.favoriteTree.on('rename_node.jstree', (e: any, data: any) => {
+         let jst = $(this).jstree();
+         let text = suggestUniqueName(jst, data.node, data.text);
          if (data.text !== text) {
             jst.rename_node(data.node, text);
          }
       });
-      ui.favoriteTree.on('dblclick.jstree', function(e) {
-         var jst = $(this).jstree();
-         var selected = jst.get_node(e.target);
+      ui.favoriteTree.on('dblclick.jstree', (e: any) => {
+         let jst = $(this).jstree();
+         let selected = jst.get_node(e.target);
          if (selected.type !== 'item') {
             jst.toggle_node(selected);
             return;
@@ -575,11 +568,11 @@
       });
    }
 
-   function suggestUniqueName(jst, node, newText?: string) {
-      var n = jst.get_node(node),
+   function suggestUniqueName(jst: JSTree, node: any, newText?: string): string {
+      let i: number, n = jst.get_node(node),
          parent = jst.get_node(n.parent);
-      var nameMap = {};
-      for (var i = 0; i < parent.children.length; ++i) {
+      let nameMap = {};
+      for (i = 0; i < parent.children.length; ++i) {
          if (parent.children[i] === n.id) {
             continue;
          }
@@ -592,28 +585,28 @@
          return newText;
       }
       newText += ' ';
-      var i = 2;
+      i = 2;
       while ((newText + i) in nameMap) {
          ++i;
       }
       return newText + i;
    }
 
-   function getFavoriteTreeRootName() {
-      var jst = ui.favoriteTree.jstree();
-      var root = jst.get_node('root');
+   function getFavoriteTreeRootName(): string {
+      let jst = ui.favoriteTree.jstree();
+      let root = jst.get_node('root');
       if (root && root.text) {
          return root.text;
       }
       return ui.FavoriteTreeDefaultRootName;
    }
 
-   function cleanForFilename(f) {
+   function cleanForFilename(f: string): string {
       return f.replace(/[\x00-\x1f\x22\x2a\x2f\x3a\x3c\x3e\x3f\x7c\x7f]+/g, '_');
    }
 
-   function formateDate(d) {
-      var s = d.getFullYear() + '-';
+   function formateDate(d: Date): string {
+      let s = d.getFullYear() + '-';
       s += ('0' + (d.getMonth() + 1)).slice(-2) + '-';
       s += ('0' + d.getDate()).slice(-2) + ' ';
       s += ('0' + d.getHours()).slice(-2) + ':';
@@ -622,26 +615,26 @@
       return s;
    }
 
-   function addNewNode(jst, objType, usePrompt) {
+   function addNewNode(jst: JSTree, objType: string, usePrompt: boolean): any {
       function createNode(obj) {
-         var selected = jst.get_top_selected(true);
-         if (selected.length === 0) {
+         let selectedList = jst.get_top_selected(true);
+         if (selectedList.length === 0) {
             return jst.create_node('root', obj, 'last');
          }
-         selected = selected[0];
+         let selected = selectedList[0];
          if (selected.type !== 'item') {
-            var r = jst.create_node(selected, obj, 'last');
+            let n = jst.create_node(selected, obj, 'last');
             if (!selected.state.opened) {
                jst.open_node(selected, null);
             }
-            return r;
+            return n;
          }
-         var parent = jst.get_node(selected.parent);
-         var idx = parent.children.indexOf(selected.id);
+         let parent = jst.get_node(selected.parent);
+         let idx = parent.children.indexOf(selected.id);
          return jst.create_node(parent, obj, idx !== -1 ? idx + 1 : 'last');
       }
 
-      var obj, selector;
+      let obj: any, selector: string;
       switch (objType) {
          case 'item':
             leaveReaderMode();
@@ -661,9 +654,11 @@
             };
             selector = 'button[data-psdtool-tree-add-folder]';
             break;
+         default:
+            throw new Error('unsupported object type: ' + objType);
       }
 
-      var id = createNode(obj);
+      let id = createNode(obj);
       jst.deselect_all();
       jst.select_node(id);
       leaveReaderMode();
@@ -672,8 +667,8 @@
          return id;
       }
 
-      var oldText = jst.get_text(id);
-      var text = prompt(document.querySelector(selector).getAttribute('data-caption'), oldText);
+      let oldText = jst.get_text(id);
+      let text = prompt(document.querySelector(selector).getAttribute('data-caption'), oldText);
       if (text === null) {
          removeSelectedNode(jst);
          return;
@@ -685,7 +680,7 @@
       return id;
    }
 
-   function removeSelectedNode(jst) {
+   function removeSelectedNode(jst: JSTree): void {
       leaveReaderMode();
       try {
          jst.delete_node(jst.get_top_selected());
@@ -702,7 +697,7 @@
       for (i = 0; i < files.length; ++i) {
          ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
          if (ext === '.pfv') {
-            loadAsArrayBuffer((): void => undefined, files[i]).then(function(buffer: any) {
+            loadAsArrayBuffer((): void => undefined, files[i]).then((buffer: any): any => {
                loadPFV(arrayBufferToString(buffer.buffer));
                jQuery('#import-dialog').modal('hide');
             }).then(null, function(e) {
@@ -714,57 +709,58 @@
       }
    }
 
-   function initFavoriteUI() {
+   function initFavoriteUI(): void {
       ui.FavoriteTreeDefaultRootName = document.getElementById('favorite-tree').getAttribute('data-root-name');
       initFavoriteTree();
 
-      jQuery('button[data-psdtool-tree-add-item]').on('click', function(e) {
-         var jst = jQuery(this.getAttribute('data-psdtool-tree-add-item')).jstree();
+      jQuery('button[data-psdtool-tree-add-item]').on('click', (e) => {
+         let jst = jQuery(this.getAttribute('data-psdtool-tree-add-item')).jstree();
          jst.edit(addNewNode(jst, 'item', false));
       });
-      Mousetrap.bind('mod+b', function(e) {
+      Mousetrap.bind('mod+b', (e) => {
          e.preventDefault();
-         var jst = ui.favoriteTree.jstree();
+         let jst = ui.favoriteTree.jstree();
          addNewNode(jst, 'item', true);
       });
 
-      jQuery('button[data-psdtool-tree-add-folder]').on('click', function(e) {
-         var jst = jQuery(this.getAttribute('data-psdtool-tree-add-folder')).jstree();
+      jQuery('button[data-psdtool-tree-add-folder]').on('click', (e) => {
+         let jst = jQuery(this.getAttribute('data-psdtool-tree-add-folder')).jstree();
          jst.edit(addNewNode(jst, 'folder', false));
       });
-      Mousetrap.bind('mod+d', function(e) {
+      Mousetrap.bind('mod+d', (e) => {
          e.preventDefault();
-         var jst = ui.favoriteTree.jstree();
+         let jst = ui.favoriteTree.jstree();
          addNewNode(jst, 'folder', true);
       });
 
-      jQuery('button[data-psdtool-tree-rename]').on('click', function(e) {
-         var jst = jQuery(this.getAttribute('data-psdtool-tree-rename')).jstree();
+      jQuery('button[data-psdtool-tree-rename]').on('click', (e) => {
+         let jst = jQuery(this.getAttribute('data-psdtool-tree-rename')).jstree();
          jst.edit(jst.get_top_selected());
       });
-      Mousetrap.bind('f2', function(e) {
+      Mousetrap.bind('f2', (e) => {
          e.preventDefault();
-         var jst = ui.favoriteTree.jstree();
+         let jst = ui.favoriteTree.jstree();
          jst.edit(jst.get_top_selected());
       });
 
-      jQuery('button[data-psdtool-tree-remove]').on('click', function(e) {
-         var jst = jQuery(this.getAttribute('data-psdtool-tree-remove')).jstree();
+      jQuery('button[data-psdtool-tree-remove]').on('click', (e) => {
+         let jst = jQuery(this.getAttribute('data-psdtool-tree-remove')).jstree();
          removeSelectedNode(jst);
       });
 
-      Mousetrap.bind('shift+mod+g', function(e) {
-         var target = <HTMLElement>e.target;
+      Mousetrap.bind('shift+mod+g', (e) => {
+         let target = <HTMLElement>e.target;
          if (!target.classList.contains('psdtool-layer-visible')) {
             return;
          }
          e.preventDefault();
-         var jst = ui.favoriteTree.jstree();
+         let jst: JSTree = ui.favoriteTree.jstree();
          if (target.classList.contains('psdtool-layer-radio')) {
-            var old = serializeCheckState(true);
-            var created = [];
-            var id, elems = document.querySelectorAll('input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
-            for (var i = 0; i < elems.length; ++i) {
+            let old = serializeCheckState(true);
+            let created: string[] = [];
+            let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll(
+               'input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
+            for (let i = 0, id; i < elems.length; ++i) {
                (<HTMLInputElement>elems[i]).checked = true;
                id = addNewNode(jst, 'item', false);
                jst.rename_node(id, elems[i].getAttribute('data-name'));
@@ -779,16 +775,16 @@
       initDropZone('pfv-dropzone', pfvOnDrop);
       initDropZone('pfv-dropzone2', pfvOnDrop);
 
-      jQuery('#import-dialog').on('shown.bs.modal', function() {
+      jQuery('#import-dialog').on('shown.bs.modal', (e) => {
          // build the recent list
-         var recents = document.getElementById('pfv-recents');
+         let recents = document.getElementById('pfv-recents');
          removeAllChild(recents);
-         var pfv = [],
-            btn;
+         let pfv = [],
+            btn: HTMLButtonElement;
          if ('psdtool_pfv' in localStorage) {
             pfv = JSON.parse(localStorage['psdtool_pfv']);
          }
-         for (var i = pfv.length - 1; i >= 0; --i) {
+         for (let i = pfv.length - 1; i >= 0; --i) {
             btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'list-group-item';
@@ -796,15 +792,12 @@
                btn.className += ' list-group-item-info';
             }
             btn.setAttribute('data-dismiss', 'modal');
-            (function(btn, data, id) {
-               btn.addEventListener('click', function(e) {
+            ((btn: HTMLButtonElement, data: any, id: string) => {
+               btn.addEventListener('click', (e) => {
                   leaveReaderMode();
-                  loadPFVFromString(data).then(function() {
-                     uniqueId = id;
-                  }, function(e) {
-                        console.error(e);
-                        alert(e);
-                     });
+                  loadPFVFromString(data).then(
+                     (loaded) => { uniqueId = id; },
+                     (e) => { console.error(e); alert(e); });
                }, false);
             })(btn, pfv[i].data, pfv[i].id);
             btn.appendChild(document.createTextNode(
@@ -817,7 +810,7 @@
       });
 
       ui.exportFavoritesPFV = document.getElementById('export-favorites-pfv');
-      ui.exportFavoritesPFV.addEventListener('click', function(e) {
+      ui.exportFavoritesPFV.addEventListener('click', (e) => {
          saveAs(new Blob([buildPFV(ui.favoriteTree.jstree('get_json'))], {
             type: 'text/plain'
          }), cleanForFilename(getFavoriteTreeRootName()) + '.pfv');
@@ -828,13 +821,11 @@
       ui.exportProgressDialogProgressCaption = document.getElementById('export-progress-dialog-progress-caption');
 
       ui.exportFavoritesZIP = document.getElementById('export-favorites-zip');
-      ui.exportFavoritesZIP.addEventListener('click', function(e) {
-         var json = ui.favoriteTree.jstree('get_json');
-         var path = [],
-            files = [];
-
-         function r(children) {
-            for (var i = 0, item; i < children.length; ++i) {
+      ui.exportFavoritesZIP.addEventListener('click', (e) => {
+         let path: string[] = [],
+            files: any[] = [];
+         function r(children: any[]) {
+            for (let i = 0, item: any; i < children.length; ++i) {
                item = children[i];
                path.push(cleanForFilename(item.text));
                switch (item.type) {
@@ -852,10 +843,13 @@
                         value: item.data.value
                      });
                      break;
+                  default:
+                     throw new Error('unknown item type: ' + item.type);
                }
                path.pop();
             }
          }
+         let json = ui.favoriteTree.jstree('get_json');
          r(json);
 
          var backup = serializeCheckState(true);
@@ -879,8 +873,7 @@
             buffer: buildPFV(json)
          });
 
-         var i = 0;
-
+         let i = 0;
          function process() {
             if (i === files.length) {
                deserializeCheckState(backup);
@@ -921,18 +914,18 @@
       });
    }
 
-   function dataSchemeURIToArrayBuffer(str) {
-      var bin = atob(str.substring(str.indexOf(',') + 1));
-      var buf = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; ++i) {
+   function dataSchemeURIToArrayBuffer(str: string): ArrayBuffer {
+      let bin = atob(str.substring(str.indexOf(',') + 1));
+      let buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; ++i) {
          buf[i] = bin.charCodeAt(i);
       }
       return buf.buffer;
    }
 
-   function normalizeNumber(s) {
-      return s.replace(/[\uff10-\uff19]/g, function(m) {
-         return m.charCodeAt(0) - 0xff10;
+   function normalizeNumber(s: string): string {
+      return s.replace(/[\uff10-\uff19]/g, (m): string => {
+         return (m[0].charCodeAt(0) - 0xff10).toString();
       });
    }
 
@@ -944,13 +937,13 @@
       ui.sideBody = document.getElementById('side-body');
       ui.sideBodyScrollPos = {};
       jQuery('a[data-toggle="tab"]').on('hide.bs.tab', function(e) {
-         var tab = e.target.getAttribute('href');
+         let tab = e.target.getAttribute('href');
          ui.sideBodyScrollPos[tab] = {
             left: ui.sideBody.scrollLeft,
             top: ui.sideBody.scrollTop
          };
       }).on('shown.bs.tab', function(e) {
-         var tab = e.target.getAttribute('href');
+         let tab = e.target.getAttribute('href');
          if (tab in ui.sideBodyScrollPos) {
             ui.sideBody.scrollLeft = ui.sideBodyScrollPos[tab].left;
             ui.sideBody.scrollTop = ui.sideBodyScrollPos[tab].top;
@@ -964,34 +957,34 @@
 
       ui.previewBackground = document.getElementById('preview-background');
       ui.previewCanvas = document.getElementById('preview');
-      ui.previewCanvas.addEventListener('dragstart', function(e) {
-         var s = this.toDataURL();
-         var name = this.getAttribute('data-filename');
+      ui.previewCanvas.addEventListener('dragstart', (e) => {
+         let s = this.toDataURL();
+         let name = this.getAttribute('data-filename');
          if (name) {
-            var p = s.indexOf(';');
+            let p = s.indexOf(';');
             s = s.substring(0, p) + ';filename=' + encodeURIComponent(name) + s.substring(p);
          }
          e.dataTransfer.setData('text/uri-list', s);
          e.dataTransfer.setData('text/plain', s);
       }, false);
-      ui.redraw = function() {
+      ui.redraw = (): void => {
          ui.seqDl.disabled = true;
          render((progress: number, canvas: HTMLCanvasElement): void => {
             ui.previewBackground.style.width = canvas.width + 'px';
             ui.previewBackground.style.height = canvas.height + 'px';
             ui.seqDl.disabled = progress !== 1;
             ui.previewCanvas.draggable = progress !== 1 ? 'false' : 'true';
-            setTimeout(function() {
+            setTimeout(() => {
                ui.previewCanvas.width = canvas.width;
                ui.previewCanvas.height = canvas.height;
-               var ctx = ui.previewCanvas.getContext('2d');
+               let ctx: CanvasRenderingContext2D = ui.previewCanvas.getContext('2d');
                ctx.drawImage(canvas, 0, 0);
             }, 0);
          });
          updateClass();
       };
 
-      ui.save = function(filename) {
+      ui.save = (filename: string): boolean => {
          saveAs(new Blob([
             dataSchemeURIToArrayBuffer(ui.previewCanvas.toDataURL())
          ], {
@@ -1001,8 +994,8 @@
       };
 
       ui.showReadme = document.getElementById('show-readme');
-      ui.showReadme.addEventListener('click', function(e) {
-         var w = window.open('', null);
+      ui.showReadme.addEventListener('click', (e) => {
+         let w = window.open('', null);
          w.document.body.innerHTML = '<title>Readme - PSDTool</title><pre style="font: 12pt/1.7 monospace;"></pre>';
          w.document.querySelector('pre').textContent = psdRoot.Readme;
       }, false);
@@ -1010,37 +1003,37 @@
       (<any>jQuery('#main').on('splitpaneresize', resized)).splitPane();
 
       ui.invertInput = document.getElementById('invert-input');
-      ui.invertInput.addEventListener('click', function(e) {
+      ui.invertInput.addEventListener('click', (e) => {
          ui.redraw();
       }, false);
       ui.fixedSide = document.getElementById('fixed-side');
-      ui.fixedSide.addEventListener('change', function(e) {
+      ui.fixedSide.addEventListener('change', (e) => {
          ui.redraw();
       }, false);
 
-      var lastPx;
+      let lastPx: string;
       ui.maxPixels = document.getElementById('max-pixels');
-      ui.maxPixels.addEventListener('blur', function(e) {
-         var v = normalizeNumber(this.value);
+      ui.maxPixels.addEventListener('blur', (e) => {
+         let v = normalizeNumber(ui.maxPixels.value);
          if (v === lastPx) {
             return;
          }
          lastPx = v;
-         this.value = v;
+         ui.maxPixels.value = v;
          ui.redraw();
       }, false);
 
       ui.seqDlPrefix = document.getElementById('seq-dl-prefix');
       ui.seqDlNum = document.getElementById('seq-dl-num');
       ui.seqDl = document.getElementById('seq-dl');
-      ui.seqDl.addEventListener('click', function(e) {
-         var prefix = ui.seqDlPrefix.value;
+      ui.seqDl.addEventListener('click', (e) => {
+         let prefix = ui.seqDlPrefix.value;
          if (ui.seqDlNum.value === '') {
             ui.save(prefix + '.png');
             return;
          }
 
-         var num = parseInt(normalizeNumber(ui.seqDlNum.value), 10);
+         let num = parseInt(normalizeNumber(ui.seqDlNum.value), 10);
          if (num < 0) {
             num = 0;
          }
@@ -1052,7 +1045,7 @@
       (<any>Mousetrap).pause();
    }
 
-   function enterReaderMode(state, filename) {
+   function enterReaderMode(state?: string, filename?: string): void {
       if (!ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.add('reader');
          ui.normalModeState = serializeCheckState(true);
@@ -1067,7 +1060,7 @@
       ui.redraw();
    }
 
-   function leaveReaderMode(state?: String) {
+   function leaveReaderMode(state?: string): void {
       if (ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.remove('reader');
       }
@@ -1085,27 +1078,27 @@
    }
 
    function initDropZone(dropZoneId: string, loader: (files: FileList) => void): void {
-      var dz = document.getElementById(dropZoneId);
-      dz.addEventListener('dragenter', function(e) {
-         this.classList.add('psdtool-drop-active');
+      let dz = document.getElementById(dropZoneId);
+      dz.addEventListener('dragenter', (e: DragEvent) => {
+         dz.classList.add('psdtool-drop-active');
          e.preventDefault();
          e.stopPropagation();
          return false;
       }, false);
-      dz.addEventListener('dragover', function(e) {
-         this.classList.add('psdtool-drop-active');
+      dz.addEventListener('dragover', (e: DragEvent) => {
+         dz.classList.add('psdtool-drop-active');
          e.preventDefault();
          e.stopPropagation();
          return false;
       }, false);
-      dz.addEventListener('dragleave', function(e) {
-         this.classList.remove('psdtool-drop-active');
+      dz.addEventListener('dragleave', (e: DragEvent) => {
+         dz.classList.remove('psdtool-drop-active');
          e.preventDefault();
          e.stopPropagation();
          return false;
       }, false);
-      dz.addEventListener('drop', function(e) {
-         this.classList.remove('psdtool-drop-active');
+      dz.addEventListener('drop', (e: DragEvent) => {
+         dz.classList.remove('psdtool-drop-active');
          if (e.dataTransfer.files.length > 0) {
             loader(e.dataTransfer.files);
          }
@@ -1113,9 +1106,9 @@
          e.stopPropagation();
          return false;
       }, false);
-      var f = <HTMLInputElement>dz.querySelector('input[type=file]');
+      let f = <HTMLInputElement>dz.querySelector('input[type=file]');
       if (f) {
-         f.addEventListener('change', function(e) {
+         f.addEventListener('change', (e) => {
             loader(f.files);
             f.value = null;
          }, false);
@@ -1150,7 +1143,7 @@
          n.getVisibleState = (): boolean => { return input.checked; };
          n.setVisibleState = (v: boolean): void => { input.checked = v; };
          input.addEventListener('click', function() {
-            for (var p = n.parent; p; p = p.parent) {
+            for (let p = n.parent; p; p = p.parent) {
                p.visible = true;
             }
             if (n.clippedBy) {
@@ -1161,7 +1154,7 @@
          li.appendChild(prop);
 
          var cul = document.createElement('ul');
-         for (var i = n.children.length - 1; i >= 0; --i) {
+         for (let i = n.children.length - 1; i >= 0; --i) {
             r(cul, n.children[i]);
          }
          li.appendChild(cul);
@@ -1171,16 +1164,16 @@
 
       let ul = document.getElementById('layer-tree');
       removeAllChild(ul);
-      for (var i = renderer.StateTreeRoot.children.length - 1; i >= 0; --i) {
+      for (let i = renderer.StateTreeRoot.children.length - 1; i >= 0; --i) {
          r(ul, renderer.StateTreeRoot.children[i]);
       }
       normalizeRadioButtons();
    }
 
    function buildLayerProp(n: StateNode): HTMLDivElement {
-      var name = document.createElement('label');
-      var visible = document.createElement('input');
-      var layerName = n.layer.Name;
+      let name = document.createElement('label');
+      let visible = document.createElement('input');
+      let layerName = n.layer.Name;
       if (!ui.optionSafeMode.checked) {
          switch (layerName.charAt(0)) {
             case '!':
@@ -1216,7 +1209,7 @@
       name.appendChild(visible);
 
       if (n.layer.Clipping) {
-         var clip = document.createElement('img');
+         let clip = document.createElement('img');
          clip.className = 'psdtool-clipped-mark';
          clip.src = 'img/clipped.svg';
          clip.alt = 'clipped mark';
@@ -1224,17 +1217,17 @@
       }
 
       if (n.layer.Folder) {
-         var icon = document.createElement('span');
+         let icon = document.createElement('span');
          icon.className = 'psdtool-icon glyphicon glyphicon-folder-open';
          icon.setAttribute('aria-hidden', 'true');
          name.appendChild(icon);
       } else {
-         var thumb = document.createElement('canvas');
+         let thumb = document.createElement('canvas');
          thumb.className = 'psdtool-thumbnail';
          thumb.width = 96;
          thumb.height = 96;
          if (n.layer.Canvas) {
-            var w = n.layer.Width,
+            let w = n.layer.Width,
                h = n.layer.Height;
             if (w > h) {
                w = thumb.width;
@@ -1243,7 +1236,7 @@
                h = thumb.height;
                w = thumb.height / n.layer.Height * w;
             }
-            var ctx = thumb.getContext('2d');
+            let ctx = thumb.getContext('2d');
             ctx.drawImage(
                n.layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
          }
@@ -1251,22 +1244,22 @@
       }
       name.appendChild(document.createTextNode(layerName));
 
-      var div = document.createElement('div');
+      let div = document.createElement('div');
       div.className = 'psdtool-layer-name';
       div.appendChild(name);
       return div;
    }
 
-   function normalizeRadioButtons() {
-      var ul = document.getElementById('layer-tree');
-      var set = {};
-      var radios = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-radio');
-      for (var i = 0; i < radios.length; ++i) {
+   function normalizeRadioButtons(): void {
+      let ul = document.getElementById('layer-tree');
+      let set = {};
+      let radios = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-radio');
+      for (let i = 0; i < radios.length; ++i) {
          if (radios[i].name in set) {
             continue;
          }
          set[radios[i].name] = 1;
-         var rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name="' + radios[i].name + '"]:checked');
+         let rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name="' + radios[i].name + '"]:checked');
          if (!rinShibuyas.length) {
             radios[i].checked = true;
             continue;
@@ -1274,9 +1267,9 @@
       }
    }
 
-   function clearCheckState() {
-      var i: number;
-      var elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
+   function clearCheckState(): void {
+      let i: number;
+      let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
       for (i = 0; i < elems.length; ++i) {
          elems[i].checked = false;
       }
@@ -1287,11 +1280,11 @@
       normalizeRadioButtons();
    }
 
-   function serializeCheckState(allLayer) {
-      var elems = document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
-      var path = [],
+   function serializeCheckState(allLayer: boolean): string {
+      let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
+      let i: number, s: string, path: any[] = [],
          pathMap = {};
-      for (var i = 0, s; i < elems.length; ++i) {
+      for (i = 0; i < elems.length; ++i) {
          s = elems[i].getAttribute('data-fullpath');
          path.push({
             s: s,
@@ -1301,18 +1294,20 @@
          pathMap[s] = true;
       }
       if (allLayer) {
-         for (var i = 0; i < path.length; ++i) {
+         for (i = 0; i < path.length; ++i) {
             path[i] = '/' + path[i].s;
          }
          return path.join('\n');
       }
 
-      path.sort(function(a, b) {
+      path.sort((a: any, b: any): number => {
          return a.ss > b.ss ? 1 : a.ss < b.ss ? -1 : 0;
       });
 
-      for (var i = 0, j, parts; i < path.length; ++i) {
+      let j: number, parts: string[];
+      for (i = 0; i < path.length; ++i) {
          // remove hidden layer
+         // TODO: need more better handing for clipping masked layer
          parts = path[i].s.split('/');
          for (j = 0; j < parts.length; ++j) {
             if (!pathMap[parts.slice(0, j + 1).join('/')]) {
@@ -1327,24 +1322,25 @@
          }
       }
 
-      path.sort(function(a, b) {
+      path.sort((a: any, b: any): number => {
          return a.i > b.i ? 1 : a.i < b.i ? -1 : 0;
       });
 
-      for (var i = 0; i < path.length; ++i) {
+      for (i = 0; i < path.length; ++i) {
          path[i] = path[i].s;
       }
       return path.join('\n');
    }
 
-   function deserializeCheckState(state) {
-      function buildStateTree(state) {
-         var allLayer = state.charAt(0) === '/';
-         var stateTree = {
+   function deserializeCheckState(state: string) {
+      function buildStateTree(state: string): any {
+         let allLayer = state.charAt(0) === '/';
+         let stateTree = {
             allLayer: allLayer,
             children: {}
          };
-         var i, j, obj, node, parts, part, lines = state.replace(/\r/g, '').split('\n');
+         let i: number, j: number, obj: any, node: any, parts: string[], part: string;
+         let lines = state.replace(/\r/g, '').split('\n');
          for (i = 0; i < lines.length; ++i) {
             parts = lines[i].split('/');
             for (j = allLayer ? 1 : 0, node = stateTree; j < parts.length; ++j) {
@@ -1364,14 +1360,14 @@
          return stateTree;
       }
 
-      function apply(stateNode, n: StateNode, allLayer?: boolean) {
+      function apply(stateNode: any, n: StateNode, allLayer?: boolean) {
          if (allLayer === undefined) {
             allLayer = stateNode.allLayer;
             if (allLayer) {
                clearCheckState();
             }
          }
-         var cn: StateNode, stateChild, founds = {};
+         let cn: StateNode, stateChild: any, founds = {};
          for (var i = 0; i < n.children.length; ++i) {
             cn = n.children[i];
             if (cn.layer.Name in founds) {
@@ -1392,7 +1388,7 @@
          }
       }
 
-      var old = serializeCheckState(true);
+      let old = serializeCheckState(true);
       try {
          apply(buildStateTree(state), renderer.StateTreeRoot);
       } catch (e) {
@@ -1401,16 +1397,16 @@
       }
    }
 
-   function buildPFV(json) {
+   function buildPFV(json: any[]): string {
       if (json.length !== 1) {
          throw new Error('sorry but favorite tree data is broken');
       }
 
-      var path = [],
+      var path: string[] = [],
          lines = ['[PSDToolFavorites-v1]'];
 
       function r(children) {
-         for (var i = 0, item; i < children.length; ++i) {
+         for (let i = 0, item; i < children.length; ++i) {
             item = children[i];
             path.push(encodeLayerName(item.text));
             switch (item.type) {
@@ -1437,10 +1433,10 @@
       return lines.join('\n');
    }
 
-   function countPFVEntries(pfv) {
-      var lines = pfv.replace(/\r/g, '').split('\n'),
+   function countPFVEntries(pfv: string): number {
+      let lines = pfv.replace(/\r/g, '').split('\n'),
          c = 0;
-      for (var i = 1; i < lines.length; ++i) {
+      for (let i = 1; i < lines.length; ++i) {
          if (lines[i].length > 2 && lines[i].substring(0, 2) === '//') {
             ++c;
          }
@@ -1449,32 +1445,26 @@
    }
 
    // https://gist.github.com/boushley/5471599
-   function arrayBufferToString(arrayBuffer) {
-      var result = '';
-      var i = 0;
-      var c = 0;
-      var c2 = 0;
-      var c3 = 0;
-
-      var data = new Uint8Array(arrayBuffer);
+   function arrayBufferToString(ab: ArrayBuffer): string {
+      var data = new Uint8Array(ab);
 
       // If we have a BOM skip it
+      let s = '', i = 0, c = 0, c2 = 0, c3 = 0;
       if (data.length >= 3 && data[0] === 0xef && data[1] === 0xbb && data[2] === 0xbf) {
          i = 3;
       }
-
       while (i < data.length) {
          c = data[i];
 
          if (c < 128) {
-            result += String.fromCharCode(c);
+            s += String.fromCharCode(c);
             i++;
          } else if (c > 191 && c < 224) {
             if (i + 1 >= data.length) {
                throw 'UTF-8 Decode failed. Two byte character was truncated.';
             }
             c2 = data[i + 1];
-            result += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
+            s += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
             i += 2;
          } else {
             if (i + 2 >= data.length) {
@@ -1482,11 +1472,11 @@
             }
             c2 = data[i + 1];
             c3 = data[i + 2];
-            result += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
+            s += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
             i += 3;
          }
       }
-      return result;
+      return s;
    }
 
    function loadPFVFromDroppedFile() {
