@@ -31,7 +31,6 @@ type root struct {
 
 	CanvasWidth  int
 	CanvasHeight int
-	Buffer       *js.Object
 	Hash         string
 	PFV          string
 	Readme       string
@@ -60,7 +59,6 @@ type layer struct {
 	MaskY                 int
 	MaskCanvas            *js.Object
 	MaskDefaultColor      int
-	Buffer                *js.Object
 	Folder                bool
 	FolderOpen            bool
 	psdLayer              *psd.Layer
@@ -132,10 +130,6 @@ func (r *root) buildLayer(l *layer) error {
 	l.Y = rect.Min.Y
 	l.Width = rect.Dx()
 	l.Height = rect.Dy()
-	if l.Width*l.Height > 0 {
-		l.Buffer = createCanvas(l.Width, l.Height)
-	}
-
 	return nil
 }
 
@@ -163,7 +157,6 @@ func (r *root) Build(img *psd.PSD, progress func(processed, total int, l *layer)
 	r.Y = r.realRect.Min.Y
 	r.Width = r.realRect.Dx()
 	r.Height = r.realRect.Dy()
-	r.Buffer = createCanvas(r.Width, r.Height)
 	return nil
 }
 

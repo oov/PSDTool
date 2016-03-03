@@ -3,6 +3,7 @@ js/blend/blend.js
 js/main.js
 js/zipbuilder.js
 js/downscaler.js
+js/renderer.js
 js/psd/psd.js
 js/psd/psd.js.map
 css/3rd.min.css

@@ -1,7 +1,6 @@
 /// <reference path="../typings/browser.d.ts" />
 /// <reference path="downscaler.ts" />
-declare var parsePSD: any;
-declare var blend: any;
+/// <reference path="renderer.ts" />
 
 'use strict';
 (function(Mousetrap) {
@@ -44,8 +43,9 @@ declare var blend: any;
       exportProgressDialogProgressCaption: null,
       normalModeState: null
    };
-   var psdRoot,
-      droppedPFV,
+   var renderer: Renderer;
+   var psdRoot: psd.Root;
+   var droppedPFV,
       uniqueId = Date.now().toString() + Math.random().toString().substring(2);
 
    function init() {
@@ -160,7 +160,7 @@ declare var blend: any;
       updateProgress(bar, caption, 0, 'Now loading...');
       loadAsArrayBuffer(progress, file_or_url)
          .then(parse.bind(this, progress))
-         .then(initMain)
+         .then((obj: any): any => { return initMain(obj.psd, obj.name); })
          .then(function() {
          fileLoadingUi.style.display = 'none';
          fileOpenUi.style.display = 'none';
@@ -297,8 +297,7 @@ declare var blend: any;
    function parse(progress, obj) {
       var deferred = m.deferred();
       parsePSD(obj.buffer, progress, function(psd) {
-         psd.name = obj.name;
-         deferred.resolve(psd);
+         deferred.resolve({ psd: psd, name: obj.name });
       }, function(e) {
             deferred.reject(e);
          });
@@ -311,17 +310,16 @@ declare var blend: any;
       }
    }
 
-   function initMain(psd) {
+   function initMain(psd: psd.Root, name) {
       var deferred = m.deferred();
       setTimeout(function() {
          try {
-            registerClippingGroup(psd.Children);
-            psd.canvas = document.createElement('canvas');
-            buildTree(psd, function() {
+            renderer = new Renderer(psd);
+            buildLayerTree(renderer, function() {
                ui.redraw();
             });
-            ui.maxPixels.value = ui.optionAutoTrim.checked ? psd.Buffer.height : psd.Height;
-            ui.seqDlPrefix.value = psd.name;
+            ui.maxPixels.value = ui.optionAutoTrim.checked ? psd.Height : psd.CanvasHeight;
+            ui.seqDlPrefix.value = name;
             ui.seqDlNum.value = 0;
             ui.showReadme.style.display = psd.Readme !== '' ? 'block' : 'none';
             loadPFVFromDroppedFile().then(function(f) {
@@ -348,204 +346,12 @@ declare var blend: any;
       return deferred.promise;
    }
 
-   function draw(ctx, src, x, y, opacity, blendMode) {
-      switch (blendMode) {
-         case 'source-over':
-         case 'destination-in':
-         case 'destination-out':
-            break;
-         default:
-            blend(ctx.canvas, src, x, y, src.width, src.height, opacity, blendMode);
-            return;
-      }
-      ctx.globalAlpha = opacity;
-      ctx.globalCompositeOperation = blendMode;
-      ctx.drawImage(src, x, y);
-   }
-
-   function clear(ctx) {
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-   }
-
-   function calculateNextState(layer, opacity, blendMode) {
-      if (!layer.visibleInput.checked || opacity === 0) {
-         return false;
-      }
-
-      layer.nextState = '';
-      if (layer.Children.length) {
-         if (blendMode === 'pass-through') {
-            layer.nextState += layer.parentLayer.nextState + '+';
-         }
-         for (var i = 0, child; i < layer.Children.length; ++i) {
-            child = layer.Children[i];
-            if (!child.Clipping) {
-               if (calculateNextState(child, child.Opacity / 255, child.BlendMode)) {
-                  layer.nextState += child.nextState + '+';
-               }
-            }
-         }
-      } else if (layer.Canvas) {
-         layer.nextState = layer.id;
-      }
-
-      if (layer.MaskCanvas) {
-         layer.nextState += '|lm';
-      }
-
-      if (!layer.clip.length) {
-         return true;
-      }
-
-      layer.nextState += '|cm' + (layer.BlendClippedElements ? '1' : '0') + ':';
-      if (layer.BlendClippedElements) {
-         for (var i = 0, child; i < layer.clip.length; ++i) {
-            child = layer.clip[i];
-            if (calculateNextState(child, child.Opacity / 255, child.BlendMode)) {
-               layer.nextState += child.nextState + '+';
-            }
-         }
-         return true;
-      }
-
-      // we cannot cache in this mode
-      layer.nextState += Date.now() + '_' + Math.random() + ':';
-
-      for (var i = 0, child; i < layer.clip.length; ++i) {
-         child = layer.clip[i];
-         if (calculateNextState(child, 1, 'source-over')) {
-            layer.nextState += child.nextState + '+';
-         }
-      }
-      return true;
-   }
-
-   function drawLayer(ctx, layer, x, y, opacity, blendMode) {
-      if (!layer.visibleInput.checked || opacity === 0 || (!layer.Children.length && !layer.Canvas)) {
-         return false;
-      }
-      var bb = layer.Buffer;
-      if (layer.currentState === layer.nextState) {
-         if (blendMode === 'pass-through') {
-            blendMode = 'source-over';
-         }
-         draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
-         return true;
-      }
-
-      var bbctx = bb.getContext('2d');
-
-      clear(bbctx);
-      if (layer.Children.length) {
-         if (blendMode === 'pass-through') {
-            draw(bbctx, layer.parentLayer.Buffer, -x - layer.X, -y - layer.Y, 1, 'source-over');
-            blendMode = 'source-over';
-         }
-         for (var i = 0, child; i < layer.Children.length; ++i) {
-            child = layer.Children[i];
-            if (!child.Clipping) {
-               drawLayer(bbctx, child, -layer.X, -layer.Y, child.Opacity / 255, child.BlendMode);
-            }
-         }
-      } else if (layer.Canvas) {
-         draw(bbctx, layer.Canvas, 0, 0, 1, 'source-over');
-      }
-
-      if (layer.MaskCanvas) {
-         draw(
-            bbctx,
-            layer.MaskCanvas,
-            layer.MaskX - layer.X,
-            layer.MaskY - layer.Y,
-            1,
-            layer.MaskDefaultColor ? 'destination-out' : 'destination-in'
-            );
-      }
-
-      if (!layer.clip.length) {
-         draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
-         layer.currentState = layer.nextState;
-         return true;
-      }
-
-      var cbb = layer.ClippingBuffer;
-      var cbbctx = cbb.getContext('2d');
-
-      if (layer.BlendClippedElements) {
-         clear(cbbctx);
-         draw(cbbctx, bb, 0, 0, 1, 'source-over');
-         var changed = false;
-         for (var i = 0, child; i < layer.clip.length; ++i) {
-            child = layer.clip[i];
-            changed = drawLayer(
-               cbbctx,
-               child, -layer.X, -layer.Y,
-               child.Opacity / 255,
-               child.BlendMode
-               ) || changed;
-         }
-         if (changed) {
-            draw(cbbctx, bb, 0, 0, 1, 'destination-in');
-         }
-         // swap buffer for next time
-         layer.ClippingBuffer = bb;
-         layer.Buffer = cbb;
-         draw(ctx, cbb, x + layer.X, y + layer.Y, opacity, blendMode);
-         layer.currentState = layer.nextState;
-         return true;
-      }
-
-      // this is minor code path.
-      // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
-      draw(ctx, bb, x + layer.X, y + layer.Y, opacity, blendMode);
-      clear(cbbctx);
-      for (var i = 0, child; i < layer.clip.length; ++i) {
-         child = layer.clip[i];
-         if (!drawLayer(cbbctx, child, -layer.X, -layer.Y, 1, 'source-over')) {
-            continue;
-         }
-         draw(cbbctx, bb, 0, 0, 1, 'destination-in');
-         draw(ctx, cbb, x + layer.X, y + layer.Y, child.Opacity / 255, child.BlendMode);
-         clear(cbbctx);
-      }
-      layer.currentState = layer.nextState;
-      return true;
-   }
-
-   function render(psd: any, callback: (progress: number, canvas: HTMLCanvasElement) => void): void {
-      let s = Date.now();
-
-      psd.nextState = '';
-      for (var i = 0, layer; i < psd.Children.length; ++i) {
-         layer = psd.Children[i];
-         if (!layer.Clipping) {
-            if (calculateNextState(layer, layer.Opacity / 255, layer.BlendMode)) {
-               psd.nextState += layer.nextState + '+';
-            }
-         }
-      }
-
-      var bb = psd.Buffer;
-      if (psd.currentState !== psd.nextState) {
-         var bbctx = bb.getContext('2d');
-         clear(bbctx);
-         for (var i = 0, layer; i < psd.Children.length; ++i) {
-            layer = psd.Children[i];
-            if (!layer.Clipping) {
-               drawLayer(bbctx, layer, -psd.X, -psd.Y, layer.Opacity / 255, layer.BlendMode);
-            }
-         }
-         psd.currentState = psd.nextState;
-      }
-      console.log('rendering: ' + (Date.now() - s));
-
-      var autoTrim = ui.optionAutoTrim.checked;
-      var scale = 1;
-      var px = parseInt(ui.maxPixels.value, 10);
-      var w = autoTrim ? psd.Width : psd.CanvasWidth;
-      var h = autoTrim ? psd.Height : psd.CanvasHeight;
+   function render(callback: (progress: number, canvas: HTMLCanvasElement) => void): void {
+      const autoTrim = ui.optionAutoTrim.checked;
+      let scale = 1;
+      const px = parseInt(ui.maxPixels.value, 10);
+      const w = autoTrim ? renderer.Width : renderer.CanvasWidth;
+      const h = autoTrim ? renderer.Height : renderer.CanvasHeight;
       switch (ui.fixedSide.value) {
          case 'w':
             if (w > px) {
@@ -565,82 +371,32 @@ declare var blend: any;
             scale = 1 / w;
          }
       }
-
-      s = Date.now();
-      let canvas = psd.canvas;
-      canvas.width = 0 | w * scale;
-      canvas.height = 0 | h * scale;
-      downScale(psd.Buffer, scale, function(progress: number, c: HTMLCanvasElement) {
-         console.log('scaling: ' + (Date.now() - s) + '(phase:' + progress + ')');
-         let ctx = canvas.getContext('2d');
-         clear(ctx);
-         ctx.save();
-         if (ui.invertInput.checked) {
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-         }
-         ctx.drawImage(c, autoTrim ? 0 : Math.ceil(psd.X * scale), autoTrim ? 0 : Math.ceil(psd.Y * scale));
-         ctx.restore();
-         callback(progress, canvas);
-      });
+      renderer.render(scale, autoTrim, ui.invertInput.checked, callback);
    }
 
-   function downScale(src: HTMLCanvasElement, scale: number, callback: (progress: number, image: HTMLCanvasElement) => void): void {
-      if (scale === 1) {
-         callback(1, src);
-         return;
-      }
-      let ds = new DownScaler(src, scale);
-      callback(0, ds.fast());
-      setTimeout((): void => {
-         ds.beautifulWorker((canvas: HTMLCanvasElement): void => {
-            callback(1, canvas);
-         });
-      }, 0);
-   }
-
-   function updateClass(psd) {
-      function r(layer) {
-         if (layer.visibleInput.checked) {
-            layer.li.classList.remove('psdtool-hidden');
-            for (var i = 0; i < layer.clip.length; ++i) {
-               layer.clip[i].li.classList.remove('psdtool-hidden-by-clipping');
-            }
-         } else {
-            layer.li.classList.add('psdtool-hidden');
-            for (var i = 0; i < layer.clip.length; ++i) {
-               layer.clip[i].li.classList.add('psdtool-hidden-by-clipping');
-            }
-         }
-         for (var i = 0; i < layer.Children.length; ++i) {
-            r(layer.Children[i]);
-         }
-      }
-      for (var i = 0; i < psd.Children.length; ++i) {
-         r(psd.Children[i]);
-      }
-   }
-
-   function registerClippingGroup(layers) {
-      var clip = [];
-      for (var i = layers.length - 1; i >= 0; --i) {
-         var layer = layers[i];
-         registerClippingGroup(layer.Children);
-         if (layer.Clipping) {
-            clip.unshift(layer);
-            layer.clip = [];
-         } else {
-            if (clip.length) {
-               for (var j = 0; j < clip.length; ++j) {
-                  clip[j].clippedBy = layer;
+   function updateClass(): void {
+      function r(n: StateNode): void {
+         if (n.visible) {
+            n.userData.li.classList.remove('psdtool-hidden');
+            if (n.clip) {
+               for (let i = 0; i < n.clip.length; ++i) {
+                  n.clip[i].userData.li.classList.remove('psdtool-hidden-by-clipping');
                }
-               layer.ClippingBuffer = document.createElement('canvas');
-               layer.ClippingBuffer.width = layer.Buffer.width;
-               layer.ClippingBuffer.height = layer.Buffer.height;
             }
-            layer.clip = clip;
-            clip = [];
+         } else {
+            n.userData.li.classList.add('psdtool-hidden');
+            if (n.clip) {
+               for (let i = 0; i < n.clip.length; ++i) {
+                  n.clip[i].userData.li.classList.add('psdtool-hidden-by-clipping');
+               }
+            }
          }
+         for (let i = 0; i < n.children.length; ++i) {
+            r(n.children[i]);
+         }
+      }
+      for (let i = 0; i < renderer.StateTreeRoot.children.length; ++i) {
+         r(renderer.StateTreeRoot.children[i]);
       }
    }
 
@@ -946,7 +702,7 @@ declare var blend: any;
       for (i = 0; i < files.length; ++i) {
          ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
          if (ext === '.pfv') {
-            loadAsArrayBuffer((): void => { ; }, files[i]).then(function(buffer: any) {
+            loadAsArrayBuffer((): void => undefined, files[i]).then(function(buffer: any) {
                loadPFV(arrayBufferToString(buffer.buffer));
                jQuery('#import-dialog').modal('hide');
             }).then(null, function(e) {
@@ -1138,7 +894,7 @@ declare var blend: any;
                return;
             }
             deserializeCheckState(files[i].value);
-            render(psdRoot, function(progress: number, canvas: HTMLCanvasElement) {
+            render((progress: number, canvas: HTMLCanvasElement): void => {
                if (progress !== 1) {
                   return;
                }
@@ -1220,7 +976,7 @@ declare var blend: any;
       }, false);
       ui.redraw = function() {
          ui.seqDl.disabled = true;
-         render(psdRoot, function(progress: number, canvas: HTMLCanvasElement) {
+         render((progress: number, canvas: HTMLCanvasElement): void => {
             ui.previewBackground.style.width = canvas.width + 'px';
             ui.previewBackground.style.height = canvas.height + 'px';
             ui.seqDl.disabled = progress !== 1;
@@ -1232,7 +988,7 @@ declare var blend: any;
                ctx.drawImage(canvas, 0, 0);
             }, 0);
          });
-         updateClass(psdRoot);
+         updateClass();
       };
 
       ui.save = function(filename) {
@@ -1376,62 +1132,60 @@ declare var blend: any;
       return decodeURIComponent(s);
    }
 
-   function buildTree(psd, redraw) {
-      var cid = 0;
-      var path = [];
-
-      function r(ul, layer, parentLayer) {
-         layer.id = ++cid;
-         layer.parentLayer = parentLayer;
-         path.push(encodeLayerName(layer.Name));
-
-         var li = document.createElement('li');
-         if (layer.Folder) {
+   function buildLayerTree(renderer: Renderer, redraw: () => void) {
+      var path: string[] = [];
+      function r(ul: HTMLElement, n: StateNode) {
+         path.push(encodeLayerName(n.layer.Name));
+         let li: HTMLLIElement = document.createElement('li');
+         if (n.layer.Folder) {
             li.classList.add('psdtool-folder');
          }
-         layer.li = li;
-
-         var prop = buildLayerProp(layer, parentLayer);
-         var fullpath = path.join('/');
-         layer.visibleInput.setAttribute('data-fullpath', fullpath);
-         layer.visibleInput.addEventListener('click', function() {
-            for (var p = layer.parentLayer; p.visibleInput; p = p.parentLayer) {
-               p.visibleInput.checked = true;
+         var prop = buildLayerProp(n);
+         var input = <HTMLInputElement>prop.querySelector('.psdtool-layer-visible');
+         input.setAttribute('data-fullpath', path.join('/'));
+         n.userData = {
+            li: li,
+            input: input,
+         };
+         n.getVisibleState = (): boolean => { return input.checked; };
+         n.setVisibleState = (v: boolean): void => { input.checked = v; };
+         input.addEventListener('click', function() {
+            for (var p = n.parent; p; p = p.parent) {
+               p.visible = true;
             }
-            if (layer.clippedBy) {
-               layer.clippedBy.visibleInput.checked = true;
+            if (n.clippedBy) {
+               n.clippedBy.visible = true;
             }
             redraw();
          }, false);
          li.appendChild(prop);
 
-         var children = document.createElement('ul');
-         for (var i = layer.Children.length - 1; i >= 0; --i) {
-            r(children, layer.Children[i], layer);
+         var cul = document.createElement('ul');
+         for (var i = n.children.length - 1; i >= 0; --i) {
+            r(cul, n.children[i]);
          }
-         li.appendChild(children);
+         li.appendChild(cul);
          ul.appendChild(li);
          path.pop();
       }
 
-      var ul = document.getElementById('layer-tree');
+      let ul = document.getElementById('layer-tree');
       removeAllChild(ul);
-      psd.id = 'r';
-      for (var i = psd.Children.length - 1; i >= 0; --i) {
-         r(ul, psd.Children[i], psd);
+      for (var i = renderer.StateTreeRoot.children.length - 1; i >= 0; --i) {
+         r(ul, renderer.StateTreeRoot.children[i]);
       }
       normalizeRadioButtons();
    }
 
-   function buildLayerProp(layer, parentLayer) {
+   function buildLayerProp(n: StateNode): HTMLDivElement {
       var name = document.createElement('label');
       var visible = document.createElement('input');
-      var layerName = layer.Name;
+      var layerName = n.layer.Name;
       if (!ui.optionSafeMode.checked) {
          switch (layerName.charAt(0)) {
             case '!':
                visible.className = 'psdtool-layer-visible psdtool-layer-force-visible';
-               visible.name = 'l' + layer.id;
+               visible.name = 'l' + n.id;
                visible.type = 'checkbox';
                visible.checked = true;
                visible.disabled = true;
@@ -1440,29 +1194,28 @@ declare var blend: any;
                break;
             case '*':
                visible.className = 'psdtool-layer-visible psdtool-layer-radio';
-               visible.name = 'r' + parentLayer.id;
+               visible.name = 'radio_' + n.parent.id;
                visible.type = 'radio';
-               visible.checked = layer.Visible;
+               visible.checked = n.layer.Visible;
                layerName = layerName.substring(1);
                break;
             default:
                visible.className = 'psdtool-layer-visible';
-               visible.name = 'l' + layer.id;
+               visible.name = 'l' + n.id;
                visible.type = 'checkbox';
-               visible.checked = layer.Visible;
+               visible.checked = n.layer.Visible;
                break;
          }
       } else {
          visible.className = 'psdtool-layer-visible';
-         visible.name = 'l' + layer.id;
+         visible.name = 'l' + n.id;
          visible.type = 'checkbox';
-         visible.checked = layer.Visible;
+         visible.checked = n.layer.Visible;
       }
-      layer.visibleInput = visible;
-      layer.visibleInput.setAttribute('data-name', layerName);
+      visible.setAttribute('data-name', layerName);
       name.appendChild(visible);
 
-      if (layer.Clipping) {
+      if (n.layer.Clipping) {
          var clip = document.createElement('img');
          clip.className = 'psdtool-clipped-mark';
          clip.src = 'img/clipped.svg';
@@ -1470,7 +1223,7 @@ declare var blend: any;
          name.appendChild(clip);
       }
 
-      if (layer.Folder) {
+      if (n.layer.Folder) {
          var icon = document.createElement('span');
          icon.className = 'psdtool-icon glyphicon glyphicon-folder-open';
          icon.setAttribute('aria-hidden', 'true');
@@ -1480,19 +1233,19 @@ declare var blend: any;
          thumb.className = 'psdtool-thumbnail';
          thumb.width = 96;
          thumb.height = 96;
-         if (layer.Canvas) {
-            var w = layer.Canvas.width,
-               h = layer.Canvas.height;
+         if (n.layer.Canvas) {
+            var w = n.layer.Width,
+               h = n.layer.Height;
             if (w > h) {
                w = thumb.width;
-               h = thumb.width / layer.Canvas.width * h;
+               h = thumb.width / n.layer.Width * h;
             } else {
                h = thumb.height;
-               w = thumb.height / layer.Canvas.height * w;
+               w = thumb.height / n.layer.Height * w;
             }
             var ctx = thumb.getContext('2d');
             ctx.drawImage(
-               layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
+               n.layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
          }
          name.appendChild(thumb);
       }
@@ -1513,7 +1266,7 @@ declare var blend: any;
             continue;
          }
          set[radios[i].name] = 1;
-         var rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name=' + radios[i].name + ']:checked');
+         var rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name="' + radios[i].name + '"]:checked');
          if (!rinShibuyas.length) {
             radios[i].checked = true;
             continue;
@@ -1611,39 +1364,39 @@ declare var blend: any;
          return stateTree;
       }
 
-      function apply(stateNode, psdNode, allLayer?: boolean) {
+      function apply(stateNode, n: StateNode, allLayer?: boolean) {
          if (allLayer === undefined) {
             allLayer = stateNode.allLayer;
             if (allLayer) {
                clearCheckState();
             }
          }
-         var psdChild, stateChild, founds = {};
-         for (var i = 0; i < psdNode.Children.length; ++i) {
-            psdChild = psdNode.Children[i];
-            if (psdChild.Name in founds) {
-               throw new Error('found more than one same name layer: ' + psdChild.Name);
+         var cn: StateNode, stateChild, founds = {};
+         for (var i = 0; i < n.children.length; ++i) {
+            cn = n.children[i];
+            if (cn.layer.Name in founds) {
+               throw new Error('found more than one same name layer: ' + cn.layer.Name);
             }
-            founds[psdChild.Name] = true;
-            stateChild = stateNode.children[psdChild.Name];
+            founds[cn.layer.Name] = true;
+            stateChild = stateNode.children[cn.layer.Name];
             if (!stateChild) {
-               psdChild.visibleInput.checked = false;
+               cn.visible = false;
                continue;
             }
             if ('checked' in stateChild) {
-               psdChild.visibleInput.checked = stateChild.checked;
+               cn.visible = stateChild.checked;
             }
             if (allLayer || stateChild.checked) {
-               apply(stateChild, psdChild, allLayer);
+               apply(stateChild, cn, allLayer);
             }
          }
       }
 
       var old = serializeCheckState(true);
       try {
-         apply(buildStateTree(state), psdRoot);
+         apply(buildStateTree(state), renderer.StateTreeRoot);
       } catch (e) {
-         apply(buildStateTree(old), psdRoot);
+         apply(buildStateTree(old), renderer.StateTreeRoot);
          throw e;
       }
    }
@@ -1743,7 +1496,7 @@ declare var blend: any;
             deferred.resolve(false);
             return;
          }
-         loadAsArrayBuffer(function() { ; }, droppedPFV).then(function(buffer: any) {
+         loadAsArrayBuffer((): void => undefined, droppedPFV).then(function(buffer: any) {
             loadPFV(arrayBufferToString(buffer.buffer));
             deferred.resolve(true);
          }).then(deferred.resolve.bind(deferred), deferred.reject.bind(deferred));

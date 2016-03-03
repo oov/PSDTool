@@ -31,9 +31,11 @@
     "!./typings/**/*.ts"
   ],
   "files": [
+    "./js/blend/blend.d.ts",
     "./js/downscaler.ts",
     "./js/main.ts",
-    "./js/resizer.ts",
+    "./js/psd/psd.d.ts",
+    "./js/renderer.ts",
     "./js/zipbuilder.ts"
   ],
   "atom": {
