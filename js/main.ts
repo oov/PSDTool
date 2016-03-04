@@ -1567,7 +1567,6 @@
       }
 
       function addNode(json: any[], name: string, type: string, data: any): void {
-         console.log(name, type);
          let i: number, j: number, c: any[], partName: string, nameParts = name.split('/');
          for (i = 0, c = json; i < nameParts.length; ++i) {
             partName = decodeLayerName(nameParts[i]);
