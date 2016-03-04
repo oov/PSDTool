@@ -25,6 +25,7 @@
       optionSafeMode: null,
       seqDlPrefix: null,
       seqDlNum: null,
+      favoriteToolbar: null,
       favoriteTree: null,
       FavoriteTreeDefaultRootName: null,
       favoriteTreeChangedTimer: null,
@@ -66,13 +67,12 @@
             }
          }
       });
+      initUI();
       document.getElementById('samplefile').addEventListener('click', function(e) {
          loadAndParse(document.getElementById('samplefile').getAttribute('data-filename'));
       }, false);
       window.addEventListener('resize', resized, false);
       window.addEventListener('hashchange', hashchanged, false);
-
-      initUI();
       hashchanged();
 
       var elems = document.querySelectorAll('.psdtool-loading');
@@ -98,6 +98,8 @@
       sideBody.style.width = sideContainer.clientWidth + 'px';
       sideBody.style.height = (sideContainer.clientHeight - sideHead.offsetHeight) + 'px';
       sideBody.style.display = 'block';
+
+      ui.favoriteTree[0].style.paddingTop = ui.favoriteToolbar.clientHeight + 'px';
    }
 
    function hashchanged() {
@@ -950,7 +952,11 @@
       ui.optionSafeMode = document.getElementById('option-safe-mode');
 
       // save and restore scroll position of side-body on each tab.
+      ui.favoriteToolbar = document.getElementById('favorite-toolbar');
       ui.sideBody = document.getElementById('side-body');
+      ui.sideBody.addEventListener('scroll', function(e) {
+         ui.favoriteToolbar.style.top = ui.sideBody.scrollTop + 'px';
+      }, false);
       ui.sideBodyScrollPos = {};
       jQuery('a[data-toggle="tab"]').on('hide.bs.tab', function(e) {
          let tab = e.target.getAttribute('href');
@@ -964,6 +970,7 @@
             ui.sideBody.scrollLeft = ui.sideBodyScrollPos[tab].left;
             ui.sideBody.scrollTop = ui.sideBodyScrollPos[tab].top;
          }
+         resized();
       });
       jQuery('a[data-toggle="tab"][href="#layer-tree-pane"]').on('show.bs.tab', function(e) {
          leaveReaderMode();

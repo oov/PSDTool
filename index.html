@@ -145,31 +145,31 @@
 					</div>
 					<div role="tabpanel" class="tab-pane" id="favs-pane">
 						<div id="pfv-dropzone2">
-							<div class="clearfix">
-								<div class="btn-toolbar pull-right" role="toolbar" aria-label="お気に入り編集">
-									<div class="btn-group" role="group" aria-label="新規">
-										<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-add-item="#favorite-tree" title="現在のレイヤー表示をお気に入りに追加(Ctrl + B / Option + B)" data-caption="現在のレイヤー表示をお気に入りに追加"><span class="glyphicon glyphicon-star"></span></button>
-										<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-add-folder="#favorite-tree" title="新規フォルダー(Ctrl + D / Option + D)" data-caption="新規フォルダーの追加"><span class="glyphicon glyphicon-folder-open"></span></button>
-									</div>
-									<div class="btn-group" role="group" aria-label="編集">
-										<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-rename="#favorite-tree" title="名前の変更(F2)"><span class="glyphicon glyphicon-pencil"></span></button>
-										<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-remove="#favorite-tree" title="削除"><span class="glyphicon glyphicon-remove"></span></button>
-									</div>
-									<div class="btn-group" role="group" aria-label="その他">
-										<div class="btn-group" role="group">
-											<button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-												<span class="glyphicon glyphicon-menu-hamburger"></span>
-												<span class="caret"></span>
-											</button>
-											<ul class="dropdown-menu dropdown-menu-right">
-												<li><a href="#" data-toggle="modal" data-target="#import-dialog"><span class="glyphicon glyphicon-open-file"></span> インポート</a></li>
-												<li><a href="#" data-toggle="modal" data-target="#export-dialog"><span class="glyphicon glyphicon-save-file"></span> エクスポート</a></li>
-											</ul>
-										</div>
+							<div id="favorite-tree" data-root-name="お気に入り"></div>
+						</div>
+						<div id="favorite-toolbar" class="clearfix">
+							<div class="btn-toolbar pull-right" role="toolbar" aria-label="お気に入り編集">
+								<div class="btn-group" role="group" aria-label="新規">
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-add-item="#favorite-tree" title="現在のレイヤー表示をお気に入りに追加(Ctrl + B / Option + B)" data-caption="現在のレイヤー表示をお気に入りに追加"><span class="glyphicon glyphicon-star"></span></button>
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-add-folder="#favorite-tree" title="新規フォルダー(Ctrl + D / Option + D)" data-caption="新規フォルダーの追加"><span class="glyphicon glyphicon-folder-open"></span></button>
+								</div>
+								<div class="btn-group" role="group" aria-label="編集">
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-rename="#favorite-tree" title="名前の変更(F2)"><span class="glyphicon glyphicon-pencil"></span></button>
+									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-remove="#favorite-tree" title="削除"><span class="glyphicon glyphicon-remove"></span></button>
+								</div>
+								<div class="btn-group" role="group" aria-label="その他">
+									<div class="btn-group" role="group">
+										<button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+											<span class="glyphicon glyphicon-menu-hamburger"></span>
+											<span class="caret"></span>
+										</button>
+										<ul class="dropdown-menu dropdown-menu-right">
+											<li><a href="#" data-toggle="modal" data-target="#import-dialog"><span class="glyphicon glyphicon-open-file"></span> インポート</a></li>
+											<li><a href="#" data-toggle="modal" data-target="#export-dialog"><span class="glyphicon glyphicon-save-file"></span> エクスポート</a></li>
+										</ul>
 									</div>
 								</div>
 							</div>
-							<div id="favorite-tree" data-root-name="お気に入り"></div>
 						</div>
 					</div>
 				</div>

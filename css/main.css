@@ -96,7 +96,7 @@ h1 small {
    left: 0;
    top: 0;
    min-width: 32px;
-   width: 22vw;
+   width: 25vw;
    height: 100vh;
    overflow: auto;
    box-sizing: border-box;
@@ -107,7 +107,6 @@ h1 small {
 }
 #side-body {
    overflow: auto;
-   padding-top: 8px;
 }
 #side-tab {
    background: linear-gradient(to bottom, #fff 0%, #eee 100%);
@@ -129,19 +128,28 @@ h1 small {
    box-shadow: 1px -1px 2px #ddd;
    border-top: 2px solid #9bf;
 }
-#favorite-tree {
-   margin: 8px 0;
+#favs-pane {
+   position: relative;
+}
+#favorite-toolbar {
+   position: absolute;
+   background: linear-gradient(to bottom, #ffffff 0%, #efefef 100%);
+   left: 0;
+   right: 0;
+   top: 0;
+   padding: 8px;
+   border-bottom: 1px solid #ddd;
 }
 .jstree-default .jstree-node {
    margin-left: 12px;
 }
 #splitter {
-   left: 22vw;
+   left: 25vw;
    width: 4px;
 }
 #main-container {
    position: absolute;
-   left: 22vw;
+   left: 25vw;
    top: 0;
    padding: 0;
    margin: 0;
@@ -248,7 +256,7 @@ label {
    height: 24px;
 }
 #layer-tree {
-   padding-left: 0;
+   padding: 8px 0 0 0;
    margin-bottom: 0;
 }
 #layer-tree ul {
