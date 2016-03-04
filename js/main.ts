@@ -499,10 +499,7 @@
             return;
          }
          try {
-            if (selected.data.value) {
-               enterReaderMode(selected.data.value, selected.text + '.png');
-               return;
-            }
+            enterReaderMode(selected.data.value, selected.text + '.png');
          } catch (e) {
             console.error(e);
             alert(e);
@@ -1064,13 +1061,10 @@
       (<any>Mousetrap).pause();
    }
 
-   function enterReaderMode(state?: string, filename?: string): void {
+   function enterReaderMode(state: string, filename?: string): void {
       if (!ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.add('reader');
          ui.normalModeState = serializeCheckState(true);
-      }
-      if (!state) {
-         return;
       }
       deserializeCheckState(state);
       if (filename) {
@@ -1186,7 +1180,7 @@
       for (let i = renderer.StateTreeRoot.children.length - 1; i >= 0; --i) {
          r(ul, renderer.StateTreeRoot.children[i]);
       }
-      normalizeRadioButtons();
+      normalizeCheckState();
    }
 
    function buildLayerProp(n: StateNode): HTMLDivElement {
@@ -1269,8 +1263,13 @@
       return div;
    }
 
-   function normalizeRadioButtons(): void {
+   function normalizeCheckState(): void {
       let ul = document.getElementById('layer-tree');
+      let elems = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-force-visible');
+      for (let i = 0; i < elems.length; ++i) {
+         elems[i].checked = true;
+      }
+
       let set = {};
       let radios = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-radio');
       for (let i = 0; i < radios.length; ++i) {
@@ -1287,16 +1286,11 @@
    }
 
    function clearCheckState(): void {
-      let i: number;
       let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
-      for (i = 0; i < elems.length; ++i) {
+      for (let i = 0; i < elems.length; ++i) {
          elems[i].checked = false;
       }
-      elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-force-visible');
-      for (i = 0; i < elems.length; ++i) {
-         elems[i].checked = true;
-      }
-      normalizeRadioButtons();
+      normalizeCheckState();
    }
 
    function serializeCheckState(allLayer: boolean): string {
@@ -1410,8 +1404,10 @@
       let old = serializeCheckState(true);
       try {
          apply(buildStateTree(state), renderer.StateTreeRoot);
+         normalizeCheckState();
       } catch (e) {
          apply(buildStateTree(old), renderer.StateTreeRoot);
+         normalizeCheckState();
          throw e;
       }
    }
