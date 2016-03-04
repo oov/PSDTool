@@ -1669,7 +1669,11 @@
             data.push(lines[i]);
          }
       }
-      addNode(json, encodeLayerName(setting['root-name']) + '/' + name, type, data.join('\n'));
+      if (first) {
+         json[0].text = setting['root-name'];
+      } else {
+         addNode(json, encodeLayerName(setting['root-name']) + '/' + name, type, data.join('\n'));
+      }
       initFavoriteTree(json);
    }
 
