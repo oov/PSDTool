@@ -15,16 +15,19 @@ class StateNode {
 
    public getVisibleState = (): boolean => { return this.layer.Visible; };
    public setVisibleState = (v: boolean) => undefined;
+   public id: string;
    public state: string = '';
    public nextState: string = '';
    public children: StateNode[] = [];
    public clip: StateNode[];
    public clippedBy: StateNode;
    public clippingBuffer: HTMLCanvasElement;
-   constructor(public layer: psd.Layer, public parent: StateNode, public id: string) {
+   constructor(public layer: psd.Layer, public parent: StateNode) {
       if (!layer) {
+         this.id = 'r';
          return;
       }
+      this.id = 'l' + layer.SeqID;
       let w = layer.Width, h = layer.Height;
       if (w * h <= 0) {
          return;
@@ -141,7 +144,7 @@ class Renderer {
    get CanvasHeight(): number { return this.psd.CanvasHeight; }
 
    private canvas: HTMLCanvasElement = document.createElement('canvas');
-   public StateTreeRoot = new StateNode(null, null, 'r');
+   public StateTreeRoot = new StateNode(null, null);
    constructor(private psd: psd.Root) {
       this.buildStateTree(this.StateTreeRoot, psd);
       this.StateTreeRoot.buffer = document.createElement('canvas');
@@ -152,7 +155,7 @@ class Renderer {
 
    private buildStateTree(n: StateNode, layer: psd.LayerBase): void {
       for (let nc: StateNode, i = 0; i < layer.Children.length; ++i) {
-         nc = new StateNode(layer.Children[i], n, n.id + '.' + i);
+         nc = new StateNode(layer.Children[i], n);
          this.buildStateTree(nc, layer.Children[i]);
          n.children.push(nc);
       }

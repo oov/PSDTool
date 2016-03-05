@@ -137,31 +137,24 @@
       removeAllChild(errorMessageContainer);
       errorMessageContainer.appendChild(errorMessage);
 
-      function progress(step, progress, layer) {
-         var p, msg;
-         switch (step) {
+      function progress(phase: string, progress: number): void {
+         var msg: string;
+         switch (phase) {
             case 'prepare':
-               p = 0;
                msg = 'Getting ready...';
                break;
             case 'receive':
-               p = progress;
                msg = 'Receiving file...';
                break;
             case 'parse':
-               p = progress * 0.5;
                msg = 'Parsing psd file...';
                break;
-            case 'draw':
-               p = 0.5 + progress * 0.5;
-               msg = 'Drawing "' + layer.Name + '" layer image...';
-               break;
          }
-         updateProgress(bar, caption, p, msg);
+         updateProgress(bar, caption, progress, msg);
       }
-      updateProgress(bar, caption, 0, 'Now loading...');
+      progress('prepare', 0);
       loadAsArrayBuffer(progress, file_or_url)
-         .then(parse.bind(this, progress))
+         .then(parse.bind(this, progress.bind(this, 'parse')))
          .then((obj: any): any => { return initMain(obj.psd, obj.name); })
          .then(function() {
          fileLoadingUi.style.display = 'none';
@@ -291,9 +284,9 @@
       return url;
    }
 
-   function parse(progress: (phase: string, progress: number, layer?: psd.Layer) => void, obj) {
+   function parse(progress: (progress: number, layerName: string) => void, obj) {
       var deferred = m.deferred();
-      PSD.parse(
+      PSD.parseWorker(
          obj.buffer,
          progress,
          (psd: psd.Root): void => { deferred.resolve({ psd: psd, name: obj.name }); },
@@ -312,8 +305,14 @@
       var deferred = m.deferred();
       setTimeout(function() {
          try {
+            let s = Date.now();
             renderer = new Renderer(psd);
+            console.log('Renderer initialize: ' + (Date.now() - s));
+
+            s = Date.now();
             buildLayerTree(renderer, () => { ui.redraw(); });
+            console.log('build layer tree: ' + (Date.now() - s));
+
             ui.maxPixels.value = ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight;
             ui.seqDlPrefix.value = name;
             ui.seqDlNum.value = 0;
@@ -1193,7 +1192,7 @@
          switch (layerName.charAt(0)) {
             case '!':
                visible.className = 'psdtool-layer-visible psdtool-layer-force-visible';
-               visible.name = 'l' + n.id;
+               visible.name = n.id;
                visible.type = 'checkbox';
                visible.checked = true;
                visible.disabled = true;
@@ -1202,21 +1201,21 @@
                break;
             case '*':
                visible.className = 'psdtool-layer-visible psdtool-layer-radio';
-               visible.name = 'radio_' + n.parent.id;
+               visible.name = 'r_' + n.parent.id;
                visible.type = 'radio';
                visible.checked = n.layer.Visible;
                layerName = layerName.substring(1);
                break;
             default:
                visible.className = 'psdtool-layer-visible';
-               visible.name = 'l' + n.id;
+               visible.name = n.id;
                visible.type = 'checkbox';
                visible.checked = n.layer.Visible;
                break;
          }
       } else {
          visible.className = 'psdtool-layer-visible';
-         visible.name = 'l' + n.id;
+         visible.name = n.id;
          visible.type = 'checkbox';
          visible.checked = n.layer.Visible;
       }
@@ -1241,7 +1240,7 @@
          thumb.className = 'psdtool-thumbnail';
          thumb.width = 96;
          thumb.height = 96;
-         if (n.layer.Canvas) {
+         if (n.canvas) {
             let w = n.layer.Width,
                h = n.layer.Height;
             if (w > h) {
@@ -1253,7 +1252,7 @@
             }
             let ctx = thumb.getContext('2d');
             ctx.drawImage(
-               n.layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
+               n.canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
          }
          name.appendChild(thumb);
       }

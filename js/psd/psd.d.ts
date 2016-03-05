@@ -12,6 +12,9 @@ declare module psd {
       G: ArrayBuffer;
       B: ArrayBuffer;
       Mask: ArrayBuffer;
+
+      SeqID: number;
+
       Name: string;
       BlendMode: string;
       Opacity: number; // 0-255
@@ -38,7 +41,13 @@ declare module psd {
    interface PSD {
       parse: (
       src: ArrayBuffer,
-      progress: (phase: string, progress: number, layer: Layer) => void,
+      progress: (progress: number, layerName: string) => void,
+      complete: (psd: Root) => void,
+      failed: (error: any) => void
+      ) => void;
+      parseWorker: (
+      src: ArrayBuffer,
+      progress: (progress: number, layerName: string) => void,
       complete: (psd: Root) => void,
       failed: (error: any) => void
       ) => void;

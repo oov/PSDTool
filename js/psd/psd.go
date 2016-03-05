@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
+	"github.com/gopherjs/jsbuiltin"
 	"github.com/oov/psd"
 	"github.com/saintfish/chardet"
 	"golang.org/x/text/encoding/japanese"
@@ -34,12 +35,18 @@ type root struct {
 	PFV          string
 	Readme       string
 
-	processed int
-	progress  func(l *layer)
-	realRect  image.Rectangle
+	seq int
+
+	processed  int
+	makeCanvas func(l *layer)
+	realRect   image.Rectangle
+
+	transferable js.S
 }
 
 type layer struct {
+	SeqID int
+
 	X        int
 	Y        int
 	Width    int
@@ -83,6 +90,9 @@ func main() {
 func (r *root) buildLayer(l *layer) error {
 	var err error
 
+	r.seq++
+	l.SeqID = r.seq
+
 	if l.psdLayer.UnicodeName == "" && l.psdLayer.MBCSName != "" {
 		if l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName); err != nil {
 			l.Name = l.psdLayer.MBCSName
@@ -106,8 +116,10 @@ func (r *root) buildLayer(l *layer) error {
 		l.R = js.NewArrayBuffer(l.psdLayer.Channel[0].Data)
 		l.G = js.NewArrayBuffer(l.psdLayer.Channel[1].Data)
 		l.B = js.NewArrayBuffer(l.psdLayer.Channel[2].Data)
+		r.transferable = append(r.transferable, l.R, l.G, l.B)
 		if a, ok := l.psdLayer.Channel[-1]; ok {
 			l.A = js.NewArrayBuffer(a.Data)
+			r.transferable = append(r.transferable, l.A)
 		}
 		r.realRect = r.realRect.Union(l.psdLayer.Rect)
 	}
@@ -118,10 +130,13 @@ func (r *root) buildLayer(l *layer) error {
 	l.MaskDefaultColor = l.psdLayer.Mask.DefaultColor
 	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.MaskWidth*l.MaskHeight > 0 {
 		l.Mask = js.NewArrayBuffer(l.psdLayer.Channel[-2].Data)
+		r.transferable = append(r.transferable, l.Mask)
 	}
 
 	r.processed++
-	r.progress(l)
+	if r.makeCanvas != nil {
+		r.makeCanvas(l)
+	}
 
 	rect := l.psdLayer.Rect
 	for i := range l.psdLayer.Layer {
@@ -143,19 +158,9 @@ func (r *root) buildLayer(l *layer) error {
 	return nil
 }
 
-func countLayers(l []psd.Layer) int {
-	r := len(l)
-	for i := range l {
-		r += countLayers(l[i].Layer)
-	}
-	return r
-}
-
-func (r *root) Build(img *psd.PSD, progress func(processed, total int, l *layer)) error {
-	numLayers := countLayers(img.Layer)
+func (r *root) Build(img *psd.PSD) error {
 	r.CanvasWidth = img.Config.Rect.Dx()
 	r.CanvasHeight = img.Config.Rect.Dy()
-	r.progress = func(l *layer) { progress(r.processed, numLayers, l) }
 	for i := range img.Layer {
 		r.Children = append(r.Children, layer{psdLayer: &img.Layer[i]})
 		if err := r.buildLayer(&r.Children[i]); err != nil {
@@ -204,7 +209,7 @@ type reader interface {
 	Sum() []byte
 }
 
-func parse(rd readerAt, progress func(step string, progress float64, l *layer)) (*root, error) {
+func parse(rd readerAt, progress func(progress float64)) (*root, error) {
 	var r root
 	s := time.Now().UnixNano()
 
@@ -274,7 +279,7 @@ func parse(rd readerAt, progress func(step string, progress float64, l *layer)) 
 		reader = &genericProgressReader{
 			R:        rc,
 			Hash:     md5.New(),
-			Progress: func(p float64) { progress("parse", p, nil) },
+			Progress: progress,
 			size:     int(psdf.UncompressedSize64),
 		}
 	case "7z\xbc\xaf": // 7z archive
@@ -283,7 +288,7 @@ func parse(rd readerAt, progress func(step string, progress float64, l *layer)) 
 		reader = &genericProgressReader{
 			R:        bufio.NewReaderSize(rd, 1024*1024*2),
 			Hash:     md5.New(),
-			Progress: func(p float64) { progress("parse", p, nil) },
+			Progress: progress,
 			size:     int(rd.Size()),
 		}
 		break
@@ -295,8 +300,8 @@ func parse(rd readerAt, progress func(step string, progress float64, l *layer)) 
 		return nil, err
 	}
 	e := time.Now().UnixNano()
-	progress("parse", 1, nil)
-	log.Println("Decode PSD Structure:", (e-s)/1e6)
+	progress(1)
+	log.Println("decode PSD structure:", (e-s)/1e6)
 
 	if psdImg.Config.ColorMode != psd.ColorModeRGB {
 		return nil, errors.New("Unsupported color mode")
@@ -304,52 +309,98 @@ func parse(rd readerAt, progress func(step string, progress float64, l *layer)) 
 
 	s = time.Now().UnixNano()
 	r.Hash = fmt.Sprintf("%x", reader.Sum())
-	if err = r.Build(psdImg, func(processed, total int, l *layer) {
-		progress("draw", float64(processed)/float64(total), l)
-	}); err != nil {
+	if err = r.Build(psdImg); err != nil {
 		return nil, err
 	}
 	e = time.Now().UnixNano()
-	log.Println("Build Canvas:", (e-s)/1e6)
+	log.Println("build layer tree:", (e-s)/1e6)
 	return &r, nil
 }
 
 func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
-	next := time.Now()
-	r, err := newReaderFromJSObject(in)
-	if err != nil {
-		failed.Invoke(err.Error())
-		return
+	go func() {
+		r, err := newReaderFromJSObject(in)
+		if err != nil {
+			failed.Invoke(err.Error())
+			return
+		}
+		next := time.Now()
+		root, err := parse(r, func(prog float64) {
+			if now := time.Now(); now.After(next) {
+				progress.Invoke(prog)
+				time.Sleep(1) // anti-freeze
+				next = now.Add(100 * time.Millisecond)
+			}
+		})
+		if err != nil {
+			failed.Invoke(err.Error())
+			return
+		}
+		complete.Invoke(root)
+	}()
+}
+
+func parsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
+	script := js.Global.Get("document").Call("getElementById", "psdgo")
+	if !script.Bool() {
+		panic("id=psdgo not found")
 	}
-	root, err := parse(r, func(step string, prog float64, l *layer) {
-		if now := time.Now(); now.After(next) {
-			progress.Invoke(step, prog, l)
-			time.Sleep(1) // anti-freeze
-			next = now.Add(100 * time.Millisecond)
+	worker := js.Global.Get("Worker").New(script.Get("src"))
+	worker.Set("onmessage", func(e *js.Object) {
+		data := e.Get("data")
+		switch data.Get("type").String() {
+		case "progress":
+			progress.Invoke(data.Get("progress"))
+		case "error":
+			failed.Invoke(data.Get("error"))
+		case "complete":
+			complete.Invoke(data.Get("root"))
 		}
 	})
-	if err != nil {
-		failed.Invoke(err.Error())
-		return
+	if jsbuiltin.InstanceOf(in, js.Global.Get("ArrayBuffer")) {
+		worker.Call("postMessage", js.M{
+			"input": in,
+		}, js.S{in})
+	} else {
+		worker.Call("postMessage", js.M{"input": in})
 	}
-	complete.Invoke(root)
-}
-
-func ParsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
-	go parsePSD(in, progress, complete, failed)
-}
-
-func ParsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
-	panic("not implemented yet")
 }
 
 func mainMain() {
 	js.Global.Set("PSD", js.M{
-		"parse": ParsePSD,
-		//"parseWorker": ParsePSDInWorker,
+		"parse":       parsePSD,
+		"parseWorker": parsePSDInWorker,
 	})
 }
 
 func workerMain() {
-	// psd.Debug = log.New(os.Stdout, "psd: ", log.Lshortfile)
+	js.Global.Set("onmessage", func(e *js.Object) {
+		data := e.Get("data")
+		input := data.Get("input")
+		r, err := newReaderFromJSObject(input)
+		if err != nil {
+			js.Global.Call("postMessage", js.M{"type": "error", "error": err.Error()})
+			return
+		}
+		go func() {
+			next := time.Now()
+			root, err := parse(r, func(progress float64) {
+				if now := time.Now(); now.After(next) {
+					js.Global.Call("postMessage", js.M{
+						"type":     "progress",
+						"progress": progress,
+					})
+					next = now.Add(100 * time.Millisecond)
+				}
+			})
+			if err != nil {
+				js.Global.Call("postMessage", js.M{"type": "error", "error": err.Error()})
+				return
+			}
+			js.Global.Call("postMessage", js.M{
+				"type": "complete",
+				"root": root,
+			}, root.transferable)
+		}()
+	})
 }
