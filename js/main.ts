@@ -293,7 +293,7 @@
 
    function parse(progress: (phase: string, progress: number, layer?: psd.Layer) => void, obj) {
       var deferred = m.deferred();
-      parsePSD(
+      PSD.parse(
          obj.buffer,
          progress,
          (psd: psd.Root): void => { deferred.resolve({ psd: psd, name: obj.name }); },

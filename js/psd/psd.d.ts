@@ -7,8 +7,6 @@ declare module psd {
       Children: Layer[];
    }
    interface Layer extends LayerBase {
-      //Buffer: HTMLCanvasElement;
-
       Name: string;
       BlendMode: string;
       Opacity: number; // 0-255
@@ -25,8 +23,6 @@ declare module psd {
       FolderOpen: boolean;
    }
    interface Root extends LayerBase {
-      //Buffer: HTMLCanvasElement;
-
       CanvasWidth: number;
       CanvasHeight: number;
 
@@ -34,11 +30,13 @@ declare module psd {
       PFV: string;
       Readme: string;
    }
-
+   interface PSD {
+       parse: (
+          src: ArrayBuffer,
+          progress: (phase: string, progress: number, layer: Layer) => void,
+          complete: (psd: Root) => void,
+          failed: (error: any) => void
+          ) => void;
+   }
 }
-declare var parsePSD: (
-   src: ArrayBuffer,
-   progress: (phase: string, progress: number, layer: psd.Layer) => void,
-   complete: (psd: psd.Root) => void,
-   failed: (error: any) => void
-   ) => void;
+declare var PSD: psd.PSD;

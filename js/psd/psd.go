@@ -66,7 +66,9 @@ type layer struct {
 
 func main() {
 	// psd.Debug = log.New(os.Stdout, "psd: ", log.Lshortfile)
-	js.Global.Set("parsePSD", parsePSD)
+	js.Global.Set("PSD", js.M{
+		"parse": parsePSD,
+	})
 }
 
 func (r *root) buildLayer(l *layer) error {
