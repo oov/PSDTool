@@ -9,8 +9,6 @@ class StateNode {
 
    public userData: any;
 
-   public canvas: HTMLCanvasElement;
-   public mask: HTMLCanvasElement;
    public buffer: HTMLCanvasElement;
 
    public getVisibleState = (): boolean => { return this.layer.Visible; };
@@ -40,69 +38,6 @@ class StateNode {
 }
 
 class Renderer {
-   static createCanvas(w: number, h: number, r: Uint8Array, g: Uint8Array, b: Uint8Array, a?: Uint8Array): HTMLCanvasElement {
-      let canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      let ctx = canvas.getContext('2d');
-      let imgData = ctx.createImageData(w, h);
-      let sx: number, dx: number, y: number, sbase: number, dbase: number, dw = imgData.width << 2;
-      let data = imgData.data;
-      if (a) {
-         for (y = 0; y < h; ++y) {
-            sbase = y * w;
-            dbase = y * dw;
-            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
-               data[dbase + dx] = r[sbase + sx];
-               data[dbase + dx + 1] = g[sbase + sx];
-               data[dbase + dx + 2] = b[sbase + sx];
-               data[dbase + dx + 3] = a[sbase + sx];
-            }
-         }
-      } else {
-         for (y = 0; y < h; ++y) {
-            sbase = y * w;
-            dbase = y * dw;
-            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
-               data[dbase + dx] = r[sbase + sx];
-               data[dbase + dx + 1] = g[sbase + sx];
-               data[dbase + dx + 2] = b[sbase + sx];
-            }
-         }
-      }
-      ctx.putImageData(imgData, 0, 0);
-      return canvas;
-   }
-
-   static createMask(w: number, h: number, mask: Uint8Array, defaultColor: number): HTMLCanvasElement {
-      let canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      let ctx = canvas.getContext('2d');
-      let imgData = ctx.createImageData(w, h);
-      let sx: number, dx: number, y: number, sbase: number, dbase: number, dw = imgData.width << 2;
-      let data = imgData.data;
-      if (defaultColor === 0) {
-         for (y = 0; y < h; ++y) {
-            sbase = y * w;
-            dbase = y * dw;
-            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
-               data[dbase + dx + 3] = mask[sbase + sx];
-            }
-         }
-      } else {
-         for (y = 0; y < h; ++y) {
-            sbase = y * w;
-            dbase = y * dw;
-            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
-               data[dbase + dx + 3] = 255 - mask[sbase + sx];
-            }
-         }
-      }
-      ctx.putImageData(imgData, 0, 0);
-      return canvas;
-   }
-
    private draw(ctx: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
       switch (blendMode) {
          case 'source-over':
@@ -130,7 +65,7 @@ class Renderer {
 
    private canvas: HTMLCanvasElement = document.createElement('canvas');
    public StateTreeRoot = new StateNode(null, null);
-   constructor(private psd: psd.Root, private canvasMap: { [x: string]: any }) {
+   constructor(private psd: psd.Root) {
       this.buildStateTree(this.StateTreeRoot, psd);
       this.StateTreeRoot.buffer = document.createElement('canvas');
       this.StateTreeRoot.buffer.width = psd.Width;
@@ -141,11 +76,6 @@ class Renderer {
    private buildStateTree(n: StateNode, layer: psd.LayerBase): void {
       for (let nc: StateNode, i = 0; i < layer.Children.length; ++i) {
          nc = new StateNode(layer.Children[i], n);
-         if (nc.layer) {
-            nc.canvas = this.canvasMap['l' + nc.layer.SeqID];
-            nc.mask = this.canvasMap['m' + nc.layer.SeqID];
-         }
-
          this.buildStateTree(nc, layer.Children[i]);
          n.children.push(nc);
       }
@@ -257,11 +187,11 @@ class Renderer {
                }
             }
          }
-      } else if (n.canvas) {
+      } else if (n.layer.Canvas) {
          n.nextState = n.id;
       }
 
-      if (n.mask) {
+      if (n.layer.Mask) {
          n.nextState += '|lm';
       }
 
@@ -293,7 +223,7 @@ class Renderer {
    }
 
    private drawLayer(ctx: CanvasRenderingContext2D, n: StateNode, x: number, y: number, opacity: number, blendMode: string): boolean {
-      if (!n.visible || opacity === 0 || (!n.children.length && !n.canvas)) {
+      if (!n.visible || opacity === 0 || (!n.children.length && !n.layer.Canvas)) {
          return false;
       }
       let bb = n.buffer;
@@ -318,14 +248,14 @@ class Renderer {
                this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
             }
          }
-      } else if (n.canvas) {
-         this.draw(bbctx, n.canvas, 0, 0, 1, 'source-over');
+      } else if (n.layer.Canvas) {
+         this.draw(bbctx, n.layer.Canvas, 0, 0, 1, 'source-over');
       }
 
-      if (n.mask) {
+      if (n.layer.Mask) {
          this.draw(
             bbctx,
-            n.mask,
+            n.layer.Mask,
             n.layer.MaskX - n.layer.X,
             n.layer.MaskY - n.layer.Y,
             1,

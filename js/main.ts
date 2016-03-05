@@ -146,16 +146,16 @@
             case 'receive':
                msg = 'Receiving file...';
                break;
-            case 'parse':
-               msg = 'Parsing psd file...';
+            case 'load':
+               msg = 'Loading file...';
                break;
          }
          updateProgress(bar, caption, progress, msg);
       }
       progress('prepare', 0);
       loadAsArrayBuffer(progress, file_or_url)
-         .then(parse.bind(this, progress.bind(this, 'parse')))
-         .then((obj: any): any => { return initMain(obj.psd, obj.canvasMap, obj.name); })
+         .then(parse.bind(this, progress.bind(this, 'load')))
+         .then((obj: any): any => { return initMain(obj.psd, obj.name); })
          .then(function() {
          fileLoadingUi.style.display = 'none';
          fileOpenUi.style.display = 'none';
@@ -292,9 +292,7 @@
          (psd: psd.Root, canvasMap: { [x: string]: any }): void => {
             deferred.resolve({ psd: psd, canvasMap: canvasMap, name: obj.name });
          },
-         (error: any): void => { deferred.reject(error); },
-         Renderer.createCanvas,
-         Renderer.createMask
+         (error: any): void => { deferred.reject(error); }
          );
       return deferred.promise;
    }
@@ -305,17 +303,12 @@
       }
    }
 
-   function initMain(psd: psd.Root, canvasMap: { [x: string]: any }, name: string) {
+   function initMain(psd: psd.Root, name: string) {
       var deferred = m.deferred();
       setTimeout(function() {
          try {
-            let s = Date.now();
-            renderer = new Renderer(psd, canvasMap);
-            console.log('Renderer initialize: ' + (Date.now() - s));
-
-            s = Date.now();
+            renderer = new Renderer(psd);
             buildLayerTree(renderer, () => { ui.redraw(); });
-            console.log('build layer tree: ' + (Date.now() - s));
 
             ui.maxPixels.value = ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight;
             ui.seqDlPrefix.value = name;
@@ -1244,7 +1237,7 @@
          thumb.className = 'psdtool-thumbnail';
          thumb.width = 96;
          thumb.height = 96;
-         if (n.canvas) {
+         if (n.layer.Canvas) {
             let w = n.layer.Width,
                h = n.layer.Height;
             if (w > h) {
@@ -1256,7 +1249,7 @@
             }
             let ctx = thumb.getContext('2d');
             ctx.drawImage(
-               n.canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
+               n.layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
          }
          name.appendChild(thumb);
       }

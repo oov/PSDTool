@@ -31,10 +31,10 @@ type root struct {
 	PFV          string
 	Readme       string
 
-	seq int
+	seq       int
+	numLayers int
 
-	processed int
-	realRect  image.Rectangle
+	realRect image.Rectangle
 
 	makeCanvas func(l *layer)
 }
@@ -42,17 +42,14 @@ type root struct {
 type layer struct {
 	SeqID int
 
+	Canvas interface{}
+	Mask   interface{}
+
 	X        int
 	Y        int
 	Width    int
 	Height   int
 	Children []layer
-
-	a    []byte
-	r    []byte
-	g    []byte
-	b    []byte
-	mask []byte
 
 	Name                  string
 	BlendMode             string
@@ -96,25 +93,14 @@ func (r *root) buildLayer(l *layer) error {
 	l.Folder = l.psdLayer.Folder()
 	l.FolderOpen = l.psdLayer.FolderIsOpen()
 
-	if l.psdLayer.HasImage() && l.psdLayer.Rect.Dx()*l.psdLayer.Rect.Dy() > 0 {
-		l.r = l.psdLayer.Channel[0].Data
-		l.g = l.psdLayer.Channel[1].Data
-		l.b = l.psdLayer.Channel[2].Data
-		if a, ok := l.psdLayer.Channel[-1]; ok {
-			l.a = a.Data
-		}
-		r.realRect = r.realRect.Union(l.psdLayer.Rect)
-	}
 	l.MaskX = l.psdLayer.Mask.Rect.Min.X
 	l.MaskY = l.psdLayer.Mask.Rect.Min.Y
 	l.MaskWidth = l.psdLayer.Mask.Rect.Dx()
 	l.MaskHeight = l.psdLayer.Mask.Rect.Dy()
 	l.MaskDefaultColor = l.psdLayer.Mask.DefaultColor
-	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.MaskWidth*l.MaskHeight > 0 {
-		l.mask = l.psdLayer.Channel[-2].Data
-	}
 
-	r.processed++
+	r.realRect = r.realRect.Union(l.psdLayer.Rect)
+
 	if r.makeCanvas != nil {
 		r.makeCanvas(l)
 	}
@@ -190,7 +176,7 @@ type reader interface {
 	Sum() []byte
 }
 
-func parse(rd readerAt, progress func(progress float64), makeCanvas func(layer *layer)) (*root, error) {
+func parse(rd readerAt, progress func(progress float64), makeCanvas func(progress float64, layer *layer)) (*root, error) {
 	var r root
 	s := time.Now().UnixNano()
 
@@ -288,13 +274,24 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(layer *
 		return nil, errors.New("Unsupported color mode")
 	}
 
+	numLayers := countLayers(psdImg.Layer)
 	s = time.Now().UnixNano()
 	r.Hash = fmt.Sprintf("%x", reader.Sum())
-	r.makeCanvas = makeCanvas
+	r.makeCanvas = func(layer *layer) {
+		makeCanvas(float64(layer.SeqID)/float64(numLayers), layer)
+	}
 	if err = r.Build(psdImg); err != nil {
 		return nil, err
 	}
 	e = time.Now().UnixNano()
 	log.Println("build layer tree:", (e-s)/1e6)
 	return &r, nil
+}
+
+func countLayers(l []psd.Layer) int {
+	r := len(l)
+	for i := range l {
+		r += countLayers(l[i].Layer)
+	}
+	return r
 }
