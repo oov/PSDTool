@@ -4,6 +4,7 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"crypto/md5"
 	"errors"
 	"fmt"
@@ -66,10 +67,6 @@ type layer struct {
 func main() {
 	// psd.Debug = log.New(os.Stdout, "psd: ", log.Lshortfile)
 	js.Global.Set("parsePSD", parsePSD)
-}
-
-func arrayBufferToByteSlice(a *js.Object) []byte {
-	return js.Global.Get("Uint8Array").New(a).Interface().([]byte)
 }
 
 func (r *root) buildLayer(l *layer) error {
@@ -279,16 +276,22 @@ type reader interface {
 	Sum() []byte
 }
 
-func parse(b []byte, progress func(step string, progress float64, l *layer)) (*root, error) {
+func parse(rd readerAt, progress func(step string, progress float64, l *layer)) (*root, error) {
 	var r root
 	s := time.Now().UnixNano()
-	if len(b) < 4 {
+
+	if rd.Size() < 4 {
 		return nil, errors.New("unsupported file type")
 	}
+	var head [4]byte
+	_, err := rd.ReadAt(head[:], 0)
+	if err != nil {
+		return nil, err
+	}
 	var reader reader
-	switch string(b[:4]) {
+	switch string(head[:]) {
 	case "PK\x03\x04": // zip archive
-		zr, err := zip.NewReader(&progressReader{Buf: b}, int64(len(b)))
+		zr, err := zip.NewReader(rd, rd.Size())
 		if err != nil {
 			return nil, err
 		}
@@ -344,15 +347,16 @@ func parse(b []byte, progress func(step string, progress float64, l *layer)) (*r
 			R:        rc,
 			Hash:     md5.New(),
 			Progress: func(p float64) { progress("parse", p, nil) },
-			ln:       int64(psdf.UncompressedSize64),
+			size:     int(psdf.UncompressedSize64),
 		}
 	case "7z\xbc\xaf": // 7z archive
 		return nil, errors.New("7z archive is not supported")
 	case "8BPS": // psd file
-		reader = &progressReader{
-			Buf:      b,
+		reader = &genericProgressReader{
+			R:        bufio.NewReaderSize(rd, 1024*1024*2),
 			Hash:     md5.New(),
 			Progress: func(p float64) { progress("parse", p, nil) },
+			size:     int(rd.Size()),
 		}
 		break
 	default:
@@ -385,7 +389,12 @@ func parse(b []byte, progress func(step string, progress float64, l *layer)) (*r
 func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
 	go func() {
 		next := time.Now()
-		root, err := parse(arrayBufferToByteSlice(in), func(step string, prog float64, l *layer) {
+		r, err := newReaderFromJSObject(in)
+		if err != nil {
+			failed.Invoke(err.Error())
+			return
+		}
+		root, err := parse(r, func(step string, prog float64, l *layer) {
 			if now := time.Now(); now.After(next) {
 				progress.Invoke(step, prog, l)
 				time.Sleep(1) // anti-freeze

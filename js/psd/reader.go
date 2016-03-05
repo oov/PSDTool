@@ -6,52 +6,47 @@ import (
 	"io"
 )
 
-type progressReader struct {
-	Buf      []byte
-	Hash     hash.Hash
-	Progress func(float64)
-	pos      int
+type byteSliceReader struct {
+	Buf []byte
+	pos int
 }
 
-func (r *progressReader) Read(p []byte) (int, error) {
+func (r *byteSliceReader) Size() int64 {
+	return int64(len(r.Buf))
+}
+
+func (r *byteSliceReader) Read(p []byte) (int, error) {
+	if r.pos >= len(r.Buf) {
+		return 0, io.EOF
+	}
 	l := copy(p, r.Buf[r.pos:])
 	if l == 0 {
 		return 0, io.EOF
-	}
-	if r.Hash != nil {
-		r.Hash.Write(p[:l])
-	}
-	if r.Progress != nil && (r.pos & ^0x3ffff != (r.pos+l) & ^0x3ffff) {
-		r.Progress(float64(r.pos+l) / float64(len(r.Buf)))
 	}
 	r.pos += l
 	return l, nil
 }
 
-func (r *progressReader) ReadAt(p []byte, off int64) (n int, err error) {
+func (r *byteSliceReader) ReadAt(p []byte, off int64) (n int, err error) {
 	if off < 0 {
-		return 0, errors.New("progressReader.ReadAt: negative offset")
+		return 0, errors.New("byteSliceReader.ReadAt: negative offset")
 	}
 	if off >= int64(len(r.Buf)) {
 		return 0, io.EOF
 	}
-	r.pos = int(off)
-	return r.Read(p)
-}
-
-func (r *progressReader) Sum() []byte {
-	if r.Hash != nil {
-		return r.Hash.Sum(nil)
+	l := copy(p, r.Buf[off:])
+	if l == 0 {
+		return 0, io.EOF
 	}
-	return nil
+	return l, nil
 }
 
 type genericProgressReader struct {
 	R        io.Reader
 	Hash     hash.Hash
 	Progress func(float64)
-	pos      int64
-	ln       int64
+	pos      int
+	size     int
 }
 
 func (r *genericProgressReader) Read(p []byte) (int, error) {
@@ -62,11 +57,10 @@ func (r *genericProgressReader) Read(p []byte) (int, error) {
 	if r.Hash != nil {
 		r.Hash.Write(p[:l])
 	}
-	l64 := int64(l)
-	if r.Progress != nil && (r.pos & ^0x3ffff != (r.pos+l64) & ^0x3ffff) {
-		r.Progress(float64(r.pos+l64) / float64(r.ln))
+	if r.Progress != nil && (r.pos & ^0x3ffff != (r.pos+l) & ^0x3ffff) {
+		r.Progress(float64(r.pos+l) / float64(r.size))
 	}
-	r.pos += l64
+	r.pos += l
 	return l, err
 }
 

@@ -274,17 +274,12 @@
          xhr.send(null);
          return deferred.promise;
       }
-      var r = new FileReader();
-      r.readAsArrayBuffer(file_or_url);
-      r.onload = function(e) {
+      setTimeout((): void => {
          deferred.resolve({
-            buffer: r.result,
+            buffer: file_or_url,
             name: file_or_url.name.replace(/\..*$/i, '') + '_'
          });
-      };
-      r.onerror = function(e) {
-         deferred.reject(e);
-      };
+      }, 0);
       return deferred.promise;
    }
 
