@@ -114,7 +114,7 @@
       barElem.style.width = p + '%';
       barElem.setAttribute('aria-valuenow', p.toFixed(0) + '%');
       removeAllChild(captionElem);
-      captionElem.appendChild(document.createTextNode(caption));
+      captionElem.appendChild(document.createTextNode(p.toFixed(0) + '% ' + caption));
    }
 
    function loadAndParse(file_or_url) {
