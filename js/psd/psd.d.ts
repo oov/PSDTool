@@ -7,12 +7,6 @@ declare module psd {
       Children: Layer[];
    }
    interface Layer extends LayerBase {
-      A: ArrayBuffer;
-      R: ArrayBuffer;
-      G: ArrayBuffer;
-      B: ArrayBuffer;
-      Mask: ArrayBuffer;
-
       SeqID: number;
 
       Name: string;
@@ -42,14 +36,18 @@ declare module psd {
       parse: (
       src: ArrayBuffer,
       progress: (progress: number, layerName: string) => void,
-      complete: (psd: Root) => void,
-      failed: (error: any) => void
+      complete: (psd: Root, canvasMap: {[x: string]: any}) => void,
+      failed: (error: any) => void,
+      makeCanvas: (w: number, h: number, r: Uint8Array, g: Uint8Array, b: Uint8Array, a?: Uint8Array) => any,
+      makeMaskCanvas: (w: number, h: number, mask: Uint8Array, defaultColor: number) => any
       ) => void;
       parseWorker: (
       src: ArrayBuffer,
       progress: (progress: number, layerName: string) => void,
-      complete: (psd: Root) => void,
-      failed: (error: any) => void
+      complete: (psd: Root, canvasMap: {[x: string]: any}) => void,
+      failed: (error: any) => void,
+      makeCanvas: (w: number, h: number, r: Uint8Array, g: Uint8Array, b: Uint8Array, a?: Uint8Array) => any,
+      makeMaskCanvas: (w: number, h: number, mask: Uint8Array, defaultColor: number) => any
       ) => void;
    }
 }

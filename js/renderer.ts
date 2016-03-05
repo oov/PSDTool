@@ -32,27 +32,14 @@ class StateNode {
       if (w * h <= 0) {
          return;
       }
-      if (layer.R && layer.G && layer.B) {
-         this.canvas = StateNode.createCanvas(
-            w, h,
-            new Uint8Array(layer.R),
-            new Uint8Array(layer.G),
-            new Uint8Array(layer.B),
-            layer.A ? new Uint8Array(layer.A) : undefined);
-      }
-      if (layer.Mask) {
-         this.mask = StateNode.createMask(
-            layer.MaskWidth,
-            layer.MaskHeight,
-            new Uint8Array(layer.Mask),
-            layer.MaskDefaultColor
-            );
-      }
+
       this.buffer = document.createElement('canvas');
       this.buffer.width = w;
       this.buffer.height = h;
    }
+}
 
+class Renderer {
    static createCanvas(w: number, h: number, r: Uint8Array, g: Uint8Array, b: Uint8Array, a?: Uint8Array): HTMLCanvasElement {
       let canvas = document.createElement('canvas');
       canvas.width = w;
@@ -115,9 +102,7 @@ class StateNode {
       ctx.putImageData(imgData, 0, 0);
       return canvas;
    }
-}
 
-class Renderer {
    private draw(ctx: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
       switch (blendMode) {
          case 'source-over':
@@ -145,7 +130,7 @@ class Renderer {
 
    private canvas: HTMLCanvasElement = document.createElement('canvas');
    public StateTreeRoot = new StateNode(null, null);
-   constructor(private psd: psd.Root) {
+   constructor(private psd: psd.Root, private canvasMap: { [x: string]: any }) {
       this.buildStateTree(this.StateTreeRoot, psd);
       this.StateTreeRoot.buffer = document.createElement('canvas');
       this.StateTreeRoot.buffer.width = psd.Width;
@@ -156,6 +141,11 @@ class Renderer {
    private buildStateTree(n: StateNode, layer: psd.LayerBase): void {
       for (let nc: StateNode, i = 0; i < layer.Children.length; ++i) {
          nc = new StateNode(layer.Children[i], n);
+         if (nc.layer) {
+            nc.canvas = this.canvasMap['l' + nc.layer.SeqID];
+            nc.mask = this.canvasMap['m' + nc.layer.SeqID];
+         }
+
          this.buildStateTree(nc, layer.Children[i]);
          n.children.push(nc);
       }

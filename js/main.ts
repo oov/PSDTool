@@ -155,7 +155,7 @@
       progress('prepare', 0);
       loadAsArrayBuffer(progress, file_or_url)
          .then(parse.bind(this, progress.bind(this, 'parse')))
-         .then((obj: any): any => { return initMain(obj.psd, obj.name); })
+         .then((obj: any): any => { return initMain(obj.psd, obj.canvasMap, obj.name); })
          .then(function() {
          fileLoadingUi.style.display = 'none';
          fileOpenUi.style.display = 'none';
@@ -289,8 +289,12 @@
       PSD.parseWorker(
          obj.buffer,
          progress,
-         (psd: psd.Root): void => { deferred.resolve({ psd: psd, name: obj.name }); },
-         (error: any): void => { deferred.reject(error); }
+         (psd: psd.Root, canvasMap: { [x: string]: any }): void => {
+            deferred.resolve({ psd: psd, canvasMap: canvasMap, name: obj.name });
+         },
+         (error: any): void => { deferred.reject(error); },
+         Renderer.createCanvas,
+         Renderer.createMask
          );
       return deferred.promise;
    }
@@ -301,12 +305,12 @@
       }
    }
 
-   function initMain(psd: psd.Root, name: string) {
+   function initMain(psd: psd.Root, canvasMap: { [x: string]: any }, name: string) {
       var deferred = m.deferred();
       setTimeout(function() {
          try {
             let s = Date.now();
-            renderer = new Renderer(psd);
+            renderer = new Renderer(psd, canvasMap);
             console.log('Renderer initialize: ' + (Date.now() - s));
 
             s = Date.now();
