@@ -9,21 +9,108 @@ class StateNode {
 
    public userData: any;
 
+   public canvas: HTMLCanvasElement;
+   public mask: HTMLCanvasElement;
+   public buffer: HTMLCanvasElement;
+
    public getVisibleState = (): boolean => { return this.layer.Visible; };
    public setVisibleState = (v: boolean) => undefined;
    public state: string = '';
    public nextState: string = '';
    public children: StateNode[] = [];
-   public buffer: HTMLCanvasElement;
    public clip: StateNode[];
    public clippedBy: StateNode;
    public clippingBuffer: HTMLCanvasElement;
    constructor(public layer: psd.Layer, public parent: StateNode, public id: string) {
-      if (layer && layer.Width * layer.Height > 0) {
-         this.buffer = document.createElement('canvas');
-         this.buffer.width = layer.Width;
-         this.buffer.height = layer.Height;
+      if (!layer) {
+         return;
       }
+      let w = layer.Width, h = layer.Height;
+      if (w * h <= 0) {
+         return;
+      }
+      if (layer.R && layer.G && layer.B) {
+         this.canvas = StateNode.createCanvas(
+            w, h,
+            new Uint8Array(layer.R),
+            new Uint8Array(layer.G),
+            new Uint8Array(layer.B),
+            layer.A ? new Uint8Array(layer.A) : undefined);
+      }
+      if (layer.Mask) {
+         this.mask = StateNode.createMask(
+            layer.MaskWidth,
+            layer.MaskHeight,
+            new Uint8Array(layer.Mask),
+            layer.MaskDefaultColor
+            );
+      }
+      this.buffer = document.createElement('canvas');
+      this.buffer.width = w;
+      this.buffer.height = h;
+   }
+
+   static createCanvas(w: number, h: number, r: Uint8Array, g: Uint8Array, b: Uint8Array, a?: Uint8Array): HTMLCanvasElement {
+      let canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      let ctx = canvas.getContext('2d');
+      let imgData = ctx.createImageData(w, h);
+      let sx: number, dx: number, y: number, sbase: number, dbase: number, dw = imgData.width << 2;
+      let data = imgData.data;
+      if (a) {
+         for (y = 0; y < h; ++y) {
+            sbase = y * w;
+            dbase = y * dw;
+            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
+               data[dbase + dx] = r[sbase + sx];
+               data[dbase + dx + 1] = g[sbase + sx];
+               data[dbase + dx + 2] = b[sbase + sx];
+               data[dbase + dx + 3] = a[sbase + sx];
+            }
+         }
+      } else {
+         for (y = 0; y < h; ++y) {
+            sbase = y * w;
+            dbase = y * dw;
+            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
+               data[dbase + dx] = r[sbase + sx];
+               data[dbase + dx + 1] = g[sbase + sx];
+               data[dbase + dx + 2] = b[sbase + sx];
+            }
+         }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      return canvas;
+   }
+
+   static createMask(w: number, h: number, mask: Uint8Array, defaultColor: number): HTMLCanvasElement {
+      let canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      let ctx = canvas.getContext('2d');
+      let imgData = ctx.createImageData(w, h);
+      let sx: number, dx: number, y: number, sbase: number, dbase: number, dw = imgData.width << 2;
+      let data = imgData.data;
+      if (defaultColor === 0) {
+         for (y = 0; y < h; ++y) {
+            sbase = y * w;
+            dbase = y * dw;
+            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
+               data[dbase + dx + 3] = mask[sbase + sx];
+            }
+         }
+      } else {
+         for (y = 0; y < h; ++y) {
+            sbase = y * w;
+            dbase = y * dw;
+            for (sx = 0, dx = 0; sx < w; ++sx, dx += 4) {
+               data[dbase + dx + 3] = 255 - mask[sbase + sx];
+            }
+         }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      return canvas;
    }
 }
 
@@ -177,11 +264,11 @@ class Renderer {
                }
             }
          }
-      } else if (n.layer.Canvas) {
+      } else if (n.canvas) {
          n.nextState = n.id;
       }
 
-      if (n.layer.MaskCanvas) {
+      if (n.mask) {
          n.nextState += '|lm';
       }
 
@@ -213,7 +300,7 @@ class Renderer {
    }
 
    private drawLayer(ctx: CanvasRenderingContext2D, n: StateNode, x: number, y: number, opacity: number, blendMode: string): boolean {
-      if (!n.visible || opacity === 0 || (!n.children.length && !n.layer.Canvas)) {
+      if (!n.visible || opacity === 0 || (!n.children.length && !n.canvas)) {
          return false;
       }
       let bb = n.buffer;
@@ -238,14 +325,14 @@ class Renderer {
                this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
             }
          }
-      } else if (n.layer.Canvas) {
-         this.draw(bbctx, n.layer.Canvas, 0, 0, 1, 'source-over');
+      } else if (n.canvas) {
+         this.draw(bbctx, n.canvas, 0, 0, 1, 'source-over');
       }
 
-      if (n.layer.MaskCanvas) {
+      if (n.mask) {
          this.draw(
             bbctx,
-            n.layer.MaskCanvas,
+            n.mask,
             n.layer.MaskX - n.layer.X,
             n.layer.MaskY - n.layer.Y,
             1,

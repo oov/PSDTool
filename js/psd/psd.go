@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"io"
 	"io/ioutil"
 	"log"
@@ -47,6 +46,12 @@ type layer struct {
 	Height   int
 	Children []layer
 
+	A    *js.Object
+	R    *js.Object
+	G    *js.Object
+	B    *js.Object
+	Mask *js.Object
+
 	Name                  string
 	BlendMode             string
 	Opacity               uint8
@@ -54,21 +59,25 @@ type layer struct {
 	BlendClippedElements  bool
 	TransparencyProtected bool
 	Visible               bool
-	Canvas                *js.Object
-	MaskX                 int
-	MaskY                 int
-	MaskCanvas            *js.Object
-	MaskDefaultColor      int
-	Folder                bool
-	FolderOpen            bool
-	psdLayer              *psd.Layer
+	//Canvas                *js.Object
+	MaskX      int
+	MaskY      int
+	MaskWidth  int
+	MaskHeight int
+	//MaskCanvas            *js.Object
+	MaskDefaultColor int
+	Folder           bool
+	FolderOpen       bool
+	psdLayer         *psd.Layer
 }
 
 func main() {
 	// psd.Debug = log.New(os.Stdout, "psd: ", log.Lshortfile)
-	js.Global.Set("PSD", js.M{
-		"parse": parsePSD,
-	})
+	if js.Global.Get("importScripts").Bool() {
+		workerMain()
+	} else {
+		mainMain()
+	}
 }
 
 func (r *root) buildLayer(l *layer) error {
@@ -94,18 +103,21 @@ func (r *root) buildLayer(l *layer) error {
 	l.FolderOpen = l.psdLayer.FolderIsOpen()
 
 	if l.psdLayer.HasImage() && l.psdLayer.Rect.Dx()*l.psdLayer.Rect.Dy() > 0 {
-		if l.Canvas, err = createImageCanvas(l.psdLayer); err != nil {
-			return err
+		l.R = js.NewArrayBuffer(l.psdLayer.Channel[0].Data)
+		l.G = js.NewArrayBuffer(l.psdLayer.Channel[1].Data)
+		l.B = js.NewArrayBuffer(l.psdLayer.Channel[2].Data)
+		if a, ok := l.psdLayer.Channel[-1]; ok {
+			l.A = js.NewArrayBuffer(a.Data)
 		}
 		r.realRect = r.realRect.Union(l.psdLayer.Rect)
 	}
-	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.psdLayer.Mask.Rect.Dx()*l.psdLayer.Mask.Rect.Dy() > 0 {
-		if l.MaskCanvas, err = createMaskCanvas(l.psdLayer); err != nil {
-			return err
-		}
-		l.MaskX = l.psdLayer.Mask.Rect.Min.X
-		l.MaskY = l.psdLayer.Mask.Rect.Min.Y
-		l.MaskDefaultColor = l.psdLayer.Mask.DefaultColor
+	l.MaskX = l.psdLayer.Mask.Rect.Min.X
+	l.MaskY = l.psdLayer.Mask.Rect.Min.Y
+	l.MaskWidth = l.psdLayer.Mask.Rect.Dx()
+	l.MaskHeight = l.psdLayer.Mask.Rect.Dy()
+	l.MaskDefaultColor = l.psdLayer.Mask.DefaultColor
+	if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.MaskWidth*l.MaskHeight > 0 {
+		l.Mask = js.NewArrayBuffer(l.psdLayer.Channel[-2].Data)
 	}
 
 	r.processed++
@@ -156,92 +168,6 @@ func (r *root) Build(img *psd.PSD, progress func(processed, total int, l *layer)
 	r.Width = r.realRect.Dx()
 	r.Height = r.realRect.Dy()
 	return nil
-}
-
-func createImageCanvas(l *psd.Layer) (*js.Object, error) {
-	if l.Picker.ColorModel() != color.NRGBAModel {
-		return nil, errors.New("Unsupported color mode")
-	}
-
-	sw, sh := l.Rect.Dx(), l.Rect.Dy()
-	cvs := createCanvas(sw, sh)
-	ctx := cvs.Call("getContext", "2d")
-	imgData := ctx.Call("createImageData", sw, sh)
-	dw := imgData.Get("width").Int()
-	data := imgData.Get("data")
-
-	var ofsd, ofss, x, y, sx, dx int
-	r, g, b := l.Channel[0], l.Channel[1], l.Channel[2]
-	rp, gp, bp := r.Data, g.Data, b.Data
-	if a, ok := l.Channel[-1]; ok {
-		ap := a.Data
-		for y = 0; y < sh; y++ {
-			ofss, ofsd = y*sw, y*dw<<2
-			for x = 0; x < sw; x++ {
-				sx, dx = ofss+x, ofsd+x<<2
-				data.SetIndex(dx+0, rp[sx])
-				data.SetIndex(dx+1, gp[sx])
-				data.SetIndex(dx+2, bp[sx])
-				data.SetIndex(dx+3, ap[sx])
-			}
-		}
-	} else {
-		for y = 0; y < sh; y++ {
-			ofss, ofsd = y*sw, y*dw<<2
-			for x = 0; x < sw; x++ {
-				sx, dx = ofss+x, ofsd+x<<2
-				data.SetIndex(dx+0, rp[sx])
-				data.SetIndex(dx+1, gp[sx])
-				data.SetIndex(dx+2, bp[sx])
-				data.SetIndex(dx+3, 0xff)
-			}
-		}
-	}
-	ctx.Call("putImageData", imgData, 0, 0)
-	return cvs, nil
-}
-
-func createMaskCanvas(l *psd.Layer) (*js.Object, error) {
-	m, ok := l.Channel[-2]
-	if !ok {
-		return nil, nil
-	}
-
-	sw, sh := l.Mask.Rect.Dx(), l.Mask.Rect.Dy()
-	cvs := createCanvas(sw, sh)
-	ctx := cvs.Call("getContext", "2d")
-	imgData := ctx.Call("createImageData", sw, sh)
-	dw := imgData.Get("width").Int()
-	data := imgData.Get("data")
-
-	var ofsd, ofss, x, y, sx, dx int
-	mp := m.Data
-	if l.Mask.DefaultColor == 0 {
-		for y = 0; y < sh; y++ {
-			ofss, ofsd = y*sw, y*dw<<2
-			for x = 0; x < sw; x++ {
-				sx, dx = ofss+x, ofsd+x<<2
-				data.SetIndex(dx+3, mp[sx])
-			}
-		}
-	} else {
-		for y = 0; y < sh; y++ {
-			ofss, ofsd = y*sw, y*dw<<2
-			for x = 0; x < sw; x++ {
-				sx, dx = ofss+x, ofsd+x<<2
-				data.SetIndex(dx+3, 255-mp[sx])
-			}
-		}
-	}
-	ctx.Call("putImageData", imgData, 0, 0)
-	return cvs, nil
-}
-
-func createCanvas(width, height int) *js.Object {
-	cvs := js.Global.Get("document").Call("createElement", "canvas")
-	cvs.Set("width", width)
-	cvs.Set("height", height)
-	return cvs
 }
 
 func readTextFile(r io.Reader) (string, error) {
@@ -389,24 +315,41 @@ func parse(rd readerAt, progress func(step string, progress float64, l *layer)) 
 }
 
 func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
-	go func() {
-		next := time.Now()
-		r, err := newReaderFromJSObject(in)
-		if err != nil {
-			failed.Invoke(err.Error())
-			return
+	next := time.Now()
+	r, err := newReaderFromJSObject(in)
+	if err != nil {
+		failed.Invoke(err.Error())
+		return
+	}
+	root, err := parse(r, func(step string, prog float64, l *layer) {
+		if now := time.Now(); now.After(next) {
+			progress.Invoke(step, prog, l)
+			time.Sleep(1) // anti-freeze
+			next = now.Add(100 * time.Millisecond)
 		}
-		root, err := parse(r, func(step string, prog float64, l *layer) {
-			if now := time.Now(); now.After(next) {
-				progress.Invoke(step, prog, l)
-				time.Sleep(1) // anti-freeze
-				next = now.Add(100 * time.Millisecond)
-			}
-		})
-		if err != nil {
-			failed.Invoke(err.Error())
-			return
-		}
-		complete.Invoke(root)
-	}()
+	})
+	if err != nil {
+		failed.Invoke(err.Error())
+		return
+	}
+	complete.Invoke(root)
+}
+
+func ParsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
+	go parsePSD(in, progress, complete, failed)
+}
+
+func ParsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
+	panic("not implemented yet")
+}
+
+func mainMain() {
+	js.Global.Set("PSD", js.M{
+		"parse": ParsePSD,
+		//"parseWorker": ParsePSDInWorker,
+	})
+}
+
+func workerMain() {
+	// psd.Debug = log.New(os.Stdout, "psd: ", log.Lshortfile)
 }

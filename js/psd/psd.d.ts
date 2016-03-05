@@ -7,6 +7,11 @@ declare module psd {
       Children: Layer[];
    }
    interface Layer extends LayerBase {
+      A: ArrayBuffer;
+      R: ArrayBuffer;
+      G: ArrayBuffer;
+      B: ArrayBuffer;
+      Mask: ArrayBuffer;
       Name: string;
       BlendMode: string;
       Opacity: number; // 0-255
@@ -14,11 +19,11 @@ declare module psd {
       BlendClippedElements: boolean;
       TransparencyProtected: boolean;
       Visible: boolean;
-      Canvas: HTMLCanvasElement;
       MaskX: number;
       MaskY: number;
-      MaskCanvas: HTMLCanvasElement;
-      MaskDefaultColor: boolean;
+      MaskWidth: number;
+      MaskHeight: number;
+      MaskDefaultColor: number;
       Folder: boolean;
       FolderOpen: boolean;
    }
@@ -31,12 +36,12 @@ declare module psd {
       Readme: string;
    }
    interface PSD {
-       parse: (
-          src: ArrayBuffer,
-          progress: (phase: string, progress: number, layer: Layer) => void,
-          complete: (psd: Root) => void,
-          failed: (error: any) => void
-          ) => void;
+      parse: (
+      src: ArrayBuffer,
+      progress: (phase: string, progress: number, layer: Layer) => void,
+      complete: (psd: Root) => void,
+      failed: (error: any) => void
+      ) => void;
    }
 }
 declare var PSD: psd.PSD;
