@@ -147,8 +147,8 @@ class Renderer {
          }
          ctx.drawImage(
             c,
-            autoTrim ? 0 : Math.ceil(this.psd.X * scale),
-            autoTrim ? 0 : Math.ceil(this.psd.Y * scale)
+            autoTrim ? 0 : 0 | this.psd.X * scale,
+            autoTrim ? 0 : 0 | this.psd.Y * scale
             );
          ctx.restore();
          callback(progress, canvas);
