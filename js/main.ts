@@ -27,7 +27,7 @@
       seqDlNum: null,
       favoriteToolbar: null,
       favoriteTree: null,
-      FavoriteTreeDefaultRootName: null,
+      favoriteTreeDefaultRootName: null,
       favoriteTreeChangedTimer: null,
       seqDl: null,
       exportFavoritesPFV: null,
@@ -446,7 +446,7 @@
             },
             data: data ? data : [{
                id: 'root',
-               text: ui.FavoriteTreeDefaultRootName,
+               text: ui.favoriteTreeDefaultRootName,
                type: 'root',
             }]
          },
@@ -597,7 +597,7 @@
       if (root && root.text) {
          return root.text;
       }
-      return ui.FavoriteTreeDefaultRootName;
+      return ui.favoriteTreeDefaultRootName;
    }
 
    function cleanForFilename(f: string): string {
@@ -716,7 +716,7 @@
    }
 
    function initFavoriteUI(): void {
-      ui.FavoriteTreeDefaultRootName = document.getElementById('favorite-tree').getAttribute('data-root-name');
+      ui.favoriteTreeDefaultRootName = document.getElementById('favorite-tree').getAttribute('data-root-name');
       initFavoriteTree();
 
       jQuery('button[data-psdtool-tree-add-item]').on('click', function(e) {
@@ -1620,7 +1620,7 @@
 
       let json = [{
          id: 'root',
-         text: ui.FavoriteTreeDefaultRootName,
+         text: ui.favoriteTreeDefaultRootName,
          type: 'root',
          state: {
             opened: true
@@ -1628,7 +1628,7 @@
          children: []
       }];
       let setting = {
-         'root-name': ui.FavoriteTreeDefaultRootName
+         'root-name': ui.favoriteTreeDefaultRootName
       };
       let name: string,
          type: string,
