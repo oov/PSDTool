@@ -289,8 +289,8 @@
       PSD.parseWorker(
          obj.buffer,
          progress,
-         (psd: psd.Root, canvasMap: { [x: string]: any }): void => {
-            deferred.resolve({ psd: psd, canvasMap: canvasMap, name: obj.name });
+         (psd: psd.Root): void => {
+            deferred.resolve({ psd: psd, name: obj.name });
          },
          (error: any): void => { deferred.reject(error); }
          );

@@ -39,13 +39,13 @@ declare module psd {
       parse: (
       src: ArrayBuffer,
       progress: (progress: number, layerName: string) => void,
-      complete: (psd: Root, canvasMap: {[x: string]: any}) => void,
+      complete: (psd: Root) => void,
       failed: (error: any) => void
       ) => void;
       parseWorker: (
       src: ArrayBuffer,
       progress: (progress: number, layerName: string) => void,
-      complete: (psd: Root, canvasMap: {[x: string]: any}) => void,
+      complete: (psd: Root) => void,
       failed: (error: any) => void
       ) => void;
    }
