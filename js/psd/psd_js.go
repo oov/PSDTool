@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -20,6 +21,11 @@ func main() {
 
 func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				failed.Invoke(fmt.Sprint("uncaught exception occurred on during parsing PSD: ", err))
+			}
+		}()
 		r, err := newReaderFromJSObject(in)
 		if err != nil {
 			failed.Invoke(err.Error())
@@ -150,6 +156,11 @@ func workerMain() {
 			return
 		}
 		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					js.Global.Call("postMessage", js.M{"type": "error", "error": fmt.Sprint("uncaught exception occurred on during parsing PSD: ", err)})
+				}
+			}()
 			root, err := parse(r, func(progress float64) {
 				js.Global.Call("postMessage", js.M{
 					"type":     "progress",
