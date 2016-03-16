@@ -31,12 +31,7 @@ type root struct {
 	PFV          string
 	Readme       string
 
-	seq       int
-	numLayers int
-
 	realRect image.Rectangle
-
-	makeCanvas func(l *layer)
 }
 
 type layer struct {
@@ -71,8 +66,7 @@ type layer struct {
 func (r *root) buildLayer(l *layer) error {
 	var err error
 
-	r.seq++
-	l.SeqID = r.seq
+	l.SeqID = l.psdLayer.SeqID
 
 	if l.psdLayer.UnicodeName == "" && l.psdLayer.MBCSName != "" {
 		if l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName); err != nil {
@@ -100,10 +94,6 @@ func (r *root) buildLayer(l *layer) error {
 	l.MaskDefaultColor = l.psdLayer.Mask.DefaultColor
 
 	r.realRect = r.realRect.Union(l.psdLayer.Rect)
-
-	if r.makeCanvas != nil {
-		r.makeCanvas(l)
-	}
 
 	rect := l.psdLayer.Rect
 	for i := range l.psdLayer.Layer {
@@ -176,7 +166,7 @@ type reader interface {
 	Sum() []byte
 }
 
-func parse(rd readerAt, progress func(progress float64), makeCanvas func(progress float64, layer *layer)) (*root, error) {
+func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID int, layer *psd.Layer)) (*root, error) {
 	var r root
 	s := time.Now().UnixNano()
 
@@ -262,7 +252,11 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(progres
 	default:
 		return nil, errors.New("unsupported file type")
 	}
-	psdImg, _, err := psd.Decode(reader, nil)
+	psdImg, _, err := psd.Decode(reader, &psd.DecodeOptions{
+		LayerImageLoaded: func(layer *psd.Layer, index int, total int) {
+			makeCanvas(index, layer)
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -274,12 +268,8 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(progres
 		return nil, errors.New("Unsupported color mode")
 	}
 
-	numLayers := countLayers(psdImg.Layer)
 	s = time.Now().UnixNano()
 	r.Hash = fmt.Sprintf("%x", reader.Sum())
-	r.makeCanvas = func(layer *layer) {
-		makeCanvas(float64(layer.SeqID)/float64(numLayers), layer)
-	}
 	if err = r.Build(psdImg); err != nil {
 		return nil, err
 	}

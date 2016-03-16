@@ -4,10 +4,10 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/jsbuiltin"
+	"github.com/oov/psd"
 )
 
 func main() {
@@ -31,78 +31,69 @@ func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *j
 			failed.Invoke(err.Error())
 			return
 		}
-		next := time.Now()
+		canvasMap := map[int][2]*js.Object{}
 		root, err := parse(r, func(prog float64) {
-			if now := time.Now(); now.After(next) {
-				progress.Invoke(prog * 0.5)
-				time.Sleep(0) // anti-freeze
-				next = now.Add(100 * time.Millisecond)
-			}
-		}, func(p float64, l *layer) {
-			if l.psdLayer.HasImage() && l.psdLayer.Rect.Dx()*l.psdLayer.Rect.Dy() > 0 {
+			progress.Invoke(prog)
+		}, func(seqID int, l *psd.Layer) {
+			var canvas, mask *js.Object
+			if l.HasImage() && !l.Rect.Empty() {
 				var a []byte
-				if ach, ok := l.psdLayer.Channel[-1]; ok {
+				if ach, ok := l.Channel[-1]; ok {
 					a = ach.Data
 				}
-				l.Canvas = createImageCanvas(
-					l.psdLayer.Rect.Dx(),
-					l.psdLayer.Rect.Dy(),
-					l.psdLayer.Channel[0].Data,
-					l.psdLayer.Channel[1].Data,
-					l.psdLayer.Channel[2].Data,
+				canvas = createImageCanvas(
+					l.Rect.Dx(),
+					l.Rect.Dy(),
+					l.Channel[0].Data,
+					l.Channel[1].Data,
+					l.Channel[2].Data,
 					a,
 				)
 			}
-			if mask, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.MaskWidth*l.MaskHeight > 0 {
-				l.Mask = createMaskCanvas(l.MaskWidth, l.MaskHeight, mask.Data, l.MaskDefaultColor)
+			if m, ok := l.Channel[-2]; ok && l.Mask.Enabled() && !l.Mask.Rect.Empty() {
+				mask = createMaskCanvas(l.Mask.Rect.Dx(), l.Mask.Rect.Dx(), m.Data, l.Mask.DefaultColor)
 			}
-			progress.Invoke(0.5 + p*0.5)
-			time.Sleep(0) // anti-freeze
+			canvasMap[seqID] = [2]*js.Object{canvas, mask}
 		})
 		if err != nil {
 			failed.Invoke(err.Error())
 			return
 		}
+		mapCanvasGo(canvasMap, root)
 		complete.Invoke(root)
 	}()
 }
 
-func mapCanvas(canvasMap map[string]*js.Object, layer *js.Object, progress func(p float64), complete func()) {
-	cur, total := 0, len(canvasMap)
+func mapCanvasGo(canvasMap map[int][2]*js.Object, root *root) {
+	var r func([]layer)
+	r = func(children []layer) {
+		for i := range children {
+			child := &children[i]
+			if data, ok := canvasMap[child.SeqID]; ok {
+				child.Canvas = data[0]
+				child.Mask = data[1]
+			}
+			r(child.Children)
+		}
+	}
+	r(root.Children)
+}
+
+func mapCanvasJS(canvasMap map[int][2]*js.Object, root *js.Object) {
 	var r func(*js.Object)
 	r = func(l *js.Object) {
 		children := l.Get("Children")
 		ln := children.Length()
 		for i := 0; i < ln; i++ {
 			child := children.Index(i)
-			seqID := child.Get("SeqID").String()
-			if data, ok := canvasMap[seqID]; ok {
-				if w, h := data.Get("w").Int(), data.Get("h").Int(); w*h > 0 {
-					r := js.Global.Get("Uint8Array").New(data.Get("r")).Interface().([]byte)
-					g := js.Global.Get("Uint8Array").New(data.Get("g")).Interface().([]byte)
-					b := js.Global.Get("Uint8Array").New(data.Get("b")).Interface().([]byte)
-					var a []byte
-					if aab := data.Get("a"); aab.Bool() {
-						a = js.Global.Get("Uint8Array").New(aab).Interface().([]byte)
-					}
-					child.Set("Canvas", createImageCanvas(w, h, r, g, b, a))
-				}
-				if m := data.Get("m"); m.Bool() {
-					child.Set("Mask", createMaskCanvas(
-						data.Get("mw").Int(), data.Get("mh").Int(),
-						js.Global.Get("Uint8Array").New(m).Interface().([]byte),
-						data.Get("mc").Int(),
-					))
-				}
-				cur++
-				progress(float64(cur) / float64(total))
-				time.Sleep(0) // anti-freeze
+			if data, ok := canvasMap[child.Get("SeqID").Int()]; ok {
+				child.Set("Canvas", data[0])
+				child.Set("Mask", data[1])
 			}
 			r(child)
 		}
 	}
-	r(layer)
-	complete()
+	r(root)
 }
 
 func parsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
@@ -111,23 +102,38 @@ func parsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, f
 		panic("id=psdgo not found")
 	}
 	worker := js.Global.Get("Worker").New(script.Get("src"))
-	canvasMap := make(map[string]*js.Object)
+	canvasMap := map[int][2]*js.Object{}
 	worker.Set("onmessage", func(e *js.Object) {
 		data := e.Get("data")
 		switch data.Get("type").String() {
 		case "makeCanvas":
-			canvasMap[data.Get("id").String()] = data
+			var canvas, mask *js.Object
+			if w, h := data.Get("w").Int(), data.Get("h").Int(); w*h > 0 {
+				r := js.Global.Get("Uint8Array").New(data.Get("r")).Interface().([]byte)
+				g := js.Global.Get("Uint8Array").New(data.Get("g")).Interface().([]byte)
+				b := js.Global.Get("Uint8Array").New(data.Get("b")).Interface().([]byte)
+				var a []byte
+				if aab := data.Get("a"); aab.Bool() {
+					a = js.Global.Get("Uint8Array").New(aab).Interface().([]byte)
+				}
+				canvas = createImageCanvas(w, h, r, g, b, a)
+			}
+			if m := data.Get("m"); m.Bool() {
+				mask = createMaskCanvas(
+					data.Get("mw").Int(), data.Get("mh").Int(),
+					js.Global.Get("Uint8Array").New(m).Interface().([]byte),
+					data.Get("mc").Int(),
+				)
+			}
+			canvasMap[data.Get("id").Int()] = [2]*js.Object{canvas, mask}
 		case "progress":
 			progress.Invoke(data.Get("progress"))
 		case "error":
 			failed.Invoke(data.Get("error"))
 		case "complete":
 			root := data.Get("root")
-			go mapCanvas(canvasMap, root, func(p float64) {
-				progress.Invoke(0.5 + p*0.5)
-			}, func() {
-				complete.Invoke(root)
-			})
+			mapCanvasJS(canvasMap, root)
+			complete.Invoke(root)
 		}
 	})
 	if jsbuiltin.InstanceOf(in, js.Global.Get("ArrayBuffer")) {
@@ -164,33 +170,33 @@ func workerMain() {
 			root, err := parse(r, func(progress float64) {
 				js.Global.Call("postMessage", js.M{
 					"type":     "progress",
-					"progress": progress * 0.5,
+					"progress": progress,
 				})
-			}, func(p float64, l *layer) {
-				dataMap := js.M{"type": "makeCanvas", "progress": 0.5 + p*0.5, "id": l.SeqID}
+			}, func(seqID int, l *psd.Layer) {
+				dataMap := js.M{"type": "makeCanvas", "id": seqID}
 				transferable := js.S{}
-				if l.psdLayer.HasImage() && l.psdLayer.Rect.Dx()*l.psdLayer.Rect.Dy() > 0 {
-					dataMap["w"] = l.psdLayer.Rect.Dx()
-					dataMap["h"] = l.psdLayer.Rect.Dy()
-					r := js.NewArrayBuffer(l.psdLayer.Channel[0].Data)
-					g := js.NewArrayBuffer(l.psdLayer.Channel[1].Data)
-					b := js.NewArrayBuffer(l.psdLayer.Channel[2].Data)
+				if l.HasImage() && !l.Rect.Empty() {
+					dataMap["w"] = l.Rect.Dx()
+					dataMap["h"] = l.Rect.Dy()
+					r := js.NewArrayBuffer(l.Channel[0].Data)
+					g := js.NewArrayBuffer(l.Channel[1].Data)
+					b := js.NewArrayBuffer(l.Channel[2].Data)
 					dataMap["r"] = r
 					dataMap["g"] = g
 					dataMap["b"] = b
-					if a, ok := l.psdLayer.Channel[-1]; ok {
+					if a, ok := l.Channel[-1]; ok {
 						dataMap["a"] = js.NewArrayBuffer(a.Data)
 						transferable = append(transferable, r, g, b, dataMap["a"])
 					} else {
 						transferable = append(transferable, r, g, b)
 					}
 				}
-				if _, ok := l.psdLayer.Channel[-2]; ok && l.psdLayer.Mask.Enabled() && l.MaskWidth*l.MaskHeight > 0 {
-					dataMap["mw"] = l.MaskWidth
-					dataMap["mh"] = l.MaskHeight
-					dataMap["m"] = js.NewArrayBuffer(l.psdLayer.Channel[-2].Data)
+				if mask, ok := l.Channel[-2]; ok && l.Mask.Enabled() && !l.Mask.Rect.Empty() {
+					dataMap["mw"] = l.Mask.Rect.Dx()
+					dataMap["mh"] = l.Mask.Rect.Dy()
+					dataMap["m"] = js.NewArrayBuffer(mask.Data)
 					transferable = append(transferable, dataMap["m"])
-					dataMap["mc"] = l.MaskDefaultColor
+					dataMap["mc"] = l.Mask.DefaultColor
 				}
 				if len(transferable) > 0 {
 					js.Global.Call("postMessage", dataMap, transferable)
