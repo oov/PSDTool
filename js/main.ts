@@ -18,31 +18,37 @@
 (function() {
 
    var ui = {
-      redraw: null,
-      save: null,
-      maxPixels: null,
       optionAutoTrim: null,
       optionSafeMode: null,
+
+      sideBody: null,
+      sideBodyScrollPos: null,
+      normalModeState: null,
+
+      previewCanvas: null,
+      previewBackground: null,
+      redraw: null,
+      save: null,
+
+      showReadme: null,
+      invertInput: null,
+      fixedSide: null,
+      maxPixels: null,
       seqDlPrefix: null,
       seqDlNum: null,
+      seqDl: null,
+
       favoriteToolbar: null,
       favoriteTree: null,
       favoriteTreeDefaultRootName: null,
       favoriteTreeChangedTimer: null,
-      seqDl: null,
+      filterTree: null,
+      filterDialog: null,
       exportFavoritesPFV: null,
       exportFavoritesZIP: null,
-      sideBody: null,
-      sideBodyScrollPos: null,
-      previewCanvas: null,
-      previewBackground: null,
-      showReadme: null,
-      invertInput: null,
-      fixedSide: null,
       exportProgressDialog: null,
       exportProgressDialogProgressBar: null,
       exportProgressDialogProgressCaption: null,
-      normalModeState: null
    };
    var renderer: Renderer;
    var psdRoot: psd.Root;
@@ -551,14 +557,25 @@
       ui.favoriteTree.on('dblclick.jstree', function(e: any) {
          let jst = $(this).jstree();
          let selected = jst.get_node(e.target);
-         if (selected.type !== 'item') {
-            jst.toggle_node(selected);
-            return;
-         }
          try {
-            if (selected.data.value) {
-               leaveReaderMode(selected.data.value);
-               return;
+            switch (selected.type) {
+               case 'item':
+                  if (selected.data.value) {
+                     leaveReaderMode(selected.data.value);
+                     return;
+                  }
+                  break;
+               case 'folder':
+                  /*
+                jst.set_type(selected, 'filter');
+                selected.data = { value: 'hello' };
+                console.log(jst.get_node(e.target));
+                */
+                  ui.filterDialog.modal('show');
+                  break;
+               default:
+                  jst.toggle_node(selected);
+                  break;
             }
          } catch (e) {
             console.error(e);
@@ -813,6 +830,35 @@
                ));
             recents.appendChild(btn);
          }
+      });
+
+      ui.filterTree = document.getElementById('filter-tree');
+      ui.filterDialog = jQuery('#filter-dialog').modal({
+         show: false
+      }).on('show.bs.modal', function() {
+         removeAllChild(ui.filterTree);
+
+         function r(n: StateNode, ul: HTMLUListElement) {
+            let li: HTMLLIElement, label: HTMLLabelElement, inp: HTMLInputElement, nextUl: HTMLUListElement;
+            for (let i = n.children.length - 1; i >= 0; --i) {
+               li = document.createElement('li');
+               label = document.createElement('label');
+               label.className = 'checkbox';
+               li.appendChild(label);
+               inp = document.createElement('input');
+               inp.type = 'checkbox';
+               inp.checked = true;
+               label.appendChild(inp);
+               label.appendChild(document.createTextNode(
+                  n.children[i].userData.input.getAttribute('data-name')));
+               nextUl = document.createElement('ul');
+               r(n.children[i], nextUl);
+               li.appendChild(label);
+               li.appendChild(nextUl);
+               ul.appendChild(li);
+            }
+         }
+         r(renderer.StateTreeRoot, ui.filterTree);
       });
 
       ui.exportFavoritesPFV = document.getElementById('export-favorites-pfv');
