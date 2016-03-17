@@ -36,31 +36,34 @@ type root struct {
 
 type layer struct {
 	SeqID int
+	Name  string
 
+	Folder     bool
+	FolderOpen bool
+
+	Visible   bool
+	BlendMode string
+	Opacity   int // 0-255
+	Clipping  bool
+
+	BlendClippedElements bool
+
+	X      int
+	Y      int
+	Width  int
+	Height int
 	Canvas interface{}
-	Mask   interface{}
 
-	X        int
-	Y        int
-	Width    int
-	Height   int
+	MaskX            int
+	MaskY            int
+	MaskWidth        int
+	MaskHeight       int
+	MaskDefaultColor int // 0 or 255
+	Mask             interface{}
+
 	Children []layer
 
-	Name                  string
-	BlendMode             string
-	Opacity               uint8
-	Clipping              bool
-	BlendClippedElements  bool
-	TransparencyProtected bool
-	Visible               bool
-	MaskX                 int
-	MaskY                 int
-	MaskWidth             int
-	MaskHeight            int
-	MaskDefaultColor      int
-	Folder                bool
-	FolderOpen            bool
-	psdLayer              *psd.Layer
+	psdLayer *psd.Layer
 }
 
 func (r *root) buildLayer(l *layer) error {
@@ -80,7 +83,7 @@ func (r *root) buildLayer(l *layer) error {
 	} else {
 		l.BlendMode = l.psdLayer.BlendMode.String()
 	}
-	l.Opacity = l.psdLayer.Opacity
+	l.Opacity = int(l.psdLayer.Opacity)
 	l.Clipping = l.psdLayer.Clipping
 	l.BlendClippedElements = l.psdLayer.BlendClippedElements
 	l.Visible = l.psdLayer.Visible()

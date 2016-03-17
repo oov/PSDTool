@@ -8,24 +8,30 @@ declare module psd {
    }
    interface Layer extends LayerBase {
       SeqID: number;
-
-      Canvas: HTMLCanvasElement;
-      Mask: HTMLCanvasElement;
-
       Name: string;
+
+      Folder: boolean;
+      FolderOpen: boolean;
+
+      Visible: boolean;
       BlendMode: string;
       Opacity: number; // 0-255
       Clipping: boolean;
+
       BlendClippedElements: boolean;
-      TransparencyProtected: boolean;
-      Visible: boolean;
+
+      // X: number;
+      // Y: number;
+      // Width: number;
+      // Height: number;
+      Canvas: HTMLCanvasElement;
+
       MaskX: number;
       MaskY: number;
       MaskWidth: number;
       MaskHeight: number;
       MaskDefaultColor: number;
-      Folder: boolean;
-      FolderOpen: boolean;
+      Mask: HTMLCanvasElement;
    }
    interface Root extends LayerBase {
       CanvasWidth: number;
