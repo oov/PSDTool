@@ -153,7 +153,7 @@
          updateProgress(bar, caption, progress, msg);
       }
       progress('prepare', 0);
-      loadAsArrayBuffer(progress, file_or_url)
+      loadAsBlob(progress, file_or_url)
          .then(parse.bind(this, progress.bind(this, 'load')))
          .then((obj: any): any => { return initMain(obj.psd, obj.name); })
          .then(function() {
@@ -174,7 +174,7 @@
          });
    }
 
-   function loadAsArrayBuffer(progress, file_or_url) {
+   function loadAsBlob(progress, file_or_url) {
       var deferred = m.deferred();
       progress('prepare', 0);
       if (typeof file_or_url === 'string') {
@@ -245,7 +245,7 @@
          }
          var xhr = new XMLHttpRequest();
          xhr.open('GET', file_or_url);
-         xhr.responseType = 'arraybuffer';
+         xhr.responseType = 'blob';
          xhr.onload = function(e) {
             progress('receive', 1);
             if (xhr.status === 200) {
@@ -703,9 +703,13 @@
       for (i = 0; i < files.length; ++i) {
          ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
          if (ext === '.pfv') {
-            loadAsArrayBuffer((): void => undefined, files[i]).then((buffer: any): any => {
-               loadPFV(arrayBufferToString(buffer.buffer));
-               jQuery('#import-dialog').modal('hide');
+            loadAsBlob((): void => undefined, files[i]).then((buffer: any): any => {
+               var fr = new FileReader();
+               fr.onload = function() {
+                  loadPFV(arrayBufferToString(fr.result));
+                  jQuery('#import-dialog').modal('hide');
+               };
+               fr.readAsArrayBuffer(buffer.buffer);
             }).then(null, function(e) {
                console.error(e);
                alert(e);
@@ -1510,9 +1514,13 @@
             deferred.resolve(false);
             return;
          }
-         loadAsArrayBuffer((): void => undefined, droppedPFV).then(function(buffer: any) {
-            loadPFV(arrayBufferToString(buffer.buffer));
-            deferred.resolve(true);
+         loadAsBlob((): void => undefined, droppedPFV).then(function(buffer: any) {
+            var fr = new FileReader();
+            fr.onload = function() {
+               loadPFV(arrayBufferToString(fr.result));
+               deferred.resolve(true);
+            };
+            fr.readAsArrayBuffer(buffer.buffer);
          }).then(deferred.resolve.bind(deferred), deferred.reject.bind(deferred));
       }, 0);
       return deferred.promise;
