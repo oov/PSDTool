@@ -53,7 +53,7 @@ module Zipper {
             if (!cur) {
                return;
             }
-            if (cur.value.lastMod.getDate() < d) {
+            if (cur.value.lastMod.getTime() < d) {
                this.remove(os, cur.key[1], error);
             }
             cur.advance(1);
