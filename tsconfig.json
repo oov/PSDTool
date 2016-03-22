@@ -36,7 +36,7 @@
     "./js/main.ts",
     "./js/psd/psd.d.ts",
     "./js/renderer.ts",
-    "./js/zipbuilder.ts"
+    "./js/zipper.ts"
   ],
   "atom": {
     "rewriteTsconfig": true

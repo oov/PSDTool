@@ -159,7 +159,7 @@
          updateProgress(bar, caption, progress, msg);
       }
       progress('prepare', 0);
-      loadAsArrayBuffer(progress, file_or_url)
+      loadAsBlob(progress, file_or_url)
          .then(parse.bind(this, progress.bind(this, 'load')))
          .then((obj: any): any => { return initMain(obj.psd, obj.name); })
          .then(function() {
@@ -180,7 +180,7 @@
          });
    }
 
-   function loadAsArrayBuffer(progress, file_or_url) {
+   function loadAsBlob(progress, file_or_url) {
       var deferred = m.deferred();
       progress('prepare', 0);
       if (typeof file_or_url === 'string') {
@@ -251,7 +251,7 @@
          }
          var xhr = new XMLHttpRequest();
          xhr.open('GET', file_or_url);
-         xhr.responseType = 'arraybuffer';
+         xhr.responseType = 'blob';
          xhr.onload = function(e) {
             progress('receive', 1);
             if (xhr.status === 200) {
@@ -696,7 +696,7 @@
          removeSelectedNode(jst);
          return;
       }
-      text = suggestUniqueName(jst, id, oldText);
+      text = suggestUniqueName(jst, id, text);
       if (text !== oldText) {
          jst.rename_node(id, text);
       }
@@ -720,9 +720,13 @@
       for (i = 0; i < files.length; ++i) {
          ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
          if (ext === '.pfv') {
-            loadAsArrayBuffer((): void => undefined, files[i]).then((buffer: any): any => {
-               loadPFV(arrayBufferToString(buffer.buffer));
-               jQuery('#import-dialog').modal('hide');
+            loadAsBlob((): void => undefined, files[i]).then((buffer: any): any => {
+               var fr = new FileReader();
+               fr.onload = function() {
+                  loadPFV(arrayBufferToString(fr.result));
+                  jQuery('#import-dialog').modal('hide');
+               };
+               fr.readAsArrayBuffer(buffer.buffer);
             }).then(null, function(e) {
                console.error(e);
                alert(e);
@@ -908,64 +912,69 @@
          r(json);
 
          var backup = serializeCheckState(true);
-         var w = new Worker('js/zipbuilder.js');
-         w.onmessage = function(e) {
-            if (e.data.error) {
-               console.error(e.data.error);
-               alert('cannot create zip archive: ' + e.data.error);
-               ui.exportProgressDialog.modal('hide');
-               return;
+         let z = new Zipper.Zipper();
+
+         let aborted = false;
+         let errorHandler = (readableMessage: string, err: any): void => {
+            z.dispose((err: any): void => undefined);
+            console.error(err);
+            if (!aborted) {
+               alert(readableMessage + ': ' + err);
             }
             ui.exportProgressDialog.modal('hide');
-            saveAs(new Blob([e.data.buffer], {
-               type: 'application/zip'
-            }), cleanForFilename(getFavoriteTreeRootName()) + '.zip');
          };
+         // it is needed to avoid alert storm when reload during exporting.
+         window.addEventListener('unload', (): void => { aborted = true; }, false);
 
-         w.postMessage({
-            method: 'add',
-            name: 'favorites.pfv',
-            buffer: buildPFV(json)
-         });
-
-         let i = 0;
-         function process() {
-            if (i === files.length) {
-               deserializeCheckState(backup);
+         let added = 0;
+         let addedHandler = (): void => {
+            if (++added < files.length + 1) {
                updateProgress(
                   ui.exportProgressDialogProgressBar,
                   ui.exportProgressDialogProgressCaption,
-                  1, 'building zip...');
-               w.postMessage({
-                  method: 'end'
-               });
+                  added / (files.length + 1),
+                  added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + decodeLayerName(files[added - 1].name));
                return;
             }
-            deserializeCheckState(files[i].value);
-            render((progress: number, canvas: HTMLCanvasElement): void => {
-               if (progress !== 1) {
-                  return;
-               }
-               var b = dataSchemeURIToArrayBuffer(canvas.toDataURL());
-               w.postMessage({
-                  method: 'add',
-                  name: files[i].name,
-                  buffer: b
-               }, [b]);
-               updateProgress(
-                  ui.exportProgressDialogProgressBar,
-                  ui.exportProgressDialogProgressCaption,
-                  i / files.length, '(' + i + '/' + files.length + ') ' + decodeLayerName(files[i].name));
-               ++i;
-               setTimeout(process, 0);
-            });
-         }
-         updateProgress(
-            ui.exportProgressDialogProgressBar,
-            ui.exportProgressDialogProgressCaption,
-            0, 'drawing...');
+            deserializeCheckState(backup);
+            updateProgress(
+               ui.exportProgressDialogProgressBar,
+               ui.exportProgressDialogProgressCaption,
+               1, 'building a zip...');
+            z.generate((blob: Blob): void => {
+               ui.exportProgressDialog.modal('hide');
+               saveAs(blob, cleanForFilename(getFavoriteTreeRootName()) + '.zip');
+               z.dispose((err: any): void => undefined);
+            }, errorHandler.bind(this, 'cannot create a zip archive'));
+         };
+
+         z.init((): void => {
+            z.add(
+               'favorites.pfv',
+               new Blob([buildPFV(json)], { type: 'text/plain; charset=utf-8' }),
+               addedHandler,
+               errorHandler.bind(this, 'cannot write pfv to a zip archive'));
+
+            let i = 0;
+            let process = (): void => {
+               deserializeCheckState(files[i].value);
+               render((progress: number, canvas: HTMLCanvasElement): void => {
+                  if (progress !== 1) {
+                     return;
+                  }
+                  z.add(
+                     files[i].name,
+                     new Blob([dataSchemeURIToArrayBuffer(canvas.toDataURL())], { type: 'image/png' }),
+                     addedHandler,
+                     errorHandler.bind(this, 'cannot write png to a zip archive'));
+                  if (++i < files.length) {
+                     setTimeout(process, 0);
+                  }
+               });
+            };
+            process();
+         }, errorHandler.bind(this, 'cannot create a zip archive'));
          ui.exportProgressDialog.modal('show');
-         setTimeout(process, 0);
       });
    }
 
@@ -1556,9 +1565,13 @@
             deferred.resolve(false);
             return;
          }
-         loadAsArrayBuffer((): void => undefined, droppedPFV).then(function(buffer: any) {
-            loadPFV(arrayBufferToString(buffer.buffer));
-            deferred.resolve(true);
+         loadAsBlob((): void => undefined, droppedPFV).then(function(buffer: any) {
+            var fr = new FileReader();
+            fr.onload = function() {
+               loadPFV(arrayBufferToString(fr.result));
+               deferred.resolve(true);
+            };
+            fr.readAsArrayBuffer(buffer.buffer);
          }).then(deferred.resolve.bind(deferred), deferred.reject.bind(deferred));
       }, 0);
       return deferred.promise;
