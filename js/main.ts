@@ -658,7 +658,7 @@
                text: 'New Item',
                type: 'item',
                data: {
-                  value: serializeCheckState(false)
+                  value: serializeLayerCheckState(false)
                }
             };
             selector = 'button[data-psdtool-tree-add-item]';
@@ -783,7 +783,7 @@
          e.preventDefault();
          let jst: JSTree = ui.favoriteTree.jstree();
          if (target.classList.contains('psdtool-layer-radio')) {
-            let old = serializeCheckState(true);
+            let old = serializeLayerCheckState(true);
             let created: string[] = [];
             let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll(
                'input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
@@ -793,7 +793,7 @@
                jst.rename_node(id, elems[i].getAttribute('data-name'));
                created.push(jst.get_text(id));
             }
-            deserializeCheckState(old);
+            deserializeLayerCheckState(old);
             ui.redraw();
             alert(created.length + ' favorite item(s) has been added.\n\n' + created.join('\n'));
          }
@@ -911,7 +911,7 @@
          let json = ui.favoriteTree.jstree('get_json');
          r(json);
 
-         var backup = serializeCheckState(true);
+         var backup = serializeLayerCheckState(true);
          let z = new Zipper.Zipper();
 
          let aborted = false;
@@ -936,7 +936,7 @@
                   added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + decodeLayerName(files[added - 1].name));
                return;
             }
-            deserializeCheckState(backup);
+            deserializeLayerCheckState(backup);
             updateProgress(
                ui.exportProgressDialogProgressBar,
                ui.exportProgressDialogProgressCaption,
@@ -957,7 +957,7 @@
 
             let i = 0;
             let process = (): void => {
-               deserializeCheckState(files[i].value);
+               deserializeLayerCheckState(files[i].value);
                render((progress: number, canvas: HTMLCanvasElement): void => {
                   if (progress !== 1) {
                      return;
@@ -1117,9 +1117,9 @@
    function enterReaderMode(state: string, filename?: string): void {
       if (!ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.add('reader');
-         ui.normalModeState = serializeCheckState(true);
+         ui.normalModeState = serializeLayerCheckState(true);
       }
-      deserializeCheckState(state);
+      deserializeLayerCheckState(state);
       if (filename) {
          ui.previewCanvas.setAttribute('data-filename', filename);
       }
@@ -1132,10 +1132,10 @@
       }
       if (state) {
          ui.previewCanvas.removeAttribute('data-filename');
-         deserializeCheckState(state);
+         deserializeLayerCheckState(state);
       } else if (ui.normalModeState) {
          ui.previewCanvas.removeAttribute('data-filename');
-         deserializeCheckState(ui.normalModeState);
+         deserializeLayerCheckState(ui.normalModeState);
       } else {
          return;
       }
@@ -1233,7 +1233,7 @@
       for (let i = renderer.StateTreeRoot.children.length - 1; i >= 0; --i) {
          r(ul, renderer.StateTreeRoot.children[i]);
       }
-      normalizeCheckState();
+      normalizeLayerCheckState();
    }
 
    function buildLayerProp(n: StateNode): HTMLDivElement {
@@ -1316,7 +1316,7 @@
       return div;
    }
 
-   function normalizeCheckState(): void {
+   function normalizeLayerCheckState(): void {
       let ul = document.getElementById('layer-tree');
       let elems = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-force-visible');
       for (let i = 0; i < elems.length; ++i) {
@@ -1338,15 +1338,15 @@
       }
    }
 
-   function clearCheckState(): void {
+   function clearLayerCheckState(): void {
       let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
       for (let i = 0; i < elems.length; ++i) {
          elems[i].checked = false;
       }
-      normalizeCheckState();
+      normalizeLayerCheckState();
    }
 
-   function serializeCheckState(allLayer: boolean): string {
+   function serializeLayerCheckState(allLayer: boolean): string {
       let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
       let i: number, s: string, path: any[] = [],
          pathMap = {};
@@ -1398,7 +1398,7 @@
       return path.join('\n');
    }
 
-   function deserializeCheckState(state: string) {
+   function deserializeLayerCheckState(state: string) {
       function buildStateTree(state: string): any {
          let allLayer = state.charAt(0) === '/';
          let stateTree = {
@@ -1430,7 +1430,7 @@
          if (allLayer === undefined) {
             allLayer = stateNode.allLayer;
             if (allLayer) {
-               clearCheckState();
+               clearLayerCheckState();
             }
          }
          let cn: StateNode, stateChild: any, founds = {};
@@ -1454,13 +1454,13 @@
          }
       }
 
-      let old = serializeCheckState(true);
+      let old = serializeLayerCheckState(true);
       try {
          apply(buildStateTree(state), renderer.StateTreeRoot);
-         normalizeCheckState();
+         normalizeLayerCheckState();
       } catch (e) {
          apply(buildStateTree(old), renderer.StateTreeRoot);
-         normalizeCheckState();
+         normalizeLayerCheckState();
          throw e;
       }
    }
