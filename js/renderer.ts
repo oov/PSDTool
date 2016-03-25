@@ -1,5 +1,3 @@
-/// <reference path="psd/psd.d.ts" />
-/// <reference path="blend/blend.d.ts" />
 'use strict';
 module Renderer {
    export class Node {

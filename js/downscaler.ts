@@ -1,5 +1,4 @@
 'use strict';
-
 // this code is based on http://jsfiddle.net/gamealchemist/kpQyE/14/
 // changes are:
 //   added alpha-channel support

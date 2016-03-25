@@ -1,7 +1,4 @@
 /// <reference path="../typings/browser.d.ts" />
-/// <reference path="downscaler.ts" />
-/// <reference path="renderer.ts" />
-
 'use strict';
 (function(Mousetrap) {
    let originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;

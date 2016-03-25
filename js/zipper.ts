@@ -1,5 +1,4 @@
 'use strict';
-
 module Zipper {
    interface IDBRequestSuccessEventTarget extends EventTarget { result: Blob; }
    interface FileReaderLoadEventTarget extends EventTarget {
