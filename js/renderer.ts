@@ -10,7 +10,7 @@ module Renderer {
 
       public getVisibleState = (): boolean => { return this.layer.Visible; };
       public setVisibleState = (v: boolean) => undefined;
-      public id: string;
+      public id: number;
       public state: string = '';
       public nextState: string = '';
       public children: Node[] = [];
@@ -19,10 +19,10 @@ module Renderer {
       public clippingBuffer: HTMLCanvasElement;
       constructor(public layer: psd.Layer, public parent: Node) {
          if (!layer) {
-            this.id = 'r';
+            this.id = -1;
             return;
          }
-         this.id = 'l' + layer.SeqID;
+         this.id = layer.SeqID;
          let w = layer.Width, h = layer.Height;
          if (w * h <= 0) {
             return;
@@ -186,7 +186,7 @@ module Renderer {
                }
             }
          } else if (n.layer.Canvas) {
-            n.nextState = n.id;
+            n.nextState = n.id.toString();
          }
 
          if (n.layer.Mask) {
