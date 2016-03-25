@@ -1,5 +1,9 @@
 'use strict';
 module Filter {
+   interface Elements {
+      label: HTMLLabelElement;
+      input: HTMLInputElement;
+   }
    interface SerializeItem {
       index: number;
       node: Node;
@@ -24,46 +28,55 @@ module Filter {
    }
    export class Filter {
       private root: Node = new Node(null, '', '', null);
-      private nodes: Node[] = [];
+      private nodes: { [seqId: number]: Node } = {};
       constructor(treeRoot: HTMLUListElement, psdRoot: psd.Root) {
          let path: string[] = [];
-         let nodes: Node[] = [];
-         function r(ul: HTMLUListElement, fn: Node, l: psd.Layer[]): void {
+         let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[]): void => {
             for (let i = l.length - 1; i >= 0; --i) {
                path.push(Filter.encodeLayerName(l[i].Name));
 
-               let input = document.createElement('input');
-               input.type = 'checkbox';
-               input.checked = true;
-
-               let label = document.createElement('label');
-               label.className = 'checkbox';
-               label.appendChild(input);
-               label.appendChild(document.createTextNode(l[i].Name));
-
-               let cn = new Node(input, l[i].Name, path.join('/'), fn);
-               fn.children.push(cn);
-               nodes.push(cn);
+               let elems = this.createElements(l[i]);
+               let cn = new Node(elems.input, l[i].Name, path.join('/'), n);
+               n.children.push(cn);
+               this.nodes[l[i].SeqID] = cn;
+               let li = document.createElement('li');
                let cul = document.createElement('ul');
                r(cul, cn, l[i].Children);
-               let li = document.createElement('li');
-               li.appendChild(label);
+               li.appendChild(elems.label);
                li.appendChild(cul);
                ul.appendChild(li);
 
                path.pop();
             }
-         }
+         };
          r(treeRoot, this.root, psdRoot.Children);
-         this.nodes = nodes;
+      }
+
+      private createElements(l: psd.Layer): Elements {
+         let input = document.createElement('input');
+         input.type = 'checkbox';
+         input.checked = true;
+         input.setAttribute('data-seq', l.SeqID.toString());
+
+         let label = document.createElement('label');
+         label.className = 'checkbox';
+         label.appendChild(input);
+         label.appendChild(document.createTextNode(l.Name));
+         return {
+            label: label,
+            input: input
+         };
       }
 
       private getAllNode(): Node[] {
          let r: Node[] = [];
-         let node: Node;
          let enableNodes = 0;
-         for (let i = 0; i < this.nodes.length; ++i) {
-            node = this.nodes[i];
+         let node: Node;
+         for (let key in this.nodes) {
+            if (!this.nodes.hasOwnProperty(key)) {
+               continue;
+            }
+            node = this.nodes[key];
             if (!node.disabled) {
                ++enableNodes;
                if (node.checked) {
@@ -182,12 +195,14 @@ module Filter {
       public deserialize(state: string, parents: string[]) {
          let old = this.serialize();
          try {
-            let i: number;
-            for (i = 0; i < this.nodes.length; ++i) {
-               this.nodes[i].disabled = false;
-               this.nodes[i].checked = true;
+            for (let key in this.nodes) {
+               if (!this.nodes.hasOwnProperty(key)) {
+                  continue;
+               }
+               this.nodes[key].disabled = false;
+               this.nodes[key].checked = true;
             }
-            for (i = parents.length - 1; i >= 0; --i) {
+            for (let i = parents.length - 1; i >= 0; --i) {
                this.apply(this.buildDeserializeTree(parents[i]), this.root, true);
             }
 
@@ -195,8 +210,11 @@ module Filter {
                return;
             }
 
-            for (i = 0; i < this.nodes.length; ++i) {
-               this.nodes[i].checked = false;
+            for (let key in this.nodes) {
+               if (!this.nodes.hasOwnProperty(key)) {
+                  continue;
+               }
+               this.nodes[key].checked = false;
             }
             this.apply(this.buildDeserializeTree(state), this.root, false);
          } catch (e) {
