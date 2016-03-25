@@ -54,7 +54,7 @@
       exportProgressDialogProgressBar: null,
       exportProgressDialogProgressCaption: null,
    };
-   var renderer: Renderer;
+   var renderer: Renderer.Renderer;
    var psdRoot: psd.Root;
    var filterRoot: Filter.Filter;
    var droppedPFV,
@@ -318,7 +318,7 @@
       var deferred = m.deferred();
       setTimeout(function() {
          try {
-            renderer = new Renderer(psd);
+            renderer = new Renderer.Renderer(psd);
             buildLayerTree(renderer, () => { ui.redraw(); });
             filterRoot = new Filter.Filter(ui.filterTree, psd);
 
@@ -373,7 +373,7 @@
    }
 
    function updateClass(): void {
-      function r(n: StateNode): void {
+      function r(n: Renderer.Node): void {
          if (n.visible) {
             n.userData.li.classList.remove('psdtool-hidden');
             if (n.clip) {
@@ -1252,9 +1252,9 @@
       return decodeURIComponent(s);
    }
 
-   function buildLayerTree(renderer: Renderer, redraw: () => void) {
+   function buildLayerTree(renderer: Renderer.Renderer, redraw: () => void) {
       var path: string[] = [];
-      function r(ul: HTMLElement, n: StateNode) {
+      function r(ul: HTMLElement, n: Renderer.Node) {
          path.push(encodeLayerName(n.layer.Name));
          let li: HTMLLIElement = document.createElement('li');
          if (n.layer.Folder) {
@@ -1297,7 +1297,7 @@
       normalizeLayerCheckState();
    }
 
-   function buildLayerProp(n: StateNode): HTMLDivElement {
+   function buildLayerProp(n: Renderer.Node): HTMLDivElement {
       let name = document.createElement('label');
       let visible = document.createElement('input');
       let layerName = n.layer.Name;
@@ -1487,14 +1487,14 @@
          return stateTree;
       }
 
-      function apply(stateNode: any, n: StateNode, allLayer?: boolean) {
+      function apply(stateNode: any, n: Renderer.Node, allLayer?: boolean) {
          if (allLayer === undefined) {
             allLayer = stateNode.allLayer;
             if (allLayer) {
                clearLayerCheckState();
             }
          }
-         let cn: StateNode, stateChild: any, founds = {};
+         let cn: Renderer.Node, stateChild: any, founds = {};
          for (var i = 0; i < n.children.length; ++i) {
             cn = n.children[i];
             if (cn.layer.Name in founds) {
