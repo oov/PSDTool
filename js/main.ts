@@ -42,8 +42,12 @@
       favoriteTree: null,
       favoriteTreeDefaultRootName: null,
       favoriteTreeChangedTimer: null,
+
+      filterEditingTarget: null,
+      useFilter: null,
       filterTree: null,
       filterDialog: null,
+
       exportFavoritesPFV: null,
       exportFavoritesZIP: null,
       exportProgressDialog: null,
@@ -52,6 +56,7 @@
    };
    var renderer: Renderer;
    var psdRoot: psd.Root;
+   var filterRoot: Filter.Filter;
    var droppedPFV,
       uniqueId = Date.now().toString() + Math.random().toString().substring(2);
 
@@ -315,6 +320,7 @@
          try {
             renderer = new Renderer(psd);
             buildLayerTree(renderer, () => { ui.redraw(); });
+            filterRoot = new Filter.Filter(ui.filterTree, psd);
 
             ui.maxPixels.value = ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight;
             ui.seqDlPrefix.value = name;
@@ -566,11 +572,8 @@
                   }
                   break;
                case 'folder':
-                  /*
-                jst.set_type(selected, 'filter');
-                selected.data = { value: 'hello' };
-                console.log(jst.get_node(e.target));
-                */
+               case 'filter':
+                  ui.filterEditingTarget = selected;
                   ui.filterDialog.modal('show');
                   break;
                default:
@@ -836,33 +839,91 @@
          }
       });
 
+      let updateFilter = (): void => {
+         let node = ui.filterEditingTarget;
+         let jst = ui.favoriteTree.jstree();
+         if (!ui.useFilter.checked) {
+            jst.set_type(node, 'folder');
+            node.data = {};
+            favoriteTreeChanged();
+            return;
+         }
+         let s = filterRoot.serialize();
+         if (!s) {
+            jst.set_type(node, 'folder');
+            node.data = {};
+            favoriteTreeChanged();
+            return;
+         }
+         jst.set_type(node, 'filter');
+         node.data = { value: s };
+         favoriteTreeChanged();
+      };
+      ui.useFilter = document.getElementById('use-filter');
+      ui.useFilter.addEventListener('click', (e: Event): void => {
+         let inp = <HTMLInputElement>e.target;
+         if (inp.checked) {
+            ui.filterTree.classList.remove('disabled');
+         } else {
+            ui.filterTree.classList.add('disabled');
+         }
+         updateFilter();
+      });
       ui.filterTree = document.getElementById('filter-tree');
+      ui.filterTree.addEventListener('click', (e: Event): void => {
+         if ((<HTMLElement>e.target).tagName !== 'INPUT') {
+            return;
+         }
+         let inp = <HTMLInputElement>e.target;
+         let li = inp.parentElement;
+         while (li && li.tagName !== 'LI') {
+            li = li.parentElement;
+         }
+         if (inp.checked) {
+            li.classList.add('checked');
+         } else {
+            li.classList.remove('checked');
+         }
+         updateFilter();
+      }, false);
       ui.filterDialog = jQuery('#filter-dialog').modal({
          show: false
-      }).on('show.bs.modal', function() {
-         removeAllChild(ui.filterTree);
-
-         function r(n: StateNode, ul: HTMLUListElement) {
-            let li: HTMLLIElement, label: HTMLLabelElement, inp: HTMLInputElement, nextUl: HTMLUListElement;
-            for (let i = n.children.length - 1; i >= 0; --i) {
-               li = document.createElement('li');
-               label = document.createElement('label');
-               label.className = 'checkbox';
-               li.appendChild(label);
-               inp = document.createElement('input');
-               inp.type = 'checkbox';
-               inp.checked = true;
-               label.appendChild(inp);
-               label.appendChild(document.createTextNode(
-                  n.children[i].userData.input.getAttribute('data-name')));
-               nextUl = document.createElement('ul');
-               r(n.children[i], nextUl);
-               li.appendChild(label);
-               li.appendChild(nextUl);
-               ul.appendChild(li);
+      }).on('shown.bs.modal', (e) => {
+         let jst = ui.favoriteTree.jstree();
+         let node = ui.filterEditingTarget;
+         let parents: string[] = [];
+         for (let p = jst.get_node(node.parent); p; p = jst.get_node(p.parent)) {
+            if (p.type === 'filter') {
+               parents.push(p.data.value);
             }
          }
-         r(renderer.StateTreeRoot, ui.filterTree);
+         if (node.type === 'filter') {
+            ui.useFilter.checked = true;
+            ui.filterTree.classList.remove('disabled');
+            filterRoot.deserialize(node.data.value, parents);
+         } else {
+            ui.useFilter.checked = false;
+            ui.filterTree.classList.add('disabled');
+            filterRoot.deserialize('', parents);
+         }
+         let inputs = <NodeListOf<HTMLInputElement>>ui.filterTree.querySelectorAll('input');
+         for (let i = 0, elem: HTMLInputElement, li: HTMLElement; i < inputs.length; ++i) {
+            elem = inputs[i];
+            li = elem.parentElement;
+            while (li && li.tagName !== 'LI') {
+               li = li.parentElement;
+            }
+            if (elem.disabled) {
+               li.classList.add('disabled');
+            } else {
+               li.classList.remove('disabled');
+            }
+            if (elem.checked) {
+               li.classList.add('checked');
+            } else {
+               li.classList.remove('checked');
+            }
+         }
       });
 
       ui.exportFavoritesPFV = document.getElementById('export-favorites-pfv');
@@ -1663,7 +1724,7 @@
                   };
                   return;
                case 'filter':
-                  c[j].type = 'item';
+                  c[j].type = 'filter';
                   c[j].data = {
                      value: data
                   };
@@ -1733,7 +1794,6 @@
       }
       initFavoriteTree(json);
    }
-
 
    document.addEventListener('DOMContentLoaded', init, false);
 })();

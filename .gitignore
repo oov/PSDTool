@@ -1,5 +1,6 @@
 js/3rd.min.js
 js/blend/blend.js
+js/filter.js
 js/main.js
 js/zipbuilder.js
 js/downscaler.js

@@ -143,6 +143,23 @@ h1 small {
 .jstree-default .jstree-node {
    margin-left: 12px;
 }
+#filter-tree,
+#filter-tree ul {
+   list-style-type: none;
+}
+#filter-tree.disabled {
+   display: none;
+}
+#filter-tree li.disabled {
+   display: none;
+}
+#filter-tree li:not(.checked) {
+   color: #ccc;
+   text-decoration: line-through;
+}
+#filter-tree label {
+   margin: 0;
+}
 #splitter {
    left: 25vw;
    width: 4px;

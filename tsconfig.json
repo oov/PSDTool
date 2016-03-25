@@ -33,6 +33,7 @@
   "files": [
     "./js/blend/blend.d.ts",
     "./js/downscaler.ts",
+    "./js/filter.ts",
     "./js/main.ts",
     "./js/psd/psd.d.ts",
     "./js/renderer.ts",
