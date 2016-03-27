@@ -142,12 +142,13 @@ module Filter {
             children: {},
             checked: true
          };
-         let i: number, j: number, node: DeserializeNode, parts: string[], part: string;
+         let node: DeserializeNode, parts: string[];
          let lines = state.replace(/\r/g, '').split('\n');
-         for (i = 0; i < lines.length; ++i) {
-            parts = lines[i].split('/');
-            for (j = 0, node = root; j < parts.length; ++j) {
-               part = Filter.decodeLayerName(parts[j]);
+         for (let line of lines) {
+            parts = line.split('/');
+            node = root;
+            for (let part of parts) {
+               part = Filter.decodeLayerName(part);
                if (!(part in node.children)) {
                   node.children[part] = {
                      children: {},
@@ -162,9 +163,8 @@ module Filter {
 
       private apply(dnode: DeserializeNode, fnode: Node, useDisable: boolean): void {
          let founds: PathSet = {};
-         let cfnode: Node, cdnode: DeserializeNode;
-         for (let i = 0; i < fnode.children.length; ++i) {
-            cfnode = fnode.children[i];
+         let cdnode: DeserializeNode;
+         for (let cfnode of fnode.children) {
             if (cfnode.disabled) {
                continue;
             }
