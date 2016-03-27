@@ -61,34 +61,37 @@ module Renderer {
       get CanvasHeight(): number { return this.psd.CanvasHeight; }
 
       private canvas: HTMLCanvasElement = document.createElement('canvas');
-      public StateTreeRoot = new Node(null, null);
+      public root = new Node(null, null);
+      public nodes: { [seqId: number]: Node } = {};
       constructor(private psd: psd.Root) {
-         this.buildStateTree(this.StateTreeRoot, psd);
-         this.StateTreeRoot.buffer = document.createElement('canvas');
-         this.StateTreeRoot.buffer.width = psd.Width;
-         this.StateTreeRoot.buffer.height = psd.Height;
-         this.registerClippingGroup(this.StateTreeRoot);
+         this.buildTree(this.root, psd);
+         this.root.buffer = document.createElement('canvas');
+         this.root.buffer.width = psd.Width;
+         this.root.buffer.height = psd.Height;
+         this.registerClippingGroup(this.root);
       }
 
-      private buildStateTree(n: Node, layer: psd.LayerBase): void {
-         for (let nc: Node, i = 0; i < layer.Children.length; ++i) {
-            nc = new Node(layer.Children[i], n);
-            this.buildStateTree(nc, layer.Children[i]);
+      private buildTree(n: Node, layer: psd.LayerBase): void {
+         let nc: Node;
+         for (let lc of layer.Children) {
+            nc = new Node(lc, n);
+            this.buildTree(nc, lc);
             n.children.push(nc);
+            this.nodes[nc.id] = nc;
          }
       }
 
       private registerClippingGroup(n: Node): void {
          let clip: Node[] = [];
-         for (let nc: Node, i = n.children.length - 1, j = 0; i >= 0; --i) {
+         for (let nc: Node, i = n.children.length - 1; i >= 0; --i) {
             nc = n.children[i];
             this.registerClippingGroup(nc);
             if (nc.layer.Clipping) {
                clip.unshift(nc);
             } else {
                if (clip.length) {
-                  for (j = 0; j < clip.length; ++j) {
-                     clip[j].clippedBy = nc;
+                  for (let c of clip) {
+                     c.clippedBy = nc;
                   }
                   nc.clippingBuffer = document.createElement('canvas');
                   nc.clippingBuffer.width = nc.layer.Width;
@@ -104,27 +107,25 @@ module Renderer {
          callback: (progress: number, canvas: HTMLCanvasElement) => void): void {
          let s = Date.now();
 
-         this.StateTreeRoot.nextState = '';
-         for (let cn: Node, i = 0; i < this.StateTreeRoot.children.length; ++i) {
-            cn = this.StateTreeRoot.children[i];
+         this.root.nextState = '';
+         for (let cn of this.root.children) {
             if (!cn.layer.Clipping) {
                if (this.calculateNextState(cn, cn.layer.Opacity / 255, cn.layer.BlendMode)) {
-                  this.StateTreeRoot.nextState += cn.nextState + '+';
+                  this.root.nextState += cn.nextState + '+';
                }
             }
          }
 
-         let bb = this.StateTreeRoot.buffer;
-         if (this.StateTreeRoot.state !== this.StateTreeRoot.nextState) {
+         let bb = this.root.buffer;
+         if (this.root.state !== this.root.nextState) {
             let bbctx = bb.getContext('2d');
             this.clear(bbctx);
-            for (let cn: Node, i = 0; i < this.StateTreeRoot.children.length; ++i) {
-               cn = this.StateTreeRoot.children[i];
+            for (let cn of this.root.children) {
                if (!cn.layer.Clipping) {
                   this.drawLayer(bbctx, cn, -this.psd.X, -this.psd.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
                }
             }
-            this.StateTreeRoot.state = this.StateTreeRoot.nextState;
+            this.root.state = this.root.nextState;
          }
          console.log('rendering: ' + (Date.now() - s));
 
@@ -211,8 +212,7 @@ module Renderer {
          // we cannot cache in this mode
          n.nextState += Date.now() + '_' + Math.random() + ':';
 
-         for (let i = 0, cn: Node; i < n.clip.length; ++i) {
-            cn = n.clip[i];
+         for (let cn of n.clip) {
             if (this.calculateNextState(cn, 1, 'source-over')) {
                n.nextState += cn.nextState + '+';
             }
@@ -240,8 +240,7 @@ module Renderer {
                this.draw(bbctx, n.parent.buffer, -x - n.layer.X, -y - n.layer.Y, 1, 'source-over');
                blendMode = 'source-over';
             }
-            for (let i = 0, cn: Node; i < n.children.length; ++i) {
-               cn = n.children[i];
+            for (let cn of n.children) {
                if (!cn.layer.Clipping) {
                   this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
                }
@@ -274,8 +273,7 @@ module Renderer {
             this.clear(cbbctx);
             this.draw(cbbctx, bb, 0, 0, 1, 'source-over');
             let changed = false;
-            for (let i = 0, cn: Node; i < n.clip.length; ++i) {
-               cn = n.clip[i];
+            for (let cn of n.clip) {
                changed = this.drawLayer(
                   cbbctx,
                   cn, -n.layer.X, -n.layer.Y,
@@ -298,8 +296,7 @@ module Renderer {
          // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
          this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
          this.clear(cbbctx);
-         for (let i = 0, cn: Node; i < n.clip.length; ++i) {
-            cn = n.clip[i];
+         for (let cn of n.clip) {
             if (!this.drawLayer(cbbctx, cn, -n.layer.X, -n.layer.Y, 1, 'source-over')) {
                continue;
             }
