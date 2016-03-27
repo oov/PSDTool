@@ -2,14 +2,10 @@
 module Renderer {
    export class Node {
       get visible(): boolean { return this.getVisibleState(); }
-      set visible(v: boolean) { this.setVisibleState(v); }
-
-      public userData: any;
 
       public buffer: HTMLCanvasElement;
 
       public getVisibleState = (): boolean => { return this.layer.Visible; };
-      public setVisibleState = (v: boolean) => undefined;
       public id: number;
       public state: string = '';
       public nextState: string = '';

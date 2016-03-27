@@ -4,6 +4,7 @@ js/filter.js
 js/main.js
 js/zipbuilder.js
 js/downscaler.js
+js/layertree.js
 js/renderer.js
 js/zipper.js
 js/psd/psd.js

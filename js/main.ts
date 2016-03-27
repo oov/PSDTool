@@ -54,6 +54,7 @@
    var renderer: Renderer.Renderer;
    var psdRoot: psd.Root;
    var filterRoot: Filter.Filter;
+   var layerRoot: LayerTree.LayerTree;
    var droppedPFV,
       uniqueId = Date.now().toString() + Math.random().toString().substring(2);
 
@@ -316,8 +317,31 @@
       setTimeout(function() {
          try {
             renderer = new Renderer.Renderer(psd);
-            buildLayerTree(renderer, () => { ui.redraw(); });
+            let layerTree = <HTMLUListElement>document.getElementById('layer-tree');
+            layerRoot = new LayerTree.LayerTree(layerTree, psd);
             filterRoot = new Filter.Filter(ui.filterTree, psd);
+            for (let key in renderer.nodes) {
+               if (!renderer.nodes.hasOwnProperty(key)) {
+                  continue;
+               }
+               ((r: Renderer.Node, l: LayerTree.Node): void => {
+                  r.getVisibleState = (): boolean => { return l.checked; };
+               })(renderer.nodes[key], layerRoot.nodes[key]);
+            }
+            layerTree.addEventListener('click', (e: Event): void => {
+               let target = <HTMLElement>e.target;
+               if (target.tagName !== 'INPUT' || !target.classList.contains('psdtool-layer-visible')) {
+                  return;
+               }
+               let n: LayerTree.Node = layerRoot.nodes[target.getAttribute('data-seq')];
+               for (let p = n.parent; !p.isRoot; p = p.parent) {
+                  p.checked = true;
+               }
+               if (n.clippedBy) {
+                  n.clippedBy.checked = true;
+               }
+               ui.redraw();
+            }, false);
 
             ui.maxPixels.value = ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight;
             ui.seqDlPrefix.value = name;
@@ -367,32 +391,6 @@
          }
       }
       renderer.render(scale, autoTrim, ui.invertInput.checked, callback);
-   }
-
-   function updateClass(): void {
-      function r(n: Renderer.Node): void {
-         if (n.visible) {
-            n.userData.li.classList.remove('psdtool-hidden');
-            if (n.clip) {
-               for (let i = 0; i < n.clip.length; ++i) {
-                  n.clip[i].userData.li.classList.remove('psdtool-hidden-by-clipping');
-               }
-            }
-         } else {
-            n.userData.li.classList.add('psdtool-hidden');
-            if (n.clip) {
-               for (let i = 0; i < n.clip.length; ++i) {
-                  n.clip[i].userData.li.classList.add('psdtool-hidden-by-clipping');
-               }
-            }
-         }
-         for (let i = 0; i < n.children.length; ++i) {
-            r(n.children[i]);
-         }
-      }
-      for (let i = 0; i < renderer.StateTreeRoot.children.length; ++i) {
-         r(renderer.StateTreeRoot.children[i]);
-      }
    }
 
    function favoriteTreeChanged(): void {
@@ -658,7 +656,7 @@
                text: 'New Item',
                type: 'item',
                data: {
-                  value: serializeLayerCheckState(false)
+                  value: layerRoot.serialize(false)
                }
             };
             selector = 'button[data-psdtool-tree-add-item]';
@@ -783,7 +781,7 @@
          e.preventDefault();
          let jst: JSTree = ui.favoriteTree.jstree();
          if (target.classList.contains('psdtool-layer-radio')) {
-            let old = serializeLayerCheckState(true);
+            let old = layerRoot.serialize(true);
             let created: string[] = [];
             let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll(
                'input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
@@ -793,7 +791,7 @@
                jst.rename_node(id, elems[i].getAttribute('data-name'));
                created.push(jst.get_text(id));
             }
-            deserializeLayerCheckState(old);
+            layerRoot.deserialize(old);
             ui.redraw();
             alert(created.length + ' favorite item(s) has been added.\n\n' + created.join('\n'));
          }
@@ -969,7 +967,7 @@
          let json = ui.favoriteTree.jstree('get_json');
          r(json);
 
-         var backup = serializeLayerCheckState(true);
+         var backup = layerRoot.serialize(true);
          let z = new Zipper.Zipper();
 
          let aborted = false;
@@ -994,7 +992,7 @@
                   added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + decodeLayerName(files[added - 1].name));
                return;
             }
-            deserializeLayerCheckState(backup);
+            layerRoot.deserialize(backup);
             updateProgress(
                ui.exportProgressDialogProgressBar,
                ui.exportProgressDialogProgressCaption,
@@ -1015,7 +1013,7 @@
 
             let i = 0;
             let process = (): void => {
-               deserializeLayerCheckState(files[i].value);
+               layerRoot.deserialize(files[i].value);
                render((progress: number, canvas: HTMLCanvasElement): void => {
                   if (progress !== 1) {
                      return;
@@ -1108,7 +1106,7 @@
                ctx.drawImage(canvas, 0, 0);
             }, 0);
          });
-         updateClass();
+         layerRoot.updateClass();
       };
 
       ui.save = (filename: string): boolean => {
@@ -1175,9 +1173,9 @@
    function enterReaderMode(state: string, filename?: string): void {
       if (!ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.add('reader');
-         ui.normalModeState = serializeLayerCheckState(true);
+         ui.normalModeState = layerRoot.serialize(true);
       }
-      deserializeLayerCheckState(state);
+      layerRoot.deserialize(state);
       if (filename) {
          ui.previewCanvas.setAttribute('data-filename', filename);
       }
@@ -1190,10 +1188,10 @@
       }
       if (state) {
          ui.previewCanvas.removeAttribute('data-filename');
-         deserializeLayerCheckState(state);
+         layerRoot.deserialize(state);
       } else if (ui.normalModeState) {
          ui.previewCanvas.removeAttribute('data-filename');
-         deserializeLayerCheckState(ui.normalModeState);
+         layerRoot.deserialize(ui.normalModeState);
       } else {
          return;
       }
@@ -1247,280 +1245,6 @@
 
    function decodeLayerName(s: string): string {
       return decodeURIComponent(s);
-   }
-
-   function buildLayerTree(renderer: Renderer.Renderer, redraw: () => void) {
-      var path: string[] = [];
-      function r(ul: HTMLElement, n: Renderer.Node) {
-         path.push(encodeLayerName(n.layer.Name));
-         let li: HTMLLIElement = document.createElement('li');
-         if (n.layer.Folder) {
-            li.classList.add('psdtool-folder');
-         }
-         var prop = buildLayerProp(n);
-         var input = <HTMLInputElement>prop.querySelector('.psdtool-layer-visible');
-         input.setAttribute('data-fullpath', path.join('/'));
-         n.userData = {
-            li: li,
-            input: input,
-         };
-         n.getVisibleState = (): boolean => { return input.checked; };
-         n.setVisibleState = (v: boolean): void => { input.checked = v; };
-         input.addEventListener('click', function() {
-            for (let p = n.parent; p; p = p.parent) {
-               p.visible = true;
-            }
-            if (n.clippedBy) {
-               n.clippedBy.visible = true;
-            }
-            redraw();
-         }, false);
-         li.appendChild(prop);
-
-         var cul = document.createElement('ul');
-         for (let i = n.children.length - 1; i >= 0; --i) {
-            r(cul, n.children[i]);
-         }
-         li.appendChild(cul);
-         ul.appendChild(li);
-         path.pop();
-      }
-
-      let ul = document.getElementById('layer-tree');
-      removeAllChild(ul);
-      for (let i = renderer.StateTreeRoot.children.length - 1; i >= 0; --i) {
-         r(ul, renderer.StateTreeRoot.children[i]);
-      }
-      normalizeLayerCheckState();
-   }
-
-   function buildLayerProp(n: Renderer.Node): HTMLDivElement {
-      let name = document.createElement('label');
-      let visible = document.createElement('input');
-      let layerName = n.layer.Name;
-      if (!ui.optionSafeMode.checked) {
-         switch (layerName.charAt(0)) {
-            case '!':
-               visible.className = 'psdtool-layer-visible psdtool-layer-force-visible';
-               visible.name = n.id;
-               visible.type = 'checkbox';
-               visible.checked = true;
-               visible.disabled = true;
-               visible.style.display = 'none';
-               layerName = layerName.substring(1);
-               break;
-            case '*':
-               visible.className = 'psdtool-layer-visible psdtool-layer-radio';
-               visible.name = 'r_' + n.parent.id;
-               visible.type = 'radio';
-               visible.checked = n.layer.Visible;
-               layerName = layerName.substring(1);
-               break;
-            default:
-               visible.className = 'psdtool-layer-visible';
-               visible.name = n.id;
-               visible.type = 'checkbox';
-               visible.checked = n.layer.Visible;
-               break;
-         }
-      } else {
-         visible.className = 'psdtool-layer-visible';
-         visible.name = n.id;
-         visible.type = 'checkbox';
-         visible.checked = n.layer.Visible;
-      }
-      visible.setAttribute('data-name', layerName);
-      name.appendChild(visible);
-
-      if (n.layer.Clipping) {
-         let clip = document.createElement('img');
-         clip.className = 'psdtool-clipped-mark';
-         clip.src = 'img/clipped.svg';
-         clip.alt = 'clipped mark';
-         name.appendChild(clip);
-      }
-
-      if (n.layer.Folder) {
-         let icon = document.createElement('span');
-         icon.className = 'psdtool-icon glyphicon glyphicon-folder-open';
-         icon.setAttribute('aria-hidden', 'true');
-         name.appendChild(icon);
-      } else {
-         let thumb = document.createElement('canvas');
-         thumb.className = 'psdtool-thumbnail';
-         thumb.width = 96;
-         thumb.height = 96;
-         if (n.layer.Canvas) {
-            let w = n.layer.Width,
-               h = n.layer.Height;
-            if (w > h) {
-               w = thumb.width;
-               h = thumb.width / n.layer.Width * h;
-            } else {
-               h = thumb.height;
-               w = thumb.height / n.layer.Height * w;
-            }
-            let ctx = thumb.getContext('2d');
-            ctx.drawImage(
-               n.layer.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
-         }
-         name.appendChild(thumb);
-      }
-      name.appendChild(document.createTextNode(layerName));
-
-      let div = document.createElement('div');
-      div.className = 'psdtool-layer-name';
-      div.appendChild(name);
-      return div;
-   }
-
-   function normalizeLayerCheckState(): void {
-      let ul = document.getElementById('layer-tree');
-      let elems = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-force-visible');
-      for (let i = 0; i < elems.length; ++i) {
-         elems[i].checked = true;
-      }
-
-      let set = {};
-      let radios = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-radio');
-      for (let i = 0; i < radios.length; ++i) {
-         if (radios[i].name in set) {
-            continue;
-         }
-         set[radios[i].name] = 1;
-         let rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name="' + radios[i].name + '"]:checked');
-         if (!rinShibuyas.length) {
-            radios[i].checked = true;
-            continue;
-         }
-      }
-   }
-
-   function clearLayerCheckState(): void {
-      let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
-      for (let i = 0; i < elems.length; ++i) {
-         elems[i].checked = false;
-      }
-      normalizeLayerCheckState();
-   }
-
-   function serializeLayerCheckState(allLayer: boolean): string {
-      let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll('#layer-tree .psdtool-layer-visible:checked');
-      let i: number, s: string, path: any[] = [],
-         pathMap = {};
-      for (i = 0; i < elems.length; ++i) {
-         s = elems[i].getAttribute('data-fullpath');
-         path.push({
-            s: s,
-            ss: s + '/',
-            i: i
-         });
-         pathMap[s] = true;
-      }
-      if (allLayer) {
-         for (i = 0; i < path.length; ++i) {
-            path[i] = '/' + path[i].s;
-         }
-         return path.join('\n');
-      }
-
-      path.sort((a: any, b: any): number => {
-         return a.ss > b.ss ? 1 : a.ss < b.ss ? -1 : 0;
-      });
-
-      let j: number, parts: string[];
-      for (i = 0; i < path.length; ++i) {
-         // remove hidden layer
-         // TODO: need more better handing for clipping masked layer
-         parts = path[i].s.split('/');
-         for (j = 0; j < parts.length; ++j) {
-            if (!pathMap[parts.slice(0, j + 1).join('/')]) {
-               path.splice(i--, 1);
-               j = -1;
-               break;
-            }
-         }
-         // remove duplicated entry
-         if (j !== -1 && i > 0 && path[i].ss.indexOf(path[i - 1].ss) === 0) {
-            path.splice(--i, 1);
-         }
-      }
-
-      path.sort((a: any, b: any): number => {
-         return a.i > b.i ? 1 : a.i < b.i ? -1 : 0;
-      });
-
-      for (i = 0; i < path.length; ++i) {
-         path[i] = path[i].s;
-      }
-      return path.join('\n');
-   }
-
-   function deserializeLayerCheckState(state: string) {
-      function buildStateTree(state: string): any {
-         let allLayer = state.charAt(0) === '/';
-         let stateTree = {
-            allLayer: allLayer,
-            children: {}
-         };
-         let i: number, j: number, obj: any, node: any, parts: string[], part: string;
-         let lines = state.replace(/\r/g, '').split('\n');
-         for (i = 0; i < lines.length; ++i) {
-            parts = lines[i].split('/');
-            for (j = allLayer ? 1 : 0, node = stateTree; j < parts.length; ++j) {
-               part = decodeLayerName(parts[j]);
-               if (!(part in node.children)) {
-                  obj = {
-                     children: {}
-                  };
-                  if (!allLayer || (allLayer && j === parts.length - 1)) {
-                     obj.checked = true;
-                  }
-                  node.children[part] = obj;
-               }
-               node = node.children[part];
-            }
-         }
-         return stateTree;
-      }
-
-      function apply(stateNode: any, n: Renderer.Node, allLayer?: boolean) {
-         if (allLayer === undefined) {
-            allLayer = stateNode.allLayer;
-            if (allLayer) {
-               clearLayerCheckState();
-            }
-         }
-         let cn: Renderer.Node, stateChild: any, founds = {};
-         for (var i = 0; i < n.children.length; ++i) {
-            cn = n.children[i];
-            if (cn.layer.Name in founds) {
-               throw new Error('found more than one same name layer: ' + cn.layer.Name);
-            }
-            founds[cn.layer.Name] = true;
-            stateChild = stateNode.children[cn.layer.Name];
-            if (!stateChild) {
-               cn.visible = false;
-               continue;
-            }
-            if ('checked' in stateChild) {
-               cn.visible = stateChild.checked;
-            }
-            if (allLayer || stateChild.checked) {
-               apply(stateChild, cn, allLayer);
-            }
-         }
-      }
-
-      let old = serializeLayerCheckState(true);
-      try {
-         apply(buildStateTree(state), renderer.StateTreeRoot);
-         normalizeLayerCheckState();
-      } catch (e) {
-         apply(buildStateTree(old), renderer.StateTreeRoot);
-         normalizeLayerCheckState();
-         throw e;
-      }
    }
 
    function buildPFV(json: any[]): string {
