@@ -160,6 +160,11 @@ h1 small {
 #filter-tree label {
    margin: 0;
 }
+#bulk-rename-tree,
+#bulk-rename-tree ul {
+   list-style-type: none;
+   padding-left: 1em;
+}
 #splitter {
    left: 25vw;
    width: 4px;

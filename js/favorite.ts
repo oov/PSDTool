@@ -13,6 +13,12 @@ module Favorite {
       children?: (Node | string)[];
       parent?: Node | string;
    }
+   export interface RenameNode {
+      id: string;
+      text: string;
+      originalText: string;
+      children: RenameNode[];
+   }
    class JSONBuilder {
       private json_: Node[];
       get json(): Node[] { return this.json_; }
@@ -171,6 +177,35 @@ module Favorite {
          this.initTree();
       }
 
+      get renameNodes(): RenameNode[] {
+         let nodes: RenameNode[] = [];
+         let r = (n: Node[], rn: RenameNode[]): void => {
+            for (let cn of n) {
+               rn.push({
+                  id: cn.id,
+                  text: cn.text,
+                  originalText: cn.text,
+                  children: []
+               });
+               r(cn.children, rn[rn.length - 1].children);
+            }
+         };
+         r(this.json, nodes);
+         return nodes;
+      }
+
+      public bulkRename(nodes: RenameNode[]): void {
+         let r = (n: RenameNode[]): void => {
+            for (let cn of n) {
+               if (cn.originalText !== cn.text) {
+                  this.jst.rename_node(cn.id, cn.text);
+               }
+               r(cn.children);
+            }
+         };
+         r(nodes);
+      }
+
       private jstCheck(op: string, node: Node, parent: Node): boolean {
          switch (op) {
             case 'create_node':
@@ -246,25 +281,7 @@ module Favorite {
          }
       }
 
-      public add(type: string, edit: boolean, text?: string, data?: string): string {
-         let createNode = (obj): string => {
-            let selectedList = this.jst.get_top_selected(true);
-            if (selectedList.length === 0) {
-               return this.jst.create_node('root', obj, 'last');
-            }
-            let selected = selectedList[0];
-            if (selected.type !== 'item') {
-               let n = this.jst.create_node(selected, obj, 'last');
-               if (!selected.state.opened) {
-                  this.jst.open_node(selected, null);
-               }
-               return n;
-            }
-            let parent = this.jst.get_node(selected.parent);
-            let idx = parent.children.indexOf(selected.id);
-            return this.jst.create_node(parent, obj, idx !== -1 ? idx + 1 : 'last');
-         };
-
+      private addNode(type: string, edit: boolean, text?: string, data?: string): string {
          let obj: Node;
          switch (type) {
             case 'item':
@@ -304,13 +321,44 @@ module Favorite {
                throw new Error('unsupported object type: ' + type);
          }
 
-         let id = createNode(obj);
+         // create node
+         let selectedList = this.jst.get_top_selected(true);
+         if (selectedList.length === 0) {
+            return this.jst.create_node('root', obj, 'last');
+         }
+         let selected = selectedList[0];
+         if (selected.type !== 'item') {
+            let n = this.jst.create_node(selected, obj, 'last');
+            if (!selected.state.opened) {
+               this.jst.open_node(selected, null);
+            }
+            return n;
+         }
+         let parent = this.jst.get_node(selected.parent);
+         let idx = parent.children.indexOf(selected.id);
+         return this.jst.create_node(parent, obj, idx !== -1 ? idx + 1 : 'last');
+      }
+
+      public add(type: string, edit: boolean, text?: string, data?: string): string {
+         let id = this.addNode(type, edit, text, data);
          this.clearSelection();
          this.jst.select_node(id, true);
          if (edit) {
             this.jst.edit(id);
          }
          return id;
+      }
+
+      public addFolders(names: string[]): string[] {
+         let ids: string[] = [];
+         for (let name of names) {
+            ids.push(this.addNode('folder', false, name));
+         }
+         this.clearSelection();
+         for (let id of ids) {
+            this.jst.select_node(id, true);
+         }
+         return ids;
       }
 
       public updateLocalStorage(): void {

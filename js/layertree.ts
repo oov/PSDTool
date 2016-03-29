@@ -44,6 +44,21 @@ module LayerTree {
       public root: Node = new Node(null, null, null, '', '', null);
       public nodes: { [seqId: number]: Node } = {};
 
+      get text(): string {
+         let text: string[] = [];
+         let tab: string[] = [];
+         let r = (n: Node): void => {
+            for (let cn of n.children) {
+               text.push(tab.join('') + cn.name);
+               tab.push('\t');
+               r(cn);
+               tab.pop();
+            }
+         };
+         r(this.root);
+         return text.join('\n');
+      }
+
       constructor(treeRoot: HTMLUListElement, psdRoot: psd.Root) {
          let path: string[] = [];
          let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[], parentSeqID: number): void => {

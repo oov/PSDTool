@@ -42,8 +42,17 @@
       filterTree: null,
       filterDialog: null,
 
+      bulkCreateFolderDialog: null,
+      bulkCreateFolderTextarea: null,
+      bulkCreateFolder: null,
+
+      bulkRenameData: null,
+      bulkRenameDialog: null,
+      bulkRename: null,
+
       exportFavoritesPFV: null,
       exportFavoritesZIP: null,
+      exportLayerStructure: null,
       exportProgressDialog: null,
       exportProgressDialogProgressBar: null,
       exportProgressDialogProgressCaption: null,
@@ -663,6 +672,58 @@
          }
       });
 
+      ui.bulkCreateFolderDialog = jQuery('#bulk-create-folder-dialog');
+      ui.bulkCreateFolderDialog.on('shown.bs.modal', (e: JQueryEventObject) => {
+         ui.bulkCreateFolderTextarea.focus();
+      });
+      ui.bulkCreateFolderTextarea = document.getElementById('bulk-create-folder-textarea');
+      ui.bulkCreateFolder = document.getElementById('bulk-create-folder');
+      ui.bulkCreateFolder.addEventListener('click', (e: Event): void => {
+         let folders: string[] = [];
+         for (let line of (<string>ui.bulkCreateFolderTextarea.value).replace(/\r/g, '').split('\n')) {
+            line = line.trim();
+            if (line === '') {
+               continue;
+            }
+            folders.push(line);
+         }
+         favorite.addFolders(folders);
+         ui.bulkCreateFolderTextarea.value = '';
+      }, false);
+
+      ui.bulkRenameDialog = jQuery('#bulk-rename-dialog');
+      ui.bulkRenameDialog.on('shown.bs.modal', (e: JQueryEventObject) => {
+         let r = (ul: HTMLElement, nodes: Favorite.RenameNode[]): void => {
+            let cul: HTMLUListElement;
+            let li: HTMLLIElement;
+            let input: HTMLInputElement;
+            for (let n of nodes) {
+               input = document.createElement('input');
+               input.className = 'form-control';
+               input.value = n.text;
+               ((input: HTMLInputElement, n: Favorite.RenameNode): void => {
+                  input.onblur = (e: Event): void => {
+                     n.text = input.value.trim();
+                  };
+               })(input, n);
+               li = document.createElement('li');
+               li.appendChild(input);
+               cul = document.createElement('ul');
+               li.appendChild(cul);
+               r(cul, n.children);
+               ul.appendChild(li);
+            }
+         };
+         let elem = document.getElementById('bulk-rename-tree');
+         ui.bulkRenameData = favorite.renameNodes;
+         removeAllChild(elem);
+         r(elem, ui.bulkRenameData);
+      });
+      ui.bulkRename = document.getElementById('bulk-rename');
+      ui.bulkRename.addEventListener('click', (e: Event): void => {
+         favorite.bulkRename(ui.bulkRenameData);
+      }, false);
+
       ui.exportFavoritesPFV = document.getElementById('export-favorites-pfv');
       ui.exportFavoritesPFV.addEventListener('click', (e: Event): void => {
          saveAs(new Blob([favorite.pfv], {
@@ -801,6 +862,14 @@
             ui.exportProgressDialog.modal('show');
          }
       }, false);
+
+      ui.exportLayerStructure = document.getElementById('export-layer-structure');
+      ui.exportLayerStructure.addEventListener('click', (e: Event): void => {
+         saveAs(new Blob([layerRoot.text], {
+            type: 'text/plain'
+         }), 'layer.txt');
+      }, false);
+
    }
 
    function dataSchemeURIToArrayBuffer(str: string): ArrayBuffer {

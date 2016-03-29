@@ -164,6 +164,9 @@
 											<span class="caret"></span>
 										</button>
 										<ul class="dropdown-menu dropdown-menu-right">
+											<li><a href="#" data-toggle="modal" data-target="#bulk-create-folder-dialog"><span class="glyphicon glyphicon-folder-open"></span> 一括フォルダー作成</a></li>
+											<li><a href="#" data-toggle="modal" data-target="#bulk-rename-dialog"><span class="glyphicon glyphicon-pencil"></span> 一括名前変更</a></li>
+											<li role="separator" class="divider"></li>
 											<li><a href="#" data-toggle="modal" data-target="#import-dialog"><span class="glyphicon glyphicon-open-file"></span> インポート</a></li>
 											<li><a href="#" data-toggle="modal" data-target="#export-dialog"><span class="glyphicon glyphicon-save-file"></span> エクスポート</a></li>
 										</ul>
@@ -241,7 +244,7 @@
 			<div class="modal-content">
 				<div class="modal-header">
 					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-					<h4 class="modal-title" id="import-dialog-label">お気に入りのインポート</h4>
+					<h4 class="modal-title" id="import-dialog-label">インポート</h4>
 				</div>
 				<div class="modal-body">
 					<dl>
@@ -270,7 +273,7 @@
 			<div class="modal-content">
 				<div class="modal-header">
 					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-					<h4 class="modal-title" id="export-dialog-label">お気に入りのエクスポート</h4>
+					<h4 class="modal-title" id="export-dialog-label">エクスポート</h4>
 				</div>
 				<div class="modal-body">
 					<p>
@@ -281,6 +284,10 @@
 						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
 					</p>
 					<p><small>PNG ファイルと PFV ファイルを無圧縮の ZIP ファイルに書き出します。パターン数に応じて相応の時間が掛かります。画像には現在の左右反転や縮小などの設定が適用されます。</small></p>
+					<p>
+						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-layer-structure">レイヤー構造をテキストファイルでエクスポート</button>
+					</p>
+					<p><small>PSD ファイルのレイヤー構造をタブで整形された UTF-8 テキストファイルとして出力します。これにはお気に入りのデータは一切含まれていません。</small></p>
 				</div>
 			</div>
 		</div>
@@ -297,6 +304,40 @@
 					<div class="progress">
 						<div id="export-progress-dialog-progress-bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
 					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal" id="bulk-create-folder-dialog" tabindex="-1" role="dialog" data-backdrop="static" aria-labelledby="bulk-create-folder-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<h4 class="modal-title" id="bulk-create-folder-dialog-label">お気に入りフォルダー作成</h4>
+				</div>
+				<div class="modal-body">
+					<p>
+						お気に入りに作成したいフォルダー名を改行で区切って入力してください。
+						<br>先頭や末尾のスペース、空行などは無視されます。
+					</p>
+					<textarea id="bulk-create-folder-textarea" class="form-control" rows="8"></textarea>
+					<button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-create-folder">フォルダー作成</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal" id="bulk-rename-dialog" tabindex="-1" role="dialog" data-backdrop="static" aria-labelledby="bulk-rename-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<h4 class="modal-title" id="bulk-rename-dialog-label">一括名前変更</h4>
+				</div>
+				<div class="modal-body">
+					<ul id="bulk-rename-tree"></ul>
+					<button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-rename">名前を変更</button>
 				</div>
 			</div>
 		</div>
