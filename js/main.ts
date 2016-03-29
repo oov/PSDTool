@@ -473,7 +473,11 @@
                case 'folder':
                case 'filter':
                   ui.filterEditingTarget = item;
-                  ui.filterDialog.modal('show');
+                  if (!ui.filterDialog.data('bs.modal')) {
+                     ui.filterDialog.modal();
+                  } else {
+                     ui.filterDialog.modal('show');
+                  }
                   break;
             }
          } catch (e) {
@@ -547,8 +551,7 @@
 
       initDropZone('pfv-dropzone', pfvOnDrop);
       initDropZone('pfv-dropzone2', pfvOnDrop);
-
-      jQuery('#import-dialog').on('shown.bs.modal', (e) => {
+      jQuery('#import-dialog').on('shown.bs.modal', (e: JQueryEventObject) => {
          // build the recent list
          let recents = document.getElementById('pfv-recents');
          removeAllChild(recents);
@@ -570,7 +573,7 @@
                   leaveReaderMode();
                   // TODO: error handling
                   favorite.loadFromString(data, uniqueId);
-              }, false);
+               }, false);
             })(btn, pfvs[i].data, pfvs[i].id);
             btn.appendChild(document.createTextNode(
                Favorite.countEntries(pfvs[i].data) +
@@ -606,7 +609,7 @@
             ui.filterTree.classList.add('disabled');
          }
          updateFilter();
-      });
+      }, false);
       ui.filterTree = document.getElementById('filter-tree');
       ui.filterTree.addEventListener('click', (e: Event): void => {
          if ((<HTMLElement>e.target).tagName !== 'INPUT') {
@@ -624,7 +627,7 @@
          }
          updateFilter();
       }, false);
-      ui.filterDialog = jQuery('#filter-dialog').modal().on('shown.bs.modal', (e) => {
+      ui.filterDialog = jQuery('#filter-dialog').on('shown.bs.modal', (e) => {
          let parents: string[] = [];
          for (let p of favorite.getParents(ui.filterEditingTarget)) {
             if (p.type === 'filter') {
@@ -661,18 +664,18 @@
       });
 
       ui.exportFavoritesPFV = document.getElementById('export-favorites-pfv');
-      ui.exportFavoritesPFV.addEventListener('click', (e) => {
+      ui.exportFavoritesPFV.addEventListener('click', (e: Event): void => {
          saveAs(new Blob([favorite.pfv], {
             type: 'text/plain'
          }), cleanForFilename(favorite.rootName) + '.pfv');
-      });
+      }, false);
 
-      ui.exportProgressDialog = jQuery('#export-progress-dialog').modal();
+      ui.exportProgressDialog = jQuery('#export-progress-dialog');
       ui.exportProgressDialogProgressBar = document.getElementById('export-progress-dialog-progress-bar');
       ui.exportProgressDialogProgressCaption = document.getElementById('export-progress-dialog-progress-caption');
 
       ui.exportFavoritesZIP = document.getElementById('export-favorites-zip');
-      ui.exportFavoritesZIP.addEventListener('click', (e) => {
+      ui.exportFavoritesZIP.addEventListener('click', (e: Event): void => {
          let parents: Favorite.Node[] = [];
          let path: string[] = [],
             files: { name: string; value: string; filter?: string }[] = [];
@@ -793,8 +796,12 @@
             };
             process();
          }, errorHandler.bind(this, 'cannot create a zip archive'));
-         ui.exportProgressDialog.modal('show');
-      });
+         if (!ui.exportProgressDialog.data('bs.modal')) {
+            ui.exportProgressDialog.modal();
+         } else {
+            ui.exportProgressDialog.modal('show');
+         }
+      }, false);
    }
 
    function dataSchemeURIToArrayBuffer(str: string): ArrayBuffer {
