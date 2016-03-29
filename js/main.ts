@@ -564,7 +564,7 @@
             btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'list-group-item';
-            if (favorite[i].hash === psdRoot.Hash) {
+            if (pfvs[i].hash === psdRoot.Hash) {
                btn.className += ' list-group-item-info';
             }
             btn.setAttribute('data-dismiss', 'modal');
