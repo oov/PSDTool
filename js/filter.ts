@@ -1,9 +1,5 @@
 'use strict';
 module Filter {
-   interface Elements {
-      label: HTMLLabelElement;
-      input: HTMLInputElement;
-   }
    interface SerializeItem {
       index: number;
       node: Node;
@@ -52,7 +48,10 @@ module Filter {
          r(treeRoot, this.root, psdRoot.Children);
       }
 
-      private createElements(l: psd.Layer): Elements {
+      private createElements(l: psd.Layer): {
+         label: HTMLLabelElement;
+         input: HTMLInputElement;
+      } {
          let input = document.createElement('input');
          input.type = 'checkbox';
          input.checked = true;

@@ -36,9 +36,6 @@
       seqDl: null,
 
       favoriteToolbar: null,
-      favoriteTree: null,
-      favoriteTreeDefaultRootName: null,
-      favoriteTreeChangedTimer: null,
 
       filterEditingTarget: null,
       useFilter: null,
@@ -55,8 +52,8 @@
    var psdRoot: psd.Root;
    var filterRoot: Filter.Filter;
    var layerRoot: LayerTree.LayerTree;
-   var droppedPFV,
-      uniqueId = Date.now().toString() + Math.random().toString().substring(2);
+   var favorite: Favorite.Favorite;
+   var droppedPFV;
 
    function init() {
       initDropZone('dropzone', (files: FileList): void => {
@@ -108,7 +105,7 @@
       sideBody.style.height = (sideContainer.clientHeight - sideHead.offsetHeight) + 'px';
       sideBody.style.display = 'block';
 
-      ui.favoriteTree[0].style.paddingTop = ui.favoriteToolbar.clientHeight + 'px';
+      document.getElementById('favorite-tree').style.paddingTop = ui.favoriteToolbar.clientHeight + 'px';
    }
 
    function hashchanged() {
@@ -342,19 +339,25 @@
                }
                ui.redraw();
             }, false);
+            (<any>window).lr = layerRoot;
 
             ui.maxPixels.value = ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight;
             ui.seqDlPrefix.value = name;
             ui.seqDlNum.value = 0;
             ui.showReadme.style.display = psd.Readme !== '' ? 'block' : 'none';
-            loadPFVFromDroppedFile().then((loaded: boolean): any => {
-               return loaded ? true : loadPFVFromString(psd.PFV);
-            }).then((loaded: boolean): any => {
-               return loaded ? true : loadPFVFromLocalStorage(psd.Hash);
-            }).then(null, function(e) {
-               console.error(e);
-               alert(e);
-            });
+            //  TODO: error handling
+            favorite.psdHash = psd.Hash;
+            if (droppedPFV) {
+               let fr = new FileReader();
+               fr.onload = (): void => {
+                  favorite.loadFromArrayBuffer(fr.result);
+               };
+               fr.readAsArrayBuffer(droppedPFV);
+            } else {
+               if (!favorite.loadFromLocalStorage(psd.Hash)) {
+                  favorite.loadFromString(psd.PFV);
+               }
+            }
             psdRoot = psd;
             ui.redraw();
             deferred.resolve();
@@ -393,228 +396,6 @@
       renderer.render(scale, autoTrim, ui.invertInput.checked, callback);
    }
 
-   function favoriteTreeChanged(): void {
-      if (ui.favoriteTreeChangedTimer) {
-         clearTimeout(ui.favoriteTreeChangedTimer);
-      }
-      ui.favoriteTreeChangedTimer = setTimeout(() => {
-         ui.favoriteTreeChangedTimer = null;
-         let pfv = buildPFV(ui.favoriteTree.jstree('get_json'));
-         let pfvs: any[] = [];
-         if ('psdtool_pfv' in localStorage) {
-            pfvs = JSON.parse(localStorage['psdtool_pfv']);
-         }
-         let found = false;
-         for (let i = 0; i < pfvs.length; ++i) {
-            if (pfvs[i].id === uniqueId && pfvs[i].hash === psdRoot.Hash) {
-               pfvs.splice(i, 1);
-               found = true;
-               break;
-            }
-         }
-         if (!found && countPFVEntries(pfv) === 0) {
-            return;
-         }
-         pfvs.push({
-            id: uniqueId,
-            time: new Date().getTime(),
-            hash: psdRoot.Hash,
-            data: pfv
-         });
-         while (pfvs.length > 8) {
-            pfvs.shift();
-         }
-         localStorage['psdtool_pfv'] = JSON.stringify(pfvs);
-      }, 100);
-   }
-
-   function initFavoriteTree(data?: any) {
-      var treeSettings = {
-         core: {
-            animation: false,
-            check_callback: (op, node, parent): boolean => {
-               switch (op) {
-                  case 'create_node':
-                     return node.type !== 'root';
-                  case 'rename_node':
-                     return true;
-                  case 'delete_node':
-                     return node.type !== 'root';
-                  case 'move_node':
-                     return node.type !== 'root' && parent.id !== '#' && parent.type !== 'item';
-                  case 'copy_node':
-                     return node.type !== 'root' && parent.id !== '#' && parent.type !== 'item';
-               }
-
-            },
-            dblclick_toggle: false,
-            themes: {
-               dots: false
-            },
-            data: data ? data : [{
-               id: 'root',
-               text: ui.favoriteTreeDefaultRootName,
-               type: 'root',
-            }]
-         },
-         types: {
-            root: {
-               icon: false,
-            },
-            item: {
-               icon: 'glyphicon glyphicon-picture'
-            },
-            folder: {
-               icon: 'glyphicon glyphicon-folder-open'
-            },
-            filter: {
-               icon: 'glyphicon glyphicon-filter'
-            }
-         },
-         plugins: ['types', 'dnd', 'wholerow'],
-      };
-      if (ui.favoriteTree) {
-         ui.favoriteTree.jstree('destroy');
-      }
-      ui.favoriteTree = jQuery('#favorite-tree').jstree(treeSettings);
-      ui.favoriteTree.on([
-         'set_text.jstree',
-         'create_node.jstree',
-         'rename_node.jstree',
-         'delete_node.jstree',
-         'move_node.jstree',
-         'copy_node.jstree',
-         'cut.jstree',
-         'paste.jstree'
-      ].join(' '), favoriteTreeChanged);
-      ui.favoriteTree.on('changed.jstree', function(e) {
-         let jst = $(this).jstree();
-         let selectedList = jst.get_top_selected(true);
-         if (selectedList.length === 0) {
-            return;
-         }
-         let selected = selectedList[0];
-         if (selected.type !== 'item') {
-            leaveReaderMode();
-            return;
-         }
-         try {
-            enterReaderMode(selected.data.value, selected.text + '.png');
-         } catch (e) {
-            console.error(e);
-            alert(e);
-         }
-      });
-      ui.favoriteTree.on('copy_node.jstree', function(e: any, data: any) {
-         let jst = $(this).jstree();
-
-         function process(node: any, original: any): void {
-            const text = suggestUniqueName(jst, node);
-            if (node.text !== text) {
-               jst.rename_node(node, text);
-            }
-            switch (node.type) {
-               case 'item':
-                  node.data = {};
-                  if ('value' in original.data) {
-                     node.data.value = original.data.value;
-                  }
-                  break;
-               case 'folder':
-                  for (let i = 0; i < node.children.length; ++i) {
-                     process(jst.get_node(node.children[i]), jst.get_node(original.children[i]));
-                  }
-                  break;
-               case 'filter':
-                  for (let i = 0; i < node.children.length; ++i) {
-                     process(jst.get_node(node.children[i]), jst.get_node(original.children[i]));
-                  }
-                  break;
-            }
-         }
-         process(data.node, data.original);
-      });
-      ui.favoriteTree.on('move_node.jstree', function(e: any, data: any) {
-         let jst = $(this).jstree();
-         let text = suggestUniqueName(jst, data.node, data.text);
-         if (data.text !== text) {
-            jst.rename_node(data.node, text);
-         }
-      });
-      ui.favoriteTree.on('create_node.jstree', function(e: any, data: any) {
-         let jst = $(this).jstree();
-         let text = suggestUniqueName(jst, data.node);
-         if (data.node.text !== text) {
-            jst.rename_node(data.node, text);
-         }
-      });
-      ui.favoriteTree.on('rename_node.jstree', function(e: any, data: any) {
-         let jst = $(this).jstree();
-         let text = suggestUniqueName(jst, data.node, data.text);
-         if (data.text !== text) {
-            jst.rename_node(data.node, text);
-         }
-      });
-      ui.favoriteTree.on('dblclick.jstree', function(e: any) {
-         let jst = $(this).jstree();
-         let selected = jst.get_node(e.target);
-         try {
-            switch (selected.type) {
-               case 'item':
-                  if (selected.data.value) {
-                     leaveReaderMode(selected.data.value);
-                     return;
-                  }
-                  break;
-               case 'folder':
-               case 'filter':
-                  ui.filterEditingTarget = selected;
-                  ui.filterDialog.modal('show');
-                  break;
-               default:
-                  jst.toggle_node(selected);
-                  break;
-            }
-         } catch (e) {
-            console.error(e);
-            alert(e);
-         }
-      });
-   }
-
-   function suggestUniqueName(jst: JSTree, node: any, newText?: string): string {
-      let i: number, n = jst.get_node(node),
-         parent = jst.get_node(n.parent);
-      let nameMap = {};
-      for (i = 0; i < parent.children.length; ++i) {
-         if (parent.children[i] === n.id) {
-            continue;
-         }
-         nameMap[jst.get_text(parent.children[i])] = true;
-      }
-      if (newText === undefined) {
-         newText = n.text;
-      }
-      if (!(newText in nameMap)) {
-         return newText;
-      }
-      newText += ' ';
-      i = 2;
-      while ((newText + i) in nameMap) {
-         ++i;
-      }
-      return newText + i;
-   }
-
-   function getFavoriteTreeRootName(): string {
-      let jst = ui.favoriteTree.jstree();
-      let root = jst.get_node('root');
-      if (root && root.text) {
-         return root.text;
-      }
-      return ui.favoriteTreeDefaultRootName;
-   }
-
    function cleanForFilename(f: string): string {
       return f.replace(/[\x00-\x1f\x22\x2a\x2f\x3a\x3c\x3e\x3f\x7c\x7f]+/g, '_');
    }
@@ -629,148 +410,113 @@
       return s;
    }
 
-   function addNewNode(jst: JSTree, objType: string, usePrompt: boolean): any {
-      function createNode(obj) {
-         let selectedList = jst.get_top_selected(true);
-         if (selectedList.length === 0) {
-            return jst.create_node('root', obj, 'last');
-         }
-         let selected = selectedList[0];
-         if (selected.type !== 'item') {
-            let n = jst.create_node(selected, obj, 'last');
-            if (!selected.state.opened) {
-               jst.open_node(selected, null);
-            }
-            return n;
-         }
-         let parent = jst.get_node(selected.parent);
-         let idx = parent.children.indexOf(selected.id);
-         return jst.create_node(parent, obj, idx !== -1 ? idx + 1 : 'last');
-      }
-
-      let obj: any, selector: string;
-      switch (objType) {
-         case 'item':
-            leaveReaderMode();
-            obj = {
-               text: 'New Item',
-               type: 'item',
-               data: {
-                  value: layerRoot.serialize(false)
-               }
-            };
-            selector = 'button[data-psdtool-tree-add-item]';
-            break;
-         case 'folder':
-            obj = {
-               text: 'New Folder',
-               type: 'folder'
-            };
-            selector = 'button[data-psdtool-tree-add-folder]';
-            break;
-         case 'filter':
-            obj = {
-               text: 'New Filter',
-               type: 'filter'
-            };
-            selector = 'button[data-psdtool-tree-add-filter]';
-            break;
-         default:
-            throw new Error('unsupported object type: ' + objType);
-      }
-
-      let id = createNode(obj);
-      jst.deselect_all();
-      jst.select_node(id);
-      leaveReaderMode();
-
-      if (!usePrompt) {
-         return id;
-      }
-
-      let oldText = jst.get_text(id);
-      let text = prompt(document.querySelector(selector).getAttribute('data-caption'), oldText);
-      if (text === null) {
-         removeSelectedNode(jst);
-         return;
-      }
-      text = suggestUniqueName(jst, id, text);
-      if (text !== oldText) {
-         jst.rename_node(id, text);
-      }
-      return id;
-   }
-
-   function removeSelectedNode(jst: JSTree): void {
-      leaveReaderMode();
-      try {
-         jst.delete_node(jst.get_top_selected());
-      } catch (e) {
-         // workaround that an error happens when deletes node during editing.
-         jst.delete_node(jst.create_node(null, 'dummy', 'last'));
-      }
-      leaveReaderMode();
-   }
-
    function pfvOnDrop(files: FileList): void {
       leaveReaderMode();
       let i, ext;
       for (i = 0; i < files.length; ++i) {
          ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
          if (ext === '.pfv') {
-            loadAsBlob((): void => undefined, files[i]).then((buffer: any): any => {
-               var fr = new FileReader();
-               fr.onload = function() {
-                  loadPFV(arrayBufferToString(fr.result));
+            // TODO: error handling
+            var fr = new FileReader();
+            fr.onload = function() {
+               if (favorite.loadFromArrayBuffer(fr.result)) {
                   jQuery('#import-dialog').modal('hide');
-               };
-               fr.readAsArrayBuffer(buffer.buffer);
-            }).then(null, function(e) {
-               console.error(e);
-               alert(e);
-            });
-            break;
+               }
+            };
+            fr.readAsArrayBuffer(files[i]);
+            return;
          }
       }
    }
 
    function initFavoriteUI(): void {
-      ui.favoriteTreeDefaultRootName = document.getElementById('favorite-tree').getAttribute('data-root-name');
-      initFavoriteTree();
+      favorite = new Favorite.Favorite(
+         document.getElementById('favorite-tree'),
+         document.getElementById('favorite-tree').getAttribute('data-root-name'));
+      favorite.onClearSelection = (): void => {
+         leaveReaderMode();
+      };
+      favorite.onSelect = (item: Favorite.Node): void => {
+         if (item.type !== 'item') {
+            leaveReaderMode();
+            return;
+         }
+         try {
+            let filter: string;
+            for (let p of favorite.getParents(item)) {
+               if (p.type === 'filter') {
+                  filter = p.data.value;
+                  break;
+               }
+            }
+            enterReaderMode(item.data.value, filter, item.text + '.png');
+         } catch (e) {
+            console.error(e);
+            alert(e);
+         }
+      };
+      favorite.onDoubleClick = (item: Favorite.Node): void => {
+         try {
+            switch (item.type) {
+               case 'item':
+                  let filter: string;
+                  for (let p of favorite.getParents(item)) {
+                     if (p.type === 'filter') {
+                        filter = p.data.value;
+                        break;
+                     }
+                  }
+                  leaveReaderMode(item.data.value, filter);
+                  break;
+               case 'folder':
+               case 'filter':
+                  ui.filterEditingTarget = item;
+                  ui.filterDialog.modal('show');
+                  break;
+            }
+         } catch (e) {
+            console.error(e);
+            alert(e);
+         }
+      };
 
-      jQuery('button[data-psdtool-tree-add-item]').on('click', function(e) {
-         let jst = jQuery(this.getAttribute('data-psdtool-tree-add-item')).jstree();
-         jst.edit(addNewNode(jst, 'item', false));
+      jQuery('button[data-psdtool-tree-add-item]').on('click', (e: Event): void => {
+         leaveReaderMode();
+         favorite.add('item', true, '', layerRoot.serialize(false));
       });
-      Mousetrap.bind('mod+b', (e) => {
+      Mousetrap.bind('mod+b', (e: Event): void => {
          e.preventDefault();
-         let jst = ui.favoriteTree.jstree();
-         addNewNode(jst, 'item', true);
+         let text = prompt(document.querySelector('button[data-psdtool-tree-add-item]').getAttribute('data-caption'), '');
+         if (text === null || text === '') {
+            return;
+         }
+         leaveReaderMode();
+         favorite.add('item', false, text, layerRoot.serialize(false));
       });
 
-      jQuery('button[data-psdtool-tree-add-folder]').on('click', function(e) {
-         let jst = jQuery(this.getAttribute('data-psdtool-tree-add-folder')).jstree();
-         jst.edit(addNewNode(jst, 'folder', false));
+      jQuery('button[data-psdtool-tree-add-folder]').on('click', (e: Event): void => {
+         favorite.add('folder', true);
       });
-      Mousetrap.bind('mod+d', (e) => {
+      Mousetrap.bind('mod+d', (e: Event): void => {
          e.preventDefault();
-         let jst = ui.favoriteTree.jstree();
-         addNewNode(jst, 'folder', true);
+         let text = prompt(document.querySelector('button[data-psdtool-tree-add-folder]').getAttribute('data-caption'), '');
+         if (text === null || text === '') {
+            return;
+         }
+         favorite.clearSelection();
+         favorite.add('folder', false, text);
       });
 
-      jQuery('button[data-psdtool-tree-rename]').on('click', function(e) {
-         let jst = jQuery(this.getAttribute('data-psdtool-tree-rename')).jstree();
-         jst.edit(jst.get_top_selected());
+      jQuery('button[data-psdtool-tree-rename]').on('click', (e: Event): void => {
+         favorite.edit();
       });
       Mousetrap.bind('f2', (e) => {
          e.preventDefault();
-         let jst = ui.favoriteTree.jstree();
-         jst.edit(jst.get_top_selected());
+         favorite.edit();
       });
 
-      jQuery('button[data-psdtool-tree-remove]').on('click', function(e) {
-         let jst = jQuery(this.getAttribute('data-psdtool-tree-remove')).jstree();
-         removeSelectedNode(jst);
+      jQuery('button[data-psdtool-tree-remove]').on('click', (e: Event): void => {
+         favorite.remove();
       });
 
       Mousetrap.bind('shift+mod+g', (e) => {
@@ -779,17 +525,17 @@
             return;
          }
          e.preventDefault();
-         let jst: JSTree = ui.favoriteTree.jstree();
          if (target.classList.contains('psdtool-layer-radio')) {
             let old = layerRoot.serialize(true);
             let created: string[] = [];
+            let n: LayerTree.Node;
             let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll(
                'input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
-            for (let i = 0, id; i < elems.length; ++i) {
-               (<HTMLInputElement>elems[i]).checked = true;
-               id = addNewNode(jst, 'item', false);
-               jst.rename_node(id, elems[i].getAttribute('data-name'));
-               created.push(jst.get_text(id));
+            for (let i = 0; i < elems.length; ++i) {
+               n = layerRoot.nodes[elems[i].getAttribute('data-seq')];
+               n.checked = true;
+               favorite.add('item', false, n.displayName, layerRoot.serialize(false));
+               created.push(n.displayName);
             }
             layerRoot.deserialize(old);
             ui.redraw();
@@ -804,55 +550,50 @@
          // build the recent list
          let recents = document.getElementById('pfv-recents');
          removeAllChild(recents);
-         let pfv = [],
+         let pfvs = [],
             btn: HTMLButtonElement;
          if ('psdtool_pfv' in localStorage) {
-            pfv = JSON.parse(localStorage['psdtool_pfv']);
+            pfvs = JSON.parse(localStorage['psdtool_pfv']);
          }
-         for (let i = pfv.length - 1; i >= 0; --i) {
+         for (let i = pfvs.length - 1; i >= 0; --i) {
             btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'list-group-item';
-            if (pfv[i].hash === psdRoot.Hash) {
+            if (favorite[i].hash === psdRoot.Hash) {
                btn.className += ' list-group-item-info';
             }
             btn.setAttribute('data-dismiss', 'modal');
-            ((btn: HTMLButtonElement, data: any, id: string) => {
+            ((btn: HTMLButtonElement, data: string, uniqueId: string) => {
                btn.addEventListener('click', (e) => {
                   leaveReaderMode();
-                  loadPFVFromString(data).then(
-                     (loaded) => { uniqueId = id; },
-                     (e) => { console.error(e); alert(e); });
-               }, false);
-            })(btn, pfv[i].data, pfv[i].id);
+                  // TODO: error handling
+                  favorite.loadFromString(data, uniqueId);
+              }, false);
+            })(btn, pfvs[i].data, pfvs[i].id);
             btn.appendChild(document.createTextNode(
-               countPFVEntries(pfv[i].data) +
+               Favorite.countEntries(pfvs[i].data) +
                ' item(s) / Created at ' +
-               formateDate(new Date(pfv[i].time))
+               formateDate(new Date(pfvs[i].time))
                ));
             recents.appendChild(btn);
          }
       });
 
       let updateFilter = (): void => {
-         let node = ui.filterEditingTarget;
-         let jst = ui.favoriteTree.jstree();
+         let node: Favorite.Node = ui.filterEditingTarget;
          if (!ui.useFilter.checked) {
-            jst.set_type(node, 'folder');
-            node.data = {};
-            favoriteTreeChanged();
+            favorite.update({ id: node.id, type: 'folder' });
+            favorite.updateLocalStorage();
             return;
          }
          let s = filterRoot.serialize();
          if (!s) {
-            jst.set_type(node, 'folder');
-            node.data = {};
-            favoriteTreeChanged();
+            favorite.update({ id: node.id, type: 'folder' });
+            favorite.updateLocalStorage();
             return;
          }
-         jst.set_type(node, 'filter');
-         node.data = { value: s };
-         favoriteTreeChanged();
+         favorite.update({ id: node.id, type: 'filter', data: { value: s } });
+         favorite.updateLocalStorage();
       };
       ui.useFilter = document.getElementById('use-filter');
       ui.useFilter.addEventListener('click', (e: Event): void => {
@@ -881,21 +622,17 @@
          }
          updateFilter();
       }, false);
-      ui.filterDialog = jQuery('#filter-dialog').modal({
-         show: false
-      }).on('shown.bs.modal', (e) => {
-         let jst = ui.favoriteTree.jstree();
-         let node = ui.filterEditingTarget;
+      ui.filterDialog = jQuery('#filter-dialog').modal().on('shown.bs.modal', (e) => {
          let parents: string[] = [];
-         for (let p = jst.get_node(node.parent); p; p = jst.get_node(p.parent)) {
+         for (let p of favorite.getParents(ui.filterEditingTarget)) {
             if (p.type === 'filter') {
                parents.push(p.data.value);
             }
          }
-         if (node.type === 'filter') {
+         if (ui.filterEditingTarget.type === 'filter') {
             ui.useFilter.checked = true;
             ui.filterTree.classList.remove('disabled');
-            filterRoot.deserialize(node.data.value, parents);
+            filterRoot.deserialize(ui.filterEditingTarget.data.value, parents);
          } else {
             ui.useFilter.checked = false;
             ui.filterTree.classList.add('disabled');
@@ -923,9 +660,9 @@
 
       ui.exportFavoritesPFV = document.getElementById('export-favorites-pfv');
       ui.exportFavoritesPFV.addEventListener('click', (e) => {
-         saveAs(new Blob([buildPFV(ui.favoriteTree.jstree('get_json'))], {
+         saveAs(new Blob([favorite.pfv], {
             type: 'text/plain'
-         }), cleanForFilename(getFavoriteTreeRootName()) + '.pfv');
+         }), cleanForFilename(favorite.rootName) + '.pfv');
       });
 
       ui.exportProgressDialog = jQuery('#export-progress-dialog').modal();
@@ -934,9 +671,10 @@
 
       ui.exportFavoritesZIP = document.getElementById('export-favorites-zip');
       ui.exportFavoritesZIP.addEventListener('click', (e) => {
+         let parents: Favorite.Node[] = [];
          let path: string[] = [],
-            files: any[] = [];
-         function r(children: any[]) {
+            files: { name: string; value: string; filter?: string }[] = [];
+         function r(children: Favorite.Node[]) {
             for (let i = 0, item: any; i < children.length; ++i) {
                item = children[i];
                path.push(cleanForFilename(item.text));
@@ -947,16 +685,35 @@
                      path.push('');
                      break;
                   case 'folder':
+                     parents.unshift(item);
                      r(item.children);
+                     parents.shift();
                      break;
                   case 'filter':
+                     parents.unshift(item);
                      r(item.children);
+                     parents.shift();
                      break;
                   case 'item':
-                     files.push({
-                        name: path.join('\\') + '.png',
-                        value: item.data.value
-                     });
+                     let filter: string;
+                     for (let p of parents) {
+                        if (p.type === 'filter') {
+                           filter = p.data.value;
+                           break;
+                        }
+                     }
+                     if (filter) {
+                        files.push({
+                           name: path.join('\\') + '.png',
+                           value: item.data.value,
+                           filter: filter
+                        });
+                     } else {
+                        files.push({
+                           name: path.join('\\') + '.png',
+                           value: item.data.value
+                        });
+                     }
                      break;
                   default:
                      throw new Error('unknown item type: ' + item.type);
@@ -964,7 +721,7 @@
                path.pop();
             }
          }
-         let json = ui.favoriteTree.jstree('get_json');
+         let json = favorite.json;
          r(json);
 
          var backup = layerRoot.serialize(true);
@@ -989,7 +746,7 @@
                   ui.exportProgressDialogProgressBar,
                   ui.exportProgressDialogProgressCaption,
                   added / (files.length + 1),
-                  added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + decodeLayerName(files[added - 1].name));
+                  added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + files[added - 1].name);
                return;
             }
             layerRoot.deserialize(backup);
@@ -999,7 +756,7 @@
                1, 'building a zip...');
             z.generate((blob: Blob): void => {
                ui.exportProgressDialog.modal('hide');
-               saveAs(blob, cleanForFilename(getFavoriteTreeRootName()) + '.zip');
+               saveAs(blob, cleanForFilename(favorite.rootName) + '.zip');
                z.dispose((err: any): void => undefined);
             }, errorHandler.bind(this, 'cannot create a zip archive'));
          };
@@ -1007,13 +764,17 @@
          z.init((): void => {
             z.add(
                'favorites.pfv',
-               new Blob([buildPFV(json)], { type: 'text/plain; charset=utf-8' }),
+               new Blob([favorite.pfv], { type: 'text/plain; charset=utf-8' }),
                addedHandler,
                errorHandler.bind(this, 'cannot write pfv to a zip archive'));
 
             let i = 0;
             let process = (): void => {
-               layerRoot.deserialize(files[i].value);
+               if ('filter' in files[i]) {
+                  layerRoot.deserializePartial('', files[i].value, files[i].filter);
+               } else {
+                  layerRoot.deserialize(files[i].value);
+               }
                render((progress: number, canvas: HTMLCanvasElement): void => {
                   if (progress !== 1) {
                      return;
@@ -1170,25 +931,37 @@
       (<any>Mousetrap).pause();
    }
 
-   function enterReaderMode(state: string, filename?: string): void {
+   function enterReaderMode(state: string, filter?: string, filename?: string): void {
       if (!ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.add('reader');
          ui.normalModeState = layerRoot.serialize(true);
       }
-      layerRoot.deserialize(state);
+      if (!filter) {
+         layerRoot.deserialize(state);
+      } else {
+         layerRoot.deserializePartial(ui.normalModeState, state, filter);
+      }
       if (filename) {
          ui.previewCanvas.setAttribute('data-filename', filename);
       }
       ui.redraw();
    }
 
-   function leaveReaderMode(state?: string): void {
+   function leaveReaderMode(state?: string, filter?: string): void {
       if (ui.previewBackground.classList.contains('reader')) {
          ui.previewBackground.classList.remove('reader');
       }
       if (state) {
          ui.previewCanvas.removeAttribute('data-filename');
-         layerRoot.deserialize(state);
+         if (!filter) {
+            layerRoot.deserialize(state);
+         } else {
+            if (ui.normalModeState) {
+               layerRoot.deserializePartial(ui.normalModeState, state, filter);
+            } else {
+               layerRoot.deserializePartial(undefined, state, filter);
+            }
+         }
       } else if (ui.normalModeState) {
          ui.previewCanvas.removeAttribute('data-filename');
          layerRoot.deserialize(ui.normalModeState);
@@ -1236,285 +1009,5 @@
          }, false);
       }
    }
-
-   function encodeLayerName(s: string): string {
-      return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, (m): string => {
-         return '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2);
-      });
-   }
-
-   function decodeLayerName(s: string): string {
-      return decodeURIComponent(s);
-   }
-
-   function buildPFV(json: any[]): string {
-      if (json.length !== 1) {
-         throw new Error('sorry but favorite tree data is broken');
-      }
-
-      var path: string[] = [],
-         lines = ['[PSDToolFavorites-v1]'];
-
-      function r(children) {
-         for (let i = 0, item; i < children.length; ++i) {
-            item = children[i];
-            path.push(encodeLayerName(item.text));
-            switch (item.type) {
-               case 'root':
-                  lines.push('root-name/' + path[0]);
-                  lines.push('');
-                  path.pop();
-                  r(item.children);
-                  path.push('');
-                  break;
-               case 'folder':
-                  if (item.children.length) {
-                     r(item.children);
-                  } else {
-                     lines.push('//' + path.join('/') + '~folder');
-                     lines.push('');
-                  }
-                  break;
-               case 'filter':
-                  lines.push('//' + path.join('/') + '~filter');
-                  lines.push(item.data.value);
-                  lines.push('');
-                  r(item.children);
-                  break;
-               case 'item':
-                  lines.push('//' + path.join('/'));
-                  lines.push(item.data.value);
-                  lines.push('');
-                  break;
-            }
-            path.pop();
-         }
-      }
-      r(json);
-      return lines.join('\n');
-   }
-
-   function countPFVEntries(pfv: string): number {
-      let lines = pfv.replace(/\r/g, '').split('\n'),
-         c = 0;
-      for (let i = 1; i < lines.length; ++i) {
-         if (lines[i].length > 2 && lines[i].substring(0, 2) === '//') {
-            ++c;
-         }
-      }
-      return c;
-   }
-
-   // https://gist.github.com/boushley/5471599
-   function arrayBufferToString(ab: ArrayBuffer): string {
-      var data = new Uint8Array(ab);
-
-      // If we have a BOM skip it
-      let s = '', i = 0, c = 0, c2 = 0, c3 = 0;
-      if (data.length >= 3 && data[0] === 0xef && data[1] === 0xbb && data[2] === 0xbf) {
-         i = 3;
-      }
-      while (i < data.length) {
-         c = data[i];
-
-         if (c < 128) {
-            s += String.fromCharCode(c);
-            i++;
-         } else if (c > 191 && c < 224) {
-            if (i + 1 >= data.length) {
-               throw 'UTF-8 Decode failed. Two byte character was truncated.';
-            }
-            c2 = data[i + 1];
-            s += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
-            i += 2;
-         } else {
-            if (i + 2 >= data.length) {
-               throw 'UTF-8 Decode failed. Multi byte character was truncated.';
-            }
-            c2 = data[i + 1];
-            c3 = data[i + 2];
-            s += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
-            i += 3;
-         }
-      }
-      return s;
-   }
-
-   function loadPFVFromDroppedFile() {
-      var deferred = m.deferred();
-      setTimeout(function() {
-         if (!droppedPFV) {
-            deferred.resolve(false);
-            return;
-         }
-         loadAsBlob((): void => undefined, droppedPFV).then(function(buffer: any) {
-            var fr = new FileReader();
-            fr.onload = function() {
-               loadPFV(arrayBufferToString(fr.result));
-               deferred.resolve(true);
-            };
-            fr.readAsArrayBuffer(buffer.buffer);
-         }).then(deferred.resolve.bind(deferred), deferred.reject.bind(deferred));
-      }, 0);
-      return deferred.promise;
-   }
-
-   function loadPFVFromString(s) {
-      var deferred = m.deferred();
-      setTimeout(function() {
-         if (!s) {
-            deferred.resolve(false);
-            return;
-         }
-         try {
-            loadPFV(s);
-            deferred.resolve(true);
-         } catch (e) {
-            deferred.reject(e);
-         }
-      }, 0);
-      return deferred.promise;
-   }
-
-   function loadPFVFromLocalStorage(hash) {
-      var deferred = m.deferred();
-      var pfv = [];
-      if ('psdtool_pfv' in localStorage) {
-         pfv = JSON.parse(localStorage['psdtool_pfv']);
-      }
-      for (var i = pfv.length - 1; i >= 0; --i) {
-         if (pfv[i].hash === hash) {
-            loadPFVFromString(pfv[i].data).then(function() {
-               uniqueId = pfv[i].id;
-               deferred.resolve(true);
-            }, function(e) {
-                  deferred.reject(e);
-               });
-            return deferred.promise;
-         }
-      }
-      setTimeout(function() {
-         deferred.resolve(false);
-      }, 0);
-      return deferred.promise;
-   }
-
-   function loadPFV(s) {
-      var lines = s.replace(/\r/g, '').split('\n');
-      if (lines[0] !== '[PSDToolFavorites-v1]') {
-         throw new Error('given PFV file does not have a valid header');
-      }
-
-      function addNode(json: any[], name: string, type: string, data: any): void {
-         let i: number, j: number, c: any[], partName: string, nameParts = name.split('/');
-         for (i = 0, c = json; i < nameParts.length; ++i) {
-            partName = decodeLayerName(nameParts[i]);
-            for (j = 0; j < c.length; ++j) {
-               if (c[j].text === partName) {
-                  c = c[j].children;
-                  j = -1;
-                  break;
-               }
-            }
-            if (j !== c.length) {
-               continue;
-            }
-            c.push({
-               text: partName,
-               children: []
-            });
-            if (i !== nameParts.length - 1) {
-               c[j].type = 'folder';
-               c[j].state = {
-                  opened: true
-               };
-               c = c[j].children;
-               continue;
-            }
-            switch (type) {
-               case 'item':
-                  c[j].type = 'item';
-                  c[j].data = {
-                     value: data
-                  };
-                  return;
-               case 'folder':
-                  c[j].type = 'folder';
-                  c[j].state = {
-                     opened: true
-                  };
-                  return;
-               case 'filter':
-                  c[j].type = 'filter';
-                  c[j].data = {
-                     value: data
-                  };
-                  c[j].state = {
-                     opened: true
-                  };
-                  return;
-               default:
-                  throw new Error('unknown node type: ' + type);
-            }
-         }
-      }
-
-      let json = [{
-         id: 'root',
-         text: ui.favoriteTreeDefaultRootName,
-         type: 'root',
-         state: {
-            opened: true
-         },
-         children: []
-      }];
-      let setting = {
-         'root-name': ui.favoriteTreeDefaultRootName
-      };
-      let name: string,
-         type: string,
-         data: string[] = [],
-         first = true,
-         value: string;
-      for (let i = 1; i < lines.length; ++i) {
-         if (lines[i] === '') {
-            continue;
-         }
-         if (lines[i].length > 2 && lines[i].substring(0, 2) === '//') {
-            if (first) {
-               json[0].text = setting['root-name'];
-               first = false;
-            } else {
-               addNode(json, encodeLayerName(setting['root-name']) + '/' + name, type, data.join('\n'));
-            }
-            name = lines[i].substring(2);
-            if (name.indexOf('~') !== -1) {
-               data = name.split('~');
-               name = data[0];
-               type = data[1];
-            } else {
-               type = 'item';
-            }
-            data = [];
-            continue;
-         }
-         if (first) {
-            name = lines[i].substring(0, lines[i].indexOf('/'));
-            value = decodeLayerName(lines[i].substring(name.length + 1));
-            if (value) {
-               setting[name] = value;
-            }
-         } else {
-            data.push(lines[i]);
-         }
-      }
-      if (first) {
-         json[0].text = setting['root-name'];
-      } else {
-         addNode(json, encodeLayerName(setting['root-name']) + '/' + name, type, data.join('\n'));
-      }
-      initFavoriteTree(json);
-   }
-
    document.addEventListener('DOMContentLoaded', init, false);
 })();

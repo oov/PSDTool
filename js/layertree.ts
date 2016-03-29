@@ -10,10 +10,13 @@ module LayerTree {
    }
    interface DeserializeNode {
       children: { [k: string]: DeserializeNode };
-      checked: number; // 0 = indeterminate / 1 = unchecked / 2 = checked
+      checked: boolean;
    }
    interface DeserializeNodeRoot extends DeserializeNode {
       allLayer: boolean;
+   }
+   interface FilterNode {
+      children: { [k: string]: FilterNode };
    }
    export class Node {
       get checked(): boolean { return this.input.checked; }
@@ -35,11 +38,6 @@ module LayerTree {
          private name_: string,
          private fullPath_: string,
          public parent: Node) { }
-   }
-   interface Elements {
-      text: Text;
-      div: HTMLDivElement;
-      input: HTMLInputElement;
    }
    export class LayerTree {
       public disableExtendedFeature: boolean;
@@ -73,7 +71,11 @@ module LayerTree {
          this.registerClippingGroup(psdRoot.Children);
       }
 
-      private createElements(l: psd.Layer, parentSeqID: number): Elements {
+      private createElements(l: psd.Layer, parentSeqID: number): {
+         text: Text;
+         div: HTMLDivElement;
+         input: HTMLInputElement;
+      } {
          let name = document.createElement('label');
          let input = document.createElement('input');
          let layerName = l.Name;
@@ -277,7 +279,7 @@ module LayerTree {
          let allLayer = state.charAt(0) === '/';
          let root: DeserializeNodeRoot = {
             children: {},
-            checked: 0,
+            checked: true,
             allLayer: allLayer
          };
          let j: number, node: DeserializeNode, parts: string[], part: string;
@@ -289,10 +291,13 @@ module LayerTree {
                if (!(part in node.children)) {
                   node.children[part] = {
                      children: {},
-                     checked: !allLayer || (allLayer && j === parts.length - 1) ? 2 : 0
+                     checked: !allLayer
                   };
                }
                node = node.children[part];
+            }
+            if (allLayer) {
+               node.checked = true;
             }
          }
          return root;
@@ -317,8 +322,8 @@ module LayerTree {
                continue;
             }
 
-            if (cdnode.checked !== 0) {
-               cfnode.checked = cdnode.checked === 1 ? false : true;
+            if (cdnode.checked) {
+               cfnode.checked = true;
             }
             this.apply(cdnode, cfnode);
          }
@@ -333,6 +338,87 @@ module LayerTree {
                this.normalize();
             }
             this.apply(t, this.root);
+         } catch (e) {
+            this.clear();
+            this.normalize();
+            this.apply(this.buildDeserializeTree(old), this.root);
+            throw e;
+         }
+      }
+
+      private buildFilterTree(filter: string): FilterNode {
+         let root: FilterNode = {
+            children: {}
+         };
+         let node: FilterNode, parts: string[];
+         for (let line of filter.replace(/\r/g, '').split('\n')) {
+            parts = line.split('/');
+            node = root;
+            for (let part of parts) {
+               part = LayerTree.decodeLayerName(part); // TODO: use Filter.decodeLayerName
+               if (!(part in node.children)) {
+                  node.children[part] = {
+                     children: {}
+                  };
+               }
+               node = node.children[part];
+            }
+         }
+         return root;
+      }
+
+      private applyWithFilter(dnode: DeserializeNode, filter: FilterNode, fnode: Node): void {
+         let founds: PathSet = {};
+         let cfnode: Node, cfilter: FilterNode, cdnode: DeserializeNode;
+         for (cfnode of fnode.children) {
+            if (cfnode.name in founds) {
+               throw new Error('found more than one same name layer: ' + cfnode.name);
+            }
+            founds[cfnode.name] = true;
+
+            if (filter) {
+               cfilter = filter.children[cfnode.name];
+            }
+            if (!filter || !cfilter) {
+               continue;
+            }
+
+            if (dnode) {
+               cdnode = dnode.children[cfnode.name];
+            }
+            if (!dnode || !cdnode) {
+               cfnode.checked = false;
+               this.applyWithFilter(null, cfilter, cfnode);
+               continue;
+            }
+
+            if (cdnode.checked) {
+               cfnode.checked = true;
+            }
+            this.applyWithFilter(cdnode, cfilter, cfnode);
+         }
+      }
+
+      public deserializePartial(baseState: string, overlayState: string, filter: string) {
+         let old = this.serialize(true);
+         try {
+            if (baseState !== undefined) {
+               if (baseState === '') {
+                  this.clear();
+               } else {
+                  let base = this.buildDeserializeTree(baseState);
+                  if (base.allLayer) {
+                     this.clear();
+                     this.normalize();
+                  }
+                  this.apply(base, this.root);
+               }
+            }
+            let overlay = this.buildDeserializeTree(overlayState);
+            if (overlay.allLayer) {
+               throw new Error('cannot use allLayer mode in LayerTree.deserializePartial');
+            }
+            this.applyWithFilter(overlay, this.buildFilterTree(filter), this.root);
          } catch (e) {
             this.clear();
             this.normalize();
