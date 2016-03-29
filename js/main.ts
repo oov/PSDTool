@@ -324,7 +324,7 @@
          try {
             renderer = new Renderer.Renderer(psd);
             let layerTree = <HTMLUListElement>document.getElementById('layer-tree');
-            layerRoot = new LayerTree.LayerTree(layerTree, psd);
+            layerRoot = new LayerTree.LayerTree(ui.optionSafeMode.checked, layerTree, psd);
             filterRoot = new Filter.Filter(ui.filterTree, psd);
             for (let key in renderer.nodes) {
                if (!renderer.nodes.hasOwnProperty(key)) {

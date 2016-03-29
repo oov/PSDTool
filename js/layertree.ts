@@ -40,7 +40,6 @@ module LayerTree {
          public parent: Node) { }
    }
    export class LayerTree {
-      public disableExtendedFeature: boolean;
       public root: Node = new Node(null, null, null, '', '', null);
       public nodes: { [seqId: number]: Node } = {};
 
@@ -59,7 +58,7 @@ module LayerTree {
          return text.join('\n');
       }
 
-      constructor(treeRoot: HTMLUListElement, psdRoot: psd.Root) {
+      constructor(private disableExtendedFeature: boolean, treeRoot: HTMLUListElement, psdRoot: psd.Root) {
          let path: string[] = [];
          let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[], parentSeqID: number): void => {
             for (let i = l.length - 1; i >= 0; --i) {
