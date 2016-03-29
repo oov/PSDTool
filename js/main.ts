@@ -679,9 +679,8 @@
          let parents: Favorite.Node[] = [];
          let path: string[] = [],
             files: { name: string; value: string; filter?: string }[] = [];
-         function r(children: Favorite.Node[]) {
-            for (let i = 0, item: any; i < children.length; ++i) {
-               item = children[i];
+         function r(children: Favorite.Node[]): void {
+            for (let item of children) {
                path.push(cleanForFilename(item.text));
                switch (item.type) {
                   case 'root':
