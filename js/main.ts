@@ -355,7 +355,9 @@
                fr.readAsArrayBuffer(droppedPFV);
             } else {
                if (!favorite.loadFromLocalStorage(psd.Hash)) {
-                  favorite.loadFromString(psd.PFV);
+                  if (psd.PFV !== '') {
+                     favorite.loadFromString(psd.PFV);
+                  }
                }
             }
             psdRoot = psd;
