@@ -83,6 +83,7 @@ module LayerTree {
          };
          r(treeRoot, this.root, psdRoot.Children, -1);
          this.registerClippingGroup(psdRoot.Children);
+         this.normalize();
       }
 
       private createElements(l: psd.Layer, parentSeqID: number): {
