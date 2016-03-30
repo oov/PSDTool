@@ -43,13 +43,13 @@ declare module psd {
    }
    interface PSD {
       parse: (
-      src: ArrayBuffer,
+      src: ArrayBuffer | Blob,
       progress: (progress: number, layerName: string) => void,
       complete: (psd: Root) => void,
       failed: (error: any) => void
       ) => void;
       parseWorker: (
-      src: ArrayBuffer,
+      src: ArrayBuffer | Blob,
       progress: (progress: number, layerName: string) => void,
       complete: (psd: Root) => void,
       failed: (error: any) => void

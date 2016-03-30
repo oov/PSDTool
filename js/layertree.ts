@@ -459,13 +459,13 @@ module LayerTree {
             elems[i].checked = true;
          }
 
-         let set = {};
+         let set: { [name: string]: boolean; } = {};
          let radios = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-radio');
          for (let i = 0; i < radios.length; ++i) {
             if (radios[i].name in set) {
                continue;
             }
-            set[radios[i].name] = 1;
+            set[radios[i].name] = true;
             let rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name="' + radios[i].name + '"]:checked');
             if (!rinShibuyas.length) {
                radios[i].checked = true;

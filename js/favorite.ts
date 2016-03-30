@@ -171,7 +171,7 @@ module Favorite {
          return buildPFV(this.json);
       }
 
-      constructor(element: HTMLElement, private defaultRootName) {
+      constructor(element: HTMLElement, private defaultRootName: string) {
          this.tree = element;
          this.jq = jQuery(this.tree);
          this.initTree();
@@ -488,7 +488,7 @@ module Favorite {
       private suggestUniqueName(node: Node | string, newText?: string): string {
          let n: Node = this.jst.get_node(node);
          let parent: Node = this.jst.get_node(n.parent);
-         let nameMap = {};
+         let nameMap: { [name: string]: boolean } = {};
          for (let pc of parent.children) {
             if (pc === n.id) {
                continue;
@@ -588,7 +588,7 @@ module Favorite {
          }
 
          let jb = new JSONBuilder(this.defaultRootName);
-         let setting = {
+         let setting: { [name: string]: string } = {
             'root-name': this.defaultRootName
          };
          let name: string,

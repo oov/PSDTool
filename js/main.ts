@@ -1,6 +1,6 @@
 /// <reference path="../typings/browser.d.ts" />
 'use strict';
-(function(Mousetrap) {
+(function(Mousetrap: MousetrapStatic) {
    let originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;
    Mousetrap.prototype.stopCallback = function(e: KeyboardEvent, element: HTMLElement, combo?: string): boolean {
       if (!this.paused) {
@@ -10,63 +10,87 @@
       }
       return originalStopCallback.call(this, e, element, combo);
    };
-   Mousetrap.init();
+   (<{ init: () => void }><any>Mousetrap).init();
 })(Mousetrap);
 (function() {
 
-   var ui = {
-      optionAutoTrim: null,
-      optionSafeMode: null,
+   var ui: {
+      optionAutoTrim: HTMLInputElement;
+      optionSafeMode: HTMLInputElement;
 
-      sideBody: null,
-      sideBodyScrollPos: null,
-      normalModeState: null,
+      sideBody: HTMLElement;
+      sideBodyScrollPos: { [name: string]: { left: number; top: number } };
+      normalModeState: string;
 
-      previewCanvas: null,
-      previewBackground: null,
-      redraw: null,
-      save: null,
+      previewCanvas: HTMLCanvasElement;
+      previewBackground: HTMLElement;
+      redraw: () => void;
+      save: (filename: string) => void;
 
-      showReadme: null,
-      invertInput: null,
-      fixedSide: null,
-      maxPixels: null,
-      seqDlPrefix: null,
-      seqDlNum: null,
-      seqDl: null,
+      showReadme: HTMLButtonElement;
+      invertInput: HTMLInputElement;
+      fixedSide: HTMLSelectElement;
+      maxPixels: HTMLInputElement;
+      seqDlPrefix: HTMLInputElement;
+      seqDlNum: HTMLInputElement;
+      seqDl: HTMLButtonElement;
 
-      favoriteToolbar: null,
+      favoriteToolbar: HTMLElement;
 
-      filterEditingTarget: null,
-      useFilter: null,
-      filterTree: null,
-      filterDialog: null,
+      filterEditingTarget: Favorite.Node;
+      useFilter: HTMLInputElement;
+      filterTree: HTMLUListElement;
 
-      bulkCreateFolderDialog: null,
-      bulkCreateFolderTextarea: null,
-      bulkCreateFolder: null,
+      bulkCreateFolderTextarea: HTMLTextAreaElement;
 
-      bulkRenameData: null,
-      bulkRenameDialog: null,
-      bulkRename: null,
+      bulkRenameData: Favorite.RenameNode[];
 
-      exportFavoritesPFV: null,
-      exportFavoritesZIP: null,
-      exportLayerStructure: null,
-      exportProgressDialog: null,
-      exportProgressDialogProgressBar: null,
-      exportProgressDialogProgressCaption: null,
-   };
+      exportProgressDialogProgressBar: HTMLElement;
+      exportProgressDialogProgressCaption: HTMLElement;
+   } = {
+         optionAutoTrim: null,
+         optionSafeMode: null,
+
+         sideBody: null,
+         sideBodyScrollPos: null,
+         normalModeState: null,
+
+         previewCanvas: null,
+         previewBackground: null,
+         redraw: null,
+         save: null,
+
+         showReadme: null,
+         invertInput: null,
+         fixedSide: null,
+         maxPixels: null,
+         seqDlPrefix: null,
+         seqDlNum: null,
+         seqDl: null,
+
+         favoriteToolbar: null,
+
+         filterEditingTarget: null,
+         useFilter: null,
+         filterTree: null,
+
+         bulkCreateFolderTextarea: null,
+
+         bulkRenameData: null,
+
+         exportProgressDialogProgressBar: null,
+         exportProgressDialogProgressCaption: null,
+      };
    var renderer: Renderer.Renderer;
    var psdRoot: psd.Root;
    var filterRoot: Filter.Filter;
    var layerRoot: LayerTree.LayerTree;
    var favorite: Favorite.Favorite;
-   var droppedPFV;
+   var droppedPFV: File;
 
    function init() {
       initDropZone('dropzone', (files: FileList): void => {
-         let i, ext;
+         let i: number, ext: string;
          for (i = 0; i < files.length; ++i) {
             ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
             if (ext === '.pfv') {
@@ -132,7 +156,7 @@
       captionElem.appendChild(document.createTextNode(p.toFixed(0) + '% ' + caption));
    }
 
-   function loadAndParse(file_or_url) {
+   function loadAndParse(file_or_url: File | string) {
       var fileOpenUi = document.getElementById('file-open-ui');
       var fileLoadingUi = document.getElementById('file-loading-ui');
       var errorReportUi = document.getElementById('error-report-ui');
@@ -189,106 +213,112 @@
          });
    }
 
-   function loadAsBlob(progress, file_or_url) {
+   function loadAsBlobCrossDomain(progress: (phase: string, progress: number) => void, url: string) {
       var deferred = m.deferred();
-      progress('prepare', 0);
-      if (typeof file_or_url === 'string') {
-         var crossDomain = false;
-         if (file_or_url.substring(0, 3) === 'xd:') {
-            file_or_url = file_or_url.substring(3);
-            crossDomain = true;
-         }
-         if (location.protocol === 'https:' && file_or_url.substring(0, 5) === 'http:') {
-            setTimeout(function() {
-               deferred.reject(new Error('cannot access to the insecure content from HTTPS.'));
-            }, 0);
-            return deferred.promise;
-         }
-         if (crossDomain) {
-            var ifr = document.createElement('iframe'),
-               port;
-            var timer = setTimeout(function() {
-               port.onmessage = null;
-               document.body.removeChild(ifr);
-               deferred.reject(new Error('something went wrong'));
-            }, 20000);
-            (<any>ifr).sandbox = 'allow-scripts allow-same-origin';
-            ifr.onload = function() {
-               var msgCh = new MessageChannel();
-               port = msgCh.port1;
-               port.onmessage = function(e) {
-                  if (timer) {
-                     clearTimeout(timer);
-                     timer = null;
-                  }
-                  if (!e.data || !e.data.type) {
-                     return;
-                  }
-                  switch (e.data.type) {
-                     case 'complete':
-                        document.body.removeChild(ifr);
-                        if (!e.data.data) {
-                           deferred.reject(new Error('something went wrong'));
-                           return;
-                        }
-                        progress('receive', 1);
-                        deferred.resolve({
-                           buffer: e.data.data,
-                           name: e.data.name ? e.data.name : extractFilePrefixFromUrl(file_or_url)
-                        });
-                        return;
-                     case 'error':
-                        document.body.removeChild(ifr);
-                        deferred.reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
-                        return;
-                     case 'progress':
-                        if (('loaded' in e.data) && ('total' in e.data)) {
-                           progress('receive', e.data.loaded / e.data.total);
-                        }
-                        return;
-                  }
-               };
-               ifr.contentWindow.postMessage(
-                  location.protocol,
-                  file_or_url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]
-                  );
-            };
-            ifr.src = file_or_url;
-            ifr.style.display = 'none';
-            document.body.appendChild(ifr);
-            return deferred.promise;
-         }
-         var xhr = new XMLHttpRequest();
-         xhr.open('GET', file_or_url);
-         xhr.responseType = 'blob';
-         xhr.onload = function(e) {
-            progress('receive', 1);
-            if (xhr.status === 200) {
-               deferred.resolve({
-                  buffer: xhr.response,
-                  name: extractFilePrefixFromUrl(file_or_url)
-               });
-               return;
-            }
-            deferred.reject(new Error(xhr.status + ' ' + xhr.statusText));
-         };
-         xhr.onerror = function(e) {
-            console.error(e);
-            deferred.reject(new Error('could not receive data'));
-         };
-         xhr.onprogress = function(e) {
-            progress('receive', e.loaded / e.total);
-         };
-         xhr.send(null);
+      if (location.protocol === 'https:' && url.substring(0, 5) === 'http:') {
+         setTimeout(function() {
+            deferred.reject(new Error('cannot access to the insecure content from HTTPS.'));
+         }, 0);
          return deferred.promise;
       }
-      setTimeout((): void => {
-         deferred.resolve({
-            buffer: file_or_url,
-            name: file_or_url.name.replace(/\..*$/i, '') + '_'
-         });
-      }, 0);
+      var ifr = document.createElement('iframe'),
+         port: MessagePort;
+      var timer = setTimeout(function() {
+         port.onmessage = null;
+         document.body.removeChild(ifr);
+         deferred.reject(new Error('something went wrong'));
+      }, 20000);
+      (<any>ifr).sandbox = 'allow-scripts allow-same-origin';
+      ifr.onload = function() {
+         var msgCh = new MessageChannel();
+         port = msgCh.port1;
+         port.onmessage = (e) => {
+            if (timer) {
+               clearTimeout(timer);
+               timer = null;
+            }
+            if (!e.data || !e.data.type) {
+               return;
+            }
+            switch (e.data.type) {
+               case 'complete':
+                  document.body.removeChild(ifr);
+                  if (!e.data.data) {
+                     deferred.reject(new Error('something went wrong'));
+                     return;
+                  }
+                  progress('receive', 1);
+                  deferred.resolve({
+                     buffer: e.data.data,
+                     name: e.data.name ? e.data.name : extractFilePrefixFromUrl(url)
+                  });
+                  return;
+               case 'error':
+                  document.body.removeChild(ifr);
+                  deferred.reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
+                  return;
+               case 'progress':
+                  if (('loaded' in e.data) && ('total' in e.data)) {
+                     progress('receive', e.data.loaded / e.data.total);
+                  }
+                  return;
+            }
+         };
+         ifr.contentWindow.postMessage(
+            location.protocol,
+            url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]
+            );
+      };
+      ifr.src = url;
+      ifr.style.display = 'none';
+      document.body.appendChild(ifr);
       return deferred.promise;
+   }
+
+   function loadAsBlobFromString(progress: (phase: string, progress: number) => void, url: string) {
+      if (url.substring(0, 3) === 'xd:') {
+         return loadAsBlobCrossDomain(progress, url.substring(3));
+      }
+      var deferred = m.deferred();
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url);
+      xhr.responseType = 'blob';
+      xhr.onload = function(e) {
+         progress('receive', 1);
+         if (xhr.status === 200) {
+            deferred.resolve({
+               buffer: xhr.response,
+               name: extractFilePrefixFromUrl(url)
+            });
+            return;
+         }
+         deferred.reject(new Error(xhr.status + ' ' + xhr.statusText));
+      };
+      xhr.onerror = function(e) {
+         console.error(e);
+         deferred.reject(new Error('could not receive data'));
+      };
+      xhr.onprogress = function(e) {
+         progress('receive', e.loaded / e.total);
+      };
+      xhr.send(null);
+      return deferred.promise;
+   }
+
+   function loadAsBlob(progress: (phase: string, progress: number) => void, file_or_url: File | string) {
+      progress('prepare', 0);
+      if (typeof file_or_url === 'string') {
+         return loadAsBlobFromString(progress, file_or_url);
+      } else {
+         var deferred = m.deferred();
+         setTimeout((): void => {
+            deferred.resolve({
+               buffer: file_or_url,
+               name: file_or_url.name.replace(/\..*$/i, '') + '_'
+            });
+         }, 0);
+         return deferred.promise;
+      }
    }
 
    function extractFilePrefixFromUrl(url: string): string {
@@ -299,7 +329,7 @@
       return url;
    }
 
-   function parse(progress: (progress: number, layerName: string) => void, obj) {
+   function parse(progress: (progress: number, layerName: string) => void, obj: { buffer: ArrayBuffer | Blob, name: string }) {
       var deferred = m.deferred();
       PSD.parseWorker(
          obj.buffer,
@@ -339,7 +369,7 @@
                if (target.tagName !== 'INPUT' || !target.classList.contains('psdtool-layer-visible')) {
                   return;
                }
-               let n: LayerTree.Node = layerRoot.nodes[target.getAttribute('data-seq')];
+               let n: LayerTree.Node = layerRoot.nodes[parseInt(target.getAttribute('data-seq'), 10)];
                for (let p = n.parent; !p.isRoot; p = p.parent) {
                   p.checked = true;
                }
@@ -350,9 +380,9 @@
             }, false);
             (<any>window).lr = layerRoot;
 
-            ui.maxPixels.value = ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight;
+            ui.maxPixels.value = (ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight).toString();
             ui.seqDlPrefix.value = name;
-            ui.seqDlNum.value = 0;
+            ui.seqDlNum.value = '0';
             ui.showReadme.style.display = psd.Readme !== '' ? 'block' : 'none';
             //  TODO: error handling
             favorite.psdHash = psd.Hash;
@@ -423,7 +453,7 @@
 
    function pfvOnDrop(files: FileList): void {
       leaveReaderMode();
-      let i, ext;
+      let i: number, ext: string;
       for (i = 0; i < files.length; ++i) {
          ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
          if (ext === '.pfv') {
@@ -438,6 +468,14 @@
             return;
          }
       }
+   }
+
+   function getInputElement(query: string): HTMLInputElement {
+      let elem = document.querySelector(query);
+      if (elem.tagName !== 'INPUT') {
+         throw new Error('element not found ' + query);
+      }
+      return <HTMLInputElement>elem;
    }
 
    function initFavoriteUI(): void {
@@ -482,10 +520,11 @@
                case 'folder':
                case 'filter':
                   ui.filterEditingTarget = item;
-                  if (!ui.filterDialog.data('bs.modal')) {
-                     ui.filterDialog.modal();
+                  let dialog = jQuery('#filter-dialog');
+                  if (!dialog.data('bs.modal')) {
+                     dialog.modal();
                   } else {
-                     ui.filterDialog.modal('show');
+                     dialog.modal('show');
                   }
                   break;
             }
@@ -547,7 +586,7 @@
             let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll(
                'input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
             for (let i = 0; i < elems.length; ++i) {
-               n = layerRoot.nodes[elems[i].getAttribute('data-seq')];
+               n = layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq'), 10)];
                n.checked = true;
                favorite.add('item', false, n.displayName, layerRoot.serialize(false));
                created.push(n.displayName);
@@ -564,7 +603,7 @@
          // build the recent list
          let recents = document.getElementById('pfv-recents');
          removeAllChild(recents);
-         let pfvs = [],
+         let pfvs: { id: string; hash: string; data: string; time: number }[] = [],
             btn: HTMLButtonElement;
          if ('psdtool_pfv' in localStorage) {
             pfvs = JSON.parse(localStorage['psdtool_pfv']);
@@ -609,7 +648,7 @@
          favorite.update({ id: node.id, type: 'filter', data: { value: s } });
          favorite.updateLocalStorage();
       };
-      ui.useFilter = document.getElementById('use-filter');
+      ui.useFilter = getInputElement('#use-filter');
       ui.useFilter.addEventListener('click', (e: Event): void => {
          let inp = <HTMLInputElement>e.target;
          if (inp.checked) {
@@ -619,7 +658,12 @@
          }
          updateFilter();
       }, false);
-      ui.filterTree = document.getElementById('filter-tree');
+      let elem = document.getElementById('filter-tree');
+      if (elem.tagName === 'UL') {
+         ui.filterTree = <HTMLUListElement>elem;
+      } else {
+         throw new Error('element not found #filter-tree');
+      }
       ui.filterTree.addEventListener('click', (e: Event): void => {
          if ((<HTMLElement>e.target).tagName !== 'INPUT') {
             return;
@@ -636,7 +680,7 @@
          }
          updateFilter();
       }, false);
-      ui.filterDialog = jQuery('#filter-dialog').on('shown.bs.modal', (e) => {
+      jQuery('#filter-dialog').on('shown.bs.modal', (e) => {
          let parents: string[] = [];
          for (let p of favorite.getParents(ui.filterEditingTarget)) {
             if (p.type === 'filter') {
@@ -672,13 +716,16 @@
          }
       });
 
-      ui.bulkCreateFolderDialog = jQuery('#bulk-create-folder-dialog');
-      ui.bulkCreateFolderDialog.on('shown.bs.modal', (e: JQueryEventObject) => {
+      jQuery('#bulk-create-folder-dialog').on('shown.bs.modal', (e: JQueryEventObject) => {
          ui.bulkCreateFolderTextarea.focus();
       });
-      ui.bulkCreateFolderTextarea = document.getElementById('bulk-create-folder-textarea');
-      ui.bulkCreateFolder = document.getElementById('bulk-create-folder');
-      ui.bulkCreateFolder.addEventListener('click', (e: Event): void => {
+      let e = document.getElementById('bulk-create-folder-textarea');
+      if (e && e.tagName === 'TEXTAREA') {
+         ui.bulkCreateFolderTextarea = <HTMLTextAreaElement>e;
+      } else {
+         throw new Error('element not found: #bulk-create-folder-textarea');
+      }
+      document.getElementById('bulk-create-folder').addEventListener('click', (e: Event): void => {
          let folders: string[] = [];
          for (let line of (<string>ui.bulkCreateFolderTextarea.value).replace(/\r/g, '').split('\n')) {
             line = line.trim();
@@ -691,8 +738,7 @@
          ui.bulkCreateFolderTextarea.value = '';
       }, false);
 
-      ui.bulkRenameDialog = jQuery('#bulk-rename-dialog');
-      ui.bulkRenameDialog.on('shown.bs.modal', (e: JQueryEventObject) => {
+      jQuery('#bulk-rename-dialog').on('shown.bs.modal', (e: JQueryEventObject) => {
          let r = (ul: HTMLElement, nodes: Favorite.RenameNode[]): void => {
             let cul: HTMLUListElement;
             let li: HTMLLIElement;
@@ -719,24 +765,20 @@
          removeAllChild(elem);
          r(elem, ui.bulkRenameData);
       });
-      ui.bulkRename = document.getElementById('bulk-rename');
-      ui.bulkRename.addEventListener('click', (e: Event): void => {
+      document.getElementById('bulk-rename').addEventListener('click', (e) => {
          favorite.bulkRename(ui.bulkRenameData);
       }, false);
 
-      ui.exportFavoritesPFV = document.getElementById('export-favorites-pfv');
-      ui.exportFavoritesPFV.addEventListener('click', (e: Event): void => {
+      document.getElementById('export-favorites-pfv').addEventListener('click', (e) => {
          saveAs(new Blob([favorite.pfv], {
             type: 'text/plain'
          }), cleanForFilename(favorite.rootName) + '.pfv');
       }, false);
 
-      ui.exportProgressDialog = jQuery('#export-progress-dialog');
       ui.exportProgressDialogProgressBar = document.getElementById('export-progress-dialog-progress-bar');
       ui.exportProgressDialogProgressCaption = document.getElementById('export-progress-dialog-progress-caption');
 
-      ui.exportFavoritesZIP = document.getElementById('export-favorites-zip');
-      ui.exportFavoritesZIP.addEventListener('click', (e: Event): void => {
+      document.getElementById('export-favorites-zip').addEventListener('click', (e) => {
          let parents: Favorite.Node[] = [];
          let path: string[] = [],
             files: { name: string; value: string; filter?: string }[] = [];
@@ -799,7 +841,7 @@
             if (!aborted) {
                alert(readableMessage + ': ' + err);
             }
-            ui.exportProgressDialog.modal('hide');
+            jQuery('#export-progress-dialog').modal('hide');
          };
          // it is needed to avoid alert storm when reload during exporting.
          window.addEventListener('unload', (): void => { aborted = true; }, false);
@@ -820,7 +862,7 @@
                ui.exportProgressDialogProgressCaption,
                1, 'building a zip...');
             z.generate((blob: Blob): void => {
-               ui.exportProgressDialog.modal('hide');
+               jQuery('#export-progress-dialog').modal('hide');
                saveAs(blob, cleanForFilename(favorite.rootName) + '.zip');
                z.dispose((err: any): void => undefined);
             }, errorHandler.bind(this, 'cannot create a zip archive'));
@@ -856,15 +898,15 @@
             };
             process();
          }, errorHandler.bind(this, 'cannot create a zip archive'));
-         if (!ui.exportProgressDialog.data('bs.modal')) {
-            ui.exportProgressDialog.modal();
+         let dialog = jQuery('#export-progress-dialog');
+         if (!dialog.data('bs.modal')) {
+            dialog.modal();
          } else {
-            ui.exportProgressDialog.modal('show');
+            dialog.modal('show');
          }
       }, false);
 
-      ui.exportLayerStructure = document.getElementById('export-layer-structure');
-      ui.exportLayerStructure.addEventListener('click', (e: Event): void => {
+      document.getElementById('export-layer-structure').addEventListener('click', (e) => {
          saveAs(new Blob([layerRoot.text], {
             type: 'text/plain'
          }), 'layer.txt');
@@ -888,8 +930,8 @@
    }
 
    function initUI() {
-      ui.optionAutoTrim = document.getElementById('option-auto-trim');
-      ui.optionSafeMode = document.getElementById('option-safe-mode');
+      ui.optionAutoTrim = getInputElement('#option-auto-trim');
+      ui.optionSafeMode = getInputElement('#option-safe-mode');
 
       // save and restore scroll position of side-body on each tab.
       ui.favoriteToolbar = document.getElementById('favorite-toolbar');
@@ -919,7 +961,12 @@
       initFavoriteUI();
 
       ui.previewBackground = document.getElementById('preview-background');
-      ui.previewCanvas = document.getElementById('preview');
+      let elem = document.getElementById('preview');
+      if (elem.tagName === 'CANVAS') {
+         ui.previewCanvas = <HTMLCanvasElement>elem;
+      } else {
+         throw new Error('element not found: #preview');
+      }
       ui.previewCanvas.addEventListener('dragstart', function(e) {
          let s = this.toDataURL();
          let name = this.getAttribute('data-filename');
@@ -936,7 +983,7 @@
             ui.previewBackground.style.width = canvas.width + 'px';
             ui.previewBackground.style.height = canvas.height + 'px';
             ui.seqDl.disabled = progress !== 1;
-            ui.previewCanvas.draggable = progress !== 1 ? 'false' : 'true';
+            ui.previewCanvas.draggable = progress === 1;
             setTimeout(() => {
                ui.previewCanvas.width = canvas.width;
                ui.previewCanvas.height = canvas.height;
@@ -947,16 +994,18 @@
          layerRoot.updateClass();
       };
 
-      ui.save = (filename: string): boolean => {
+      ui.save = (filename: string): void => {
          saveAs(new Blob([
             dataSchemeURIToArrayBuffer(ui.previewCanvas.toDataURL())
-         ], {
-               type: 'image/png'
-            }), filename);
-         return true;
+         ], { type: 'image/png' }), filename);
       };
 
-      ui.showReadme = document.getElementById('show-readme');
+      elem = document.getElementById('show-readme');
+      if (elem.tagName === 'BUTTON') {
+         ui.showReadme = <HTMLButtonElement>elem;
+      } else {
+         throw new Error('element not found: #show-readme');
+      }
       ui.showReadme.addEventListener('click', (e) => {
          let w = window.open('', null);
          w.document.body.innerHTML = '<title>Readme - PSDTool</title><pre style="font: 12pt/1.7 monospace;"></pre>';
@@ -965,17 +1014,22 @@
 
       (<any>jQuery('#main').on('splitpaneresize', resized)).splitPane();
 
-      ui.invertInput = document.getElementById('invert-input');
+      ui.invertInput = getInputElement('#invert-input');
       ui.invertInput.addEventListener('click', (e) => {
          ui.redraw();
       }, false);
-      ui.fixedSide = document.getElementById('fixed-side');
+      elem = document.getElementById('fixed-side');
+      if (elem.tagName === 'SELECT') {
+         ui.fixedSide = <HTMLSelectElement>elem;
+      } else {
+         throw new Error('element not found: #show-readme');
+      }
       ui.fixedSide.addEventListener('change', (e) => {
          ui.redraw();
       }, false);
 
       let lastPx: string;
-      ui.maxPixels = document.getElementById('max-pixels');
+      ui.maxPixels = getInputElement('#max-pixels');
       ui.maxPixels.addEventListener('blur', (e) => {
          let v = normalizeNumber(ui.maxPixels.value);
          if (v === lastPx) {
@@ -986,9 +1040,14 @@
          ui.redraw();
       }, false);
 
-      ui.seqDlPrefix = document.getElementById('seq-dl-prefix');
-      ui.seqDlNum = document.getElementById('seq-dl-num');
-      ui.seqDl = document.getElementById('seq-dl');
+      ui.seqDlPrefix = getInputElement('#seq-dl-prefix');
+      ui.seqDlNum = getInputElement('#seq-dl-num');
+      elem = document.getElementById('seq-dl');
+      if (elem.tagName === 'BUTTON') {
+         ui.seqDl = <HTMLButtonElement>elem;
+      } else {
+         throw new Error('element not found: #seq-dl');
+      }
       ui.seqDl.addEventListener('click', (e) => {
          let prefix = ui.seqDlPrefix.value;
          if (ui.seqDlNum.value === '') {
@@ -1001,7 +1060,7 @@
             num = 0;
          }
          if (ui.save(prefix + ('0000' + num).slice(-4) + '.png')) {
-            ui.seqDlNum.value = num + 1;
+            ui.seqDlNum.value = (num + 1).toString();
          }
       }, false);
 
