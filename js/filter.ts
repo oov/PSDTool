@@ -104,9 +104,8 @@ module Filter {
             pathMap[nodes[i].fullPath] = true;
          }
 
-         path.sort((a: SerializeItem, b: SerializeItem): number => {
-            return a.fullPathSlash > b.fullPathSlash ? 1 : a.fullPathSlash < b.fullPathSlash ? -1 : 0;
-         });
+         path.sort((a, b): number =>
+            a.fullPathSlash > b.fullPathSlash ? 1 : a.fullPathSlash < b.fullPathSlash ? -1 : 0);
 
          let j: number, parts: string[];
          for (i = 0; i < path.length; ++i) {
@@ -125,9 +124,7 @@ module Filter {
             }
          }
 
-         path.sort((a: SerializeItem, b: SerializeItem): number => {
-            return a.index > b.index ? 1 : a.index < b.index ? -1 : 0;
-         });
+         path.sort((a, b): number => a.index > b.index ? 1 : a.index < b.index ? -1 : 0);
 
          parts = [];
          for (i = 0; i < path.length; ++i) {

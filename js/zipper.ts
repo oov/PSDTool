@@ -1,11 +1,5 @@
 'use strict';
 module Zipper {
-   interface IDBRequestSuccessEventTarget extends EventTarget { result: Blob; }
-   interface FileReaderLoadEventTarget extends EventTarget {
-      error: DOMError;
-      result: ArrayBuffer;
-   }
-
    const databaseName = 'zipper';
    const fileStoreName = 'file';
    export class Zipper {
@@ -14,17 +8,24 @@ module Zipper {
       private fileInfos: FileInfo[] = [];
       public init(success: () => void, error: (err: any) => void) {
          let req = indexedDB.open(databaseName, 1);
-         req.onupgradeneeded = (e: IDBVersionChangeEvent): void => {
-            let db: IDBDatabase = (<IDBOpenDBRequest>e.target).result;
-            db.createObjectStore(fileStoreName);
+         req.onupgradeneeded = e => {
+            let db: IDBDatabase = req.result;
+            if (db instanceof IDBDatabase) {
+               db.createObjectStore(fileStoreName);
+               return;
+            }
+            throw new Error('req.result is not IDBDatabase');
          };
-         req.onerror = (e: Event): void => {
-            error(e);
-         };
-         req.onsuccess = (e: Event): void => {
-            this.db = (<IDBOpenDBRequest>e.target).result;
-            this.gc((err: any): void => undefined);
-            success();
+         req.onerror = e => error(e);
+         req.onsuccess = e => {
+            let db: IDBDatabase = req.result;
+            if (db instanceof IDBDatabase) {
+               this.db = db;
+               this.gc((err: any): void => undefined);
+               success();
+               return;
+            }
+            throw new Error('req.result is not IDBDatabase');
          };
       }
 
@@ -47,15 +48,18 @@ module Zipper {
          let os = tx.objectStore(fileStoreName);
          let req = os.openCursor(IDBKeyRange.bound(['meta', ''], ['meta', []], false, true));
          let d = new Date().getTime() - 60 * 1000;
-         req.onsuccess = (e: Event): void => {
-            let cur = <IDBCursorWithValue>req.result;
-            if (!cur) {
+         req.onsuccess = e => {
+            let cursor: IDBCursorWithValue = req.result;
+            if (!cursor) {
                return;
             }
-            if (cur.value.lastMod.getTime() < d) {
-               this.remove(os, cur.key[1], error);
+            if (cursor instanceof IDBCursorWithValue) {
+               if (cursor.value.lastMod.getTime() < d) {
+                  this.remove(os, cursor.key[1], error);
+               }
+               cursor.continue();
+               return;
             }
-            cur.advance(1);
          };
          req.onerror = error;
       }
@@ -69,7 +73,7 @@ module Zipper {
             return;
          }
          let req = os.delete(IDBKeyRange.bound(['body', id, 0], ['body', id, ''], false, true));
-         req.onsuccess = (e: Event): void => {
+         req.onsuccess = e => {
             os.delete(['meta', id]);
          };
       }
@@ -85,7 +89,7 @@ module Zipper {
          let os = tx.objectStore(fileStoreName);
          os.put({ lastMod: new Date() }, ['meta', this.id]);
          let req = os.put(blob, ['body', this.id, this.fileInfos.length]);
-         req.onsuccess = (e: Event): void => {
+         req.onsuccess = e => {
             if (!--reqs) {
                complete();
             }
@@ -107,9 +111,7 @@ module Zipper {
          tx.onerror = error;
          let os = tx.objectStore(fileStoreName);
          os.put({ lastMod: new Date() }, ['meta', this.id]);
-         this.receiveFiles((blobs: Blob[]): void => {
-            complete(this.makeZIP(blobs));
-         }, error);
+         this.receiveFiles((blobs: Blob[]): void => complete(this.makeZIP(blobs)), error);
       }
 
       private receiveFiles(success: (blobs: Blob[]) => void, error: (err: any) => void): void {
@@ -119,12 +121,15 @@ module Zipper {
          let tx = this.db.transaction(fileStoreName, 'readonly');
          tx.onerror = error;
          let os = tx.objectStore(fileStoreName);
-         this.fileInfos.forEach((fi: FileInfo, i: number): void => {
+         this.fileInfos.forEach((fi, i): void => {
             let req = os.get(['body', this.id, i]);
-            req.onsuccess = (e: Event): void => {
-               blobs[i] = (<IDBRequestSuccessEventTarget>e.target).result;
-               if (!--reqs) {
-                  success(blobs);
+            req.onsuccess = e => {
+               let result: Blob = req.result;
+               if (result instanceof Blob) {
+                  blobs[i] = result;
+                  if (!--reqs) {
+                     success(blobs);
+                  }
                }
             };
             req.onerror = error;
@@ -133,11 +138,11 @@ module Zipper {
 
       private makeZIP(fileBodies: Blob[]): Blob {
          let zip: Blob[] = [];
-         this.fileInfos.forEach((fi: FileInfo, i: number): void => {
+         this.fileInfos.forEach((fi, i): void => {
             zip.push(fi.toLocalFileHeader(), fileBodies[i]);
          });
          let pos = 0, cdrSize = 0;
-         this.fileInfos.forEach((fi: FileInfo): void => {
+         this.fileInfos.forEach((fi): void => {
             zip.push(fi.toCentralDirectoryRecord(pos));
             pos += fi.fileSize + fi.localFileHeaderSize;
             cdrSize += fi.centralDirectoryRecordSize;
@@ -157,27 +162,29 @@ module Zipper {
          let reqs = 2;
 
          let fr = new FileReader();
-         fr.onload = (e: Event): void => {
-            this.crc = CRC32.crc32((<FileReaderLoadEventTarget>e.target).result);
-            if (!--reqs) {
-               complete();
+         fr.onload = e => {
+            let result = fr.result;
+            if (result instanceof ArrayBuffer) {
+               this.crc = CRC32.crc32(result);
+               if (!--reqs) {
+                  complete();
+               }
             }
          };
-         fr.onerror = (e: Event): void => {
-            error((<FileReaderLoadEventTarget>e.target).error);
-         };
+         fr.onerror = e => error(fr.error);
          fr.readAsArrayBuffer(data);
 
          let nr = new FileReader();
-         nr.onload = (e: Event): void => {
-            this.name = (<FileReaderLoadEventTarget>e.target).result;
-            if (!--reqs) {
-               complete();
+         nr.onload = e => {
+            let result = nr.result;
+            if (result instanceof ArrayBuffer) {
+               this.name = result;
+               if (!--reqs) {
+                  complete();
+               }
             }
          };
-         nr.onerror = (e: Event): void => {
-            error((<FileReaderLoadEventTarget>e.target).error);
-         };
+         nr.onerror = e => error(nr.error);
          nr.readAsArrayBuffer(new Blob([name]));
       }
 

@@ -126,7 +126,7 @@ module Renderer {
          console.log('rendering: ' + (Date.now() - s));
 
          s = Date.now();
-         this.downScale(bb, scale, (progress: number, c: HTMLCanvasElement): void => {
+         this.downScale(bb, scale, (progress, c) => {
             console.log('scaling: ' + (Date.now() - s) + '(phase:' + progress + ')');
             const w = autoTrim ? this.psd.Width : this.psd.CanvasWidth;
             const h = autoTrim ? this.psd.Height : this.psd.CanvasHeight;
@@ -157,11 +157,7 @@ module Renderer {
          }
          let ds = new DownScaler(src, scale);
          callback(0, ds.fast());
-         setTimeout((): void => {
-            ds.beautifulWorker((canvas: HTMLCanvasElement): void => {
-               callback(1, canvas);
-            });
-         }, 0);
+         setTimeout((): void => ds.beautifulWorker(canvas => callback(1, canvas)), 0);
       }
 
       private calculateNextState(n: Node, opacity: number, blendMode: string) {

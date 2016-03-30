@@ -1,6 +1,14 @@
 /// <reference path="../typings/browser.d.ts" />
 'use strict';
-(function(Mousetrap: MousetrapStatic) {
+interface JQuery {
+   splitPane(): JSTree;
+}
+interface MousetrapStatic {
+   pause(): void;
+   unpause(): void;
+   init(): void;
+}
+(function() {
    let originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;
    Mousetrap.prototype.stopCallback = function(e: KeyboardEvent, element: HTMLElement, combo?: string): boolean {
       if (!this.paused) {
@@ -10,9 +18,7 @@
       }
       return originalStopCallback.call(this, e, element, combo);
    };
-   (<{ init: () => void }><any>Mousetrap).init();
-})(Mousetrap);
-(function() {
+   Mousetrap.init();
 
    var ui: {
       optionAutoTrim: HTMLInputElement;
@@ -107,9 +113,8 @@
          }
       });
       initUI();
-      document.getElementById('samplefile').addEventListener('click', function(e) {
-         loadAndParse(document.getElementById('samplefile').getAttribute('data-filename'));
-      }, false);
+      document.getElementById('samplefile').addEventListener('click', e =>
+         loadAndParse(document.getElementById('samplefile').getAttribute('data-filename')), false);
       window.addEventListener('resize', resized, false);
       window.addEventListener('hashchange', hashchanged, false);
       hashchanged();
@@ -167,7 +172,7 @@
       fileLoadingUi.style.display = 'block';
       errorReportUi.style.display = 'none';
       main.style.display = 'none';
-      (<any>Mousetrap).pause();
+      Mousetrap.pause();
 
       var caption = document.getElementById('progress-caption');
       var errorMessageContainer = document.getElementById('error-message');
@@ -200,14 +205,14 @@
          fileOpenUi.style.display = 'none';
          errorReportUi.style.display = 'none';
          main.style.display = 'block';
-         (<any>Mousetrap).unpause();
+         Mousetrap.unpause();
          resized();
-      }, function(e) {
+      }, e => {
             fileLoadingUi.style.display = 'none';
             fileOpenUi.style.display = 'block';
             errorReportUi.style.display = 'block';
             main.style.display = 'none';
-            (<any>Mousetrap).pause();
+            Mousetrap.pause();
             errorMessage.textContent = e.toString();
             console.error(e);
          });
@@ -216,9 +221,7 @@
    function loadAsBlobCrossDomain(progress: (phase: string, progress: number) => void, url: string) {
       var deferred = m.deferred();
       if (location.protocol === 'https:' && url.substring(0, 5) === 'http:') {
-         setTimeout(function() {
-            deferred.reject(new Error('cannot access to the insecure content from HTTPS.'));
-         }, 0);
+         setTimeout((): void => deferred.reject(new Error('cannot access to the insecure content from HTTPS.')), 0);
          return deferred.promise;
       }
       var ifr = document.createElement('iframe'),
@@ -232,7 +235,7 @@
       ifr.onload = function() {
          var msgCh = new MessageChannel();
          port = msgCh.port1;
-         port.onmessage = (e) => {
+         port.onmessage = e => {
             if (timer) {
                clearTimeout(timer);
                timer = null;
@@ -283,7 +286,7 @@
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url);
       xhr.responseType = 'blob';
-      xhr.onload = function(e) {
+      xhr.onload = e => {
          progress('receive', 1);
          if (xhr.status === 200) {
             deferred.resolve({
@@ -294,13 +297,11 @@
          }
          deferred.reject(new Error(xhr.status + ' ' + xhr.statusText));
       };
-      xhr.onerror = function(e) {
+      xhr.onerror = e => {
          console.error(e);
          deferred.reject(new Error('could not receive data'));
       };
-      xhr.onprogress = function(e) {
-         progress('receive', e.loaded / e.total);
-      };
+      xhr.onprogress = e => progress('receive', e.loaded / e.total);
       xhr.send(null);
       return deferred.promise;
    }
@@ -311,12 +312,10 @@
          return loadAsBlobFromString(progress, file_or_url);
       } else {
          var deferred = m.deferred();
-         setTimeout((): void => {
-            deferred.resolve({
-               buffer: file_or_url,
-               name: file_or_url.name.replace(/\..*$/i, '') + '_'
-            });
-         }, 0);
+         setTimeout((): void => deferred.resolve({
+            buffer: file_or_url,
+            name: file_or_url.name.replace(/\..*$/i, '') + '_'
+         }), 0);
          return deferred.promise;
       }
    }
@@ -334,10 +333,8 @@
       PSD.parseWorker(
          obj.buffer,
          progress,
-         (psd: psd.Root): void => {
-            deferred.resolve({ psd: psd, name: obj.name });
-         },
-         (error: any): void => { deferred.reject(error); }
+         psd => deferred.resolve({ psd: psd, name: obj.name }),
+         error => deferred.reject(error)
          );
       return deferred.promise;
    }
@@ -361,24 +358,22 @@
                   continue;
                }
                ((r: Renderer.Node, l: LayerTree.Node): void => {
-                  r.getVisibleState = (): boolean => { return l.checked; };
+                  r.getVisibleState = () => l.checked;
                })(renderer.nodes[key], layerRoot.nodes[key]);
             }
-            layerTree.addEventListener('click', (e: Event): void => {
-               let target = <HTMLElement>e.target;
-               if (target.tagName !== 'INPUT' || !target.classList.contains('psdtool-layer-visible')) {
-                  return;
+            layerTree.addEventListener('click', e => {
+               let target = e.target;
+               if (target instanceof HTMLInputElement && target.classList.contains('psdtool-layer-visible')) {
+                  let n: LayerTree.Node = layerRoot.nodes[parseInt(target.getAttribute('data-seq'), 10)];
+                  for (let p = n.parent; !p.isRoot; p = p.parent) {
+                     p.checked = true;
+                  }
+                  if (n.clippedBy) {
+                     n.clippedBy.checked = true;
+                  }
+                  ui.redraw();
                }
-               let n: LayerTree.Node = layerRoot.nodes[parseInt(target.getAttribute('data-seq'), 10)];
-               for (let p = n.parent; !p.isRoot; p = p.parent) {
-                  p.checked = true;
-               }
-               if (n.clippedBy) {
-                  n.clippedBy.checked = true;
-               }
-               ui.redraw();
             }, false);
-            (<any>window).lr = layerRoot;
 
             ui.maxPixels.value = (ui.optionAutoTrim.checked ? renderer.Height : renderer.CanvasHeight).toString();
             ui.seqDlPrefix.value = name;
@@ -459,7 +454,7 @@
          if (ext === '.pfv') {
             // TODO: error handling
             var fr = new FileReader();
-            fr.onload = function() {
+            fr.onload = e => {
                if (favorite.loadFromArrayBuffer(fr.result)) {
                   jQuery('#import-dialog').modal('hide');
                }
@@ -472,10 +467,10 @@
 
    function getInputElement(query: string): HTMLInputElement {
       let elem = document.querySelector(query);
-      if (elem.tagName !== 'INPUT') {
-         throw new Error('element not found ' + query);
+      if (elem instanceof HTMLInputElement) {
+         return elem;
       }
-      return <HTMLInputElement>elem;
+      throw new Error('element not found ' + query);
    }
 
    function initFavoriteUI(): void {
@@ -534,11 +529,11 @@
          }
       };
 
-      jQuery('button[data-psdtool-tree-add-item]').on('click', (e: Event): void => {
+      jQuery('button[data-psdtool-tree-add-item]').on('click', e => {
          leaveReaderMode();
          favorite.add('item', true, '', layerRoot.serialize(false));
       });
-      Mousetrap.bind('mod+b', (e: Event): void => {
+      Mousetrap.bind('mod+b', e => {
          e.preventDefault();
          let text = prompt(document.querySelector('button[data-psdtool-tree-add-item]').getAttribute('data-caption'), '');
          if (text === null || text === '') {
@@ -548,10 +543,10 @@
          favorite.add('item', false, text, layerRoot.serialize(false));
       });
 
-      jQuery('button[data-psdtool-tree-add-folder]').on('click', (e: Event): void => {
+      jQuery('button[data-psdtool-tree-add-folder]').on('click', e => {
          favorite.add('folder', true);
       });
-      Mousetrap.bind('mod+d', (e: Event): void => {
+      Mousetrap.bind('mod+d', e => {
          e.preventDefault();
          let text = prompt(document.querySelector('button[data-psdtool-tree-add-folder]').getAttribute('data-caption'), '');
          if (text === null || text === '') {
@@ -561,45 +556,43 @@
          favorite.add('folder', false, text);
       });
 
-      jQuery('button[data-psdtool-tree-rename]').on('click', (e: Event): void => {
-         favorite.edit();
-      });
-      Mousetrap.bind('f2', (e) => {
+      jQuery('button[data-psdtool-tree-rename]').on('click', e => favorite.edit());
+      Mousetrap.bind('f2', e => {
          e.preventDefault();
          favorite.edit();
       });
 
-      jQuery('button[data-psdtool-tree-remove]').on('click', (e: Event): void => {
-         favorite.remove();
-      });
+      jQuery('button[data-psdtool-tree-remove]').on('click', e => favorite.remove());
 
-      Mousetrap.bind('shift+mod+g', (e) => {
-         let target = <HTMLElement>e.target;
-         if (!target.classList.contains('psdtool-layer-visible')) {
-            return;
-         }
-         e.preventDefault();
-         if (target.classList.contains('psdtool-layer-radio')) {
-            let old = layerRoot.serialize(true);
-            let created: string[] = [];
-            let n: LayerTree.Node;
-            let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll(
-               'input[name="' + (<HTMLInputElement>target).name + '"].psdtool-layer-radio');
-            for (let i = 0; i < elems.length; ++i) {
-               n = layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq'), 10)];
-               n.checked = true;
-               favorite.add('item', false, n.displayName, layerRoot.serialize(false));
-               created.push(n.displayName);
+      Mousetrap.bind('shift+mod+g', e => {
+         let target = e.target;
+         if (target instanceof HTMLElement && target.classList.contains('psdtool-layer-visible')) {
+            e.preventDefault();
+            if (!target.classList.contains('psdtool-layer-radio')) {
+               return;
             }
-            layerRoot.deserialize(old);
-            ui.redraw();
-            alert(created.length + ' favorite item(s) has been added.\n\n' + created.join('\n'));
+            if (target instanceof HTMLInputElement) {
+               let old = layerRoot.serialize(true);
+               let created: string[] = [];
+               let n: LayerTree.Node;
+               let elems = <NodeListOf<HTMLInputElement>>document.querySelectorAll(
+                  'input[name="' + target.name + '"].psdtool-layer-radio');
+               for (let i = 0; i < elems.length; ++i) {
+                  n = layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq'), 10)];
+                  n.checked = true;
+                  favorite.add('item', false, n.displayName, layerRoot.serialize(false));
+                  created.push(n.displayName);
+               }
+               layerRoot.deserialize(old);
+               ui.redraw();
+               alert(created.length + ' favorite item(s) has been added.\n\n' + created.join('\n'));
+            }
          }
       });
 
       initDropZone('pfv-dropzone', pfvOnDrop);
       initDropZone('pfv-dropzone2', pfvOnDrop);
-      jQuery('#import-dialog').on('shown.bs.modal', (e: JQueryEventObject) => {
+      jQuery('#import-dialog').on('shown.bs.modal', e => {
          // build the recent list
          let recents = document.getElementById('pfv-recents');
          removeAllChild(recents);
@@ -617,7 +610,7 @@
             }
             btn.setAttribute('data-dismiss', 'modal');
             ((btn: HTMLButtonElement, data: string, uniqueId: string) => {
-               btn.addEventListener('click', (e) => {
+               btn.addEventListener('click', e => {
                   leaveReaderMode();
                   // TODO: error handling
                   favorite.loadFromString(data, uniqueId);
@@ -649,38 +642,39 @@
          favorite.updateLocalStorage();
       };
       ui.useFilter = getInputElement('#use-filter');
-      ui.useFilter.addEventListener('click', (e: Event): void => {
-         let inp = <HTMLInputElement>e.target;
-         if (inp.checked) {
-            ui.filterTree.classList.remove('disabled');
-         } else {
-            ui.filterTree.classList.add('disabled');
+      ui.useFilter.addEventListener('click', e => {
+         let inp = e.target;
+         if (inp instanceof HTMLInputElement) {
+            if (inp.checked) {
+               ui.filterTree.classList.remove('disabled');
+            } else {
+               ui.filterTree.classList.add('disabled');
+            }
+            updateFilter();
          }
-         updateFilter();
       }, false);
       let elem = document.getElementById('filter-tree');
-      if (elem.tagName === 'UL') {
-         ui.filterTree = <HTMLUListElement>elem;
+      if (elem instanceof HTMLUListElement) {
+         ui.filterTree = elem;
       } else {
          throw new Error('element not found #filter-tree');
       }
-      ui.filterTree.addEventListener('click', (e: Event): void => {
-         if ((<HTMLElement>e.target).tagName !== 'INPUT') {
-            return;
+      ui.filterTree.addEventListener('click', e => {
+         let inp = e.target;
+         if (inp instanceof HTMLInputElement) {
+            let li = inp.parentElement;
+            while (li && li.tagName !== 'LI') {
+               li = li.parentElement;
+            }
+            if (inp.checked) {
+               li.classList.add('checked');
+            } else {
+               li.classList.remove('checked');
+            }
+            updateFilter();
          }
-         let inp = <HTMLInputElement>e.target;
-         let li = inp.parentElement;
-         while (li && li.tagName !== 'LI') {
-            li = li.parentElement;
-         }
-         if (inp.checked) {
-            li.classList.add('checked');
-         } else {
-            li.classList.remove('checked');
-         }
-         updateFilter();
       }, false);
-      jQuery('#filter-dialog').on('shown.bs.modal', (e) => {
+      jQuery('#filter-dialog').on('shown.bs.modal', e => {
          let parents: string[] = [];
          for (let p of favorite.getParents(ui.filterEditingTarget)) {
             if (p.type === 'filter') {
@@ -716,18 +710,16 @@
          }
       });
 
-      jQuery('#bulk-create-folder-dialog').on('shown.bs.modal', (e: JQueryEventObject) => {
-         ui.bulkCreateFolderTextarea.focus();
-      });
+      jQuery('#bulk-create-folder-dialog').on('shown.bs.modal', e => ui.bulkCreateFolderTextarea.focus());
       let e = document.getElementById('bulk-create-folder-textarea');
-      if (e && e.tagName === 'TEXTAREA') {
-         ui.bulkCreateFolderTextarea = <HTMLTextAreaElement>e;
+      if (e instanceof HTMLTextAreaElement) {
+         ui.bulkCreateFolderTextarea = e;
       } else {
          throw new Error('element not found: #bulk-create-folder-textarea');
       }
-      document.getElementById('bulk-create-folder').addEventListener('click', (e: Event): void => {
+      document.getElementById('bulk-create-folder').addEventListener('click', e => {
          let folders: string[] = [];
-         for (let line of (<string>ui.bulkCreateFolderTextarea.value).replace(/\r/g, '').split('\n')) {
+         for (let line of ui.bulkCreateFolderTextarea.value.replace(/\r/g, '').split('\n')) {
             line = line.trim();
             if (line === '') {
                continue;
@@ -738,7 +730,7 @@
          ui.bulkCreateFolderTextarea.value = '';
       }, false);
 
-      jQuery('#bulk-rename-dialog').on('shown.bs.modal', (e: JQueryEventObject) => {
+      jQuery('#bulk-rename-dialog').on('shown.bs.modal', e => {
          let r = (ul: HTMLElement, nodes: Favorite.RenameNode[]): void => {
             let cul: HTMLUListElement;
             let li: HTMLLIElement;
@@ -747,10 +739,8 @@
                input = document.createElement('input');
                input.className = 'form-control';
                input.value = n.text;
-               ((input: HTMLInputElement, n: Favorite.RenameNode): void => {
-                  input.onblur = (e: Event): void => {
-                     n.text = input.value.trim();
-                  };
+               ((input: HTMLInputElement, n: Favorite.RenameNode) => {
+                  input.onblur = e => { n.text = input.value.trim(); };
                })(input, n);
                li = document.createElement('li');
                li.appendChild(input);
@@ -765,11 +755,11 @@
          removeAllChild(elem);
          r(elem, ui.bulkRenameData);
       });
-      document.getElementById('bulk-rename').addEventListener('click', (e) => {
+      document.getElementById('bulk-rename').addEventListener('click', e => {
          favorite.bulkRename(ui.bulkRenameData);
       }, false);
 
-      document.getElementById('export-favorites-pfv').addEventListener('click', (e) => {
+      document.getElementById('export-favorites-pfv').addEventListener('click', e => {
          saveAs(new Blob([favorite.pfv], {
             type: 'text/plain'
          }), cleanForFilename(favorite.rootName) + '.pfv');
@@ -778,7 +768,7 @@
       ui.exportProgressDialogProgressBar = document.getElementById('export-progress-dialog-progress-bar');
       ui.exportProgressDialogProgressCaption = document.getElementById('export-progress-dialog-progress-caption');
 
-      document.getElementById('export-favorites-zip').addEventListener('click', (e) => {
+      document.getElementById('export-favorites-zip').addEventListener('click', e => {
          let parents: Favorite.Node[] = [];
          let path: string[] = [],
             files: { name: string; value: string; filter?: string }[] = [];
@@ -844,7 +834,7 @@
             jQuery('#export-progress-dialog').modal('hide');
          };
          // it is needed to avoid alert storm when reload during exporting.
-         window.addEventListener('unload', (): void => { aborted = true; }, false);
+         window.addEventListener('unload', () => { aborted = true; }, false);
 
          let added = 0;
          let addedHandler = (): void => {
@@ -906,7 +896,7 @@
          }
       }, false);
 
-      document.getElementById('export-layer-structure').addEventListener('click', (e) => {
+      document.getElementById('export-layer-structure').addEventListener('click', e => {
          saveAs(new Blob([layerRoot.text], {
             type: 'text/plain'
          }), 'layer.txt');
@@ -936,17 +926,17 @@
       // save and restore scroll position of side-body on each tab.
       ui.favoriteToolbar = document.getElementById('favorite-toolbar');
       ui.sideBody = document.getElementById('side-body');
-      ui.sideBody.addEventListener('scroll', function(e) {
+      ui.sideBody.addEventListener('scroll', e => {
          ui.favoriteToolbar.style.top = ui.sideBody.scrollTop + 'px';
       }, false);
       ui.sideBodyScrollPos = {};
-      jQuery('a[data-toggle="tab"]').on('hide.bs.tab', function(e) {
+      jQuery('a[data-toggle="tab"]').on('hide.bs.tab', e => {
          let tab = e.target.getAttribute('href');
          ui.sideBodyScrollPos[tab] = {
             left: ui.sideBody.scrollLeft,
             top: ui.sideBody.scrollTop
          };
-      }).on('shown.bs.tab', function(e) {
+      }).on('shown.bs.tab', e => {
          let tab = e.target.getAttribute('href');
          if (tab in ui.sideBodyScrollPos) {
             ui.sideBody.scrollLeft = ui.sideBodyScrollPos[tab].left;
@@ -954,7 +944,7 @@
          }
          resized();
       });
-      jQuery('a[data-toggle="tab"][href="#layer-tree-pane"]').on('show.bs.tab', function(e) {
+      jQuery('a[data-toggle="tab"][href="#layer-tree-pane"]').on('show.bs.tab', e => {
          leaveReaderMode();
       });
 
@@ -962,12 +952,12 @@
 
       ui.previewBackground = document.getElementById('preview-background');
       let elem = document.getElementById('preview');
-      if (elem.tagName === 'CANVAS') {
-         ui.previewCanvas = <HTMLCanvasElement>elem;
+      if (elem instanceof HTMLCanvasElement) {
+         ui.previewCanvas = elem;
       } else {
          throw new Error('element not found: #preview');
       }
-      ui.previewCanvas.addEventListener('dragstart', function(e) {
+      ui.previewCanvas.addEventListener('dragstart', e => {
          let s = this.toDataURL();
          let name = this.getAttribute('data-filename');
          if (name) {
@@ -979,7 +969,7 @@
       }, false);
       ui.redraw = (): void => {
          ui.seqDl.disabled = true;
-         render((progress: number, canvas: HTMLCanvasElement): void => {
+         render((progress, canvas): void => {
             ui.previewBackground.style.width = canvas.width + 'px';
             ui.previewBackground.style.height = canvas.height + 'px';
             ui.seqDl.disabled = progress !== 1;
@@ -987,50 +977,43 @@
             setTimeout(() => {
                ui.previewCanvas.width = canvas.width;
                ui.previewCanvas.height = canvas.height;
-               let ctx: CanvasRenderingContext2D = ui.previewCanvas.getContext('2d');
-               ctx.drawImage(canvas, 0, 0);
+               ui.previewCanvas.getContext('2d').drawImage(canvas, 0, 0);
             }, 0);
          });
          layerRoot.updateClass();
       };
 
-      ui.save = (filename: string): void => {
-         saveAs(new Blob([
-            dataSchemeURIToArrayBuffer(ui.previewCanvas.toDataURL())
-         ], { type: 'image/png' }), filename);
-      };
+      ui.save = filename => saveAs(new Blob([
+         dataSchemeURIToArrayBuffer(ui.previewCanvas.toDataURL())
+      ], { type: 'image/png' }), filename);
 
       elem = document.getElementById('show-readme');
-      if (elem.tagName === 'BUTTON') {
-         ui.showReadme = <HTMLButtonElement>elem;
+      if (elem instanceof HTMLButtonElement) {
+         ui.showReadme = elem;
       } else {
          throw new Error('element not found: #show-readme');
       }
-      ui.showReadme.addEventListener('click', (e) => {
+      ui.showReadme.addEventListener('click', e => {
          let w = window.open('', null);
          w.document.body.innerHTML = '<title>Readme - PSDTool</title><pre style="font: 12pt/1.7 monospace;"></pre>';
          w.document.querySelector('pre').textContent = psdRoot.Readme;
       }, false);
 
-      (<any>jQuery('#main').on('splitpaneresize', resized)).splitPane();
+      jQuery('#main').on('splitpaneresize', resized).splitPane();
 
       ui.invertInput = getInputElement('#invert-input');
-      ui.invertInput.addEventListener('click', (e) => {
-         ui.redraw();
-      }, false);
+      ui.invertInput.addEventListener('click', e => ui.redraw(), false);
       elem = document.getElementById('fixed-side');
-      if (elem.tagName === 'SELECT') {
-         ui.fixedSide = <HTMLSelectElement>elem;
+      if (elem instanceof HTMLSelectElement) {
+         ui.fixedSide = elem;
       } else {
-         throw new Error('element not found: #show-readme');
+         throw new Error('element not found: #fixed-side');
       }
-      ui.fixedSide.addEventListener('change', (e) => {
-         ui.redraw();
-      }, false);
+      ui.fixedSide.addEventListener('change', e => ui.redraw(), false);
 
       let lastPx: string;
       ui.maxPixels = getInputElement('#max-pixels');
-      ui.maxPixels.addEventListener('blur', (e) => {
+      ui.maxPixels.addEventListener('blur', e => {
          let v = normalizeNumber(ui.maxPixels.value);
          if (v === lastPx) {
             return;
@@ -1043,12 +1026,12 @@
       ui.seqDlPrefix = getInputElement('#seq-dl-prefix');
       ui.seqDlNum = getInputElement('#seq-dl-num');
       elem = document.getElementById('seq-dl');
-      if (elem.tagName === 'BUTTON') {
-         ui.seqDl = <HTMLButtonElement>elem;
+      if (elem instanceof HTMLButtonElement) {
+         ui.seqDl = elem;
       } else {
          throw new Error('element not found: #seq-dl');
       }
-      ui.seqDl.addEventListener('click', (e) => {
+      ui.seqDl.addEventListener('click', e => {
          let prefix = ui.seqDlPrefix.value;
          if (ui.seqDlNum.value === '') {
             ui.save(prefix + '.png');
@@ -1064,7 +1047,7 @@
          }
       }, false);
 
-      (<any>Mousetrap).pause();
+      Mousetrap.pause();
    }
 
    function enterReaderMode(state: string, filter?: string, filename?: string): void {
@@ -1110,25 +1093,25 @@
 
    function initDropZone(dropZoneId: string, loader: (files: FileList) => void): void {
       let dz = document.getElementById(dropZoneId);
-      dz.addEventListener('dragenter', (e: DragEvent) => {
+      dz.addEventListener('dragenter', e => {
          dz.classList.add('psdtool-drop-active');
          e.preventDefault();
          e.stopPropagation();
          return false;
       }, false);
-      dz.addEventListener('dragover', (e: DragEvent) => {
+      dz.addEventListener('dragover', e => {
          dz.classList.add('psdtool-drop-active');
          e.preventDefault();
          e.stopPropagation();
          return false;
       }, false);
-      dz.addEventListener('dragleave', (e: DragEvent) => {
+      dz.addEventListener('dragleave', e => {
          dz.classList.remove('psdtool-drop-active');
          e.preventDefault();
          e.stopPropagation();
          return false;
       }, false);
-      dz.addEventListener('drop', (e: DragEvent) => {
+      dz.addEventListener('drop', e => {
          dz.classList.remove('psdtool-drop-active');
          if (e.dataTransfer.files.length > 0) {
             loader(e.dataTransfer.files);
@@ -1137,9 +1120,9 @@
          e.stopPropagation();
          return false;
       }, false);
-      let f = <HTMLInputElement>dz.querySelector('input[type=file]');
-      if (f) {
-         f.addEventListener('change', (e) => {
+      let f = dz.querySelector('input[type=file]');
+      if (f instanceof HTMLInputElement) {
+         f.addEventListener('change', e => {
             loader(f.files);
             f.value = null;
          }, false);

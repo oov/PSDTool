@@ -258,9 +258,8 @@ module LayerTree {
             pathMap[nodes[i].fullPath] = true;
          }
 
-         items.sort((a: SerializeItem, b: SerializeItem): number => {
-            return a.fullPathSlash > b.fullPathSlash ? 1 : a.fullPathSlash < b.fullPathSlash ? -1 : 0;
-         });
+         items.sort((a, b): number =>
+            a.fullPathSlash > b.fullPathSlash ? 1 : a.fullPathSlash < b.fullPathSlash ? -1 : 0);
 
          let j: number, parts: string[];
          for (i = 0; i < items.length; ++i) {
@@ -279,9 +278,8 @@ module LayerTree {
             }
          }
 
-         items.sort((a: SerializeItem, b: SerializeItem): number => {
-            return a.index > b.index ? 1 : a.index < b.index ? -1 : 0;
-         });
+         items.sort((a, b): number =>
+            a.index > b.index ? 1 : a.index < b.index ? -1 : 0);
 
          parts = [];
          for (let item of items) {
