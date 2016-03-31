@@ -301,15 +301,16 @@ interface MousetrapStatic {
 
    function loadAsBlob(progress: (phase: string, progress: number) => void, file_or_url: File | string) {
       progress('prepare', 0);
-      if (typeof file_or_url === 'string') {
-         return loadAsBlobFromString(progress, file_or_url);
-      } else {
-         var deferred = m.deferred();
+      if (file_or_url instanceof File) {
+         let file = file_or_url;
+         let deferred = m.deferred();
          setTimeout(() => deferred.resolve({
-            buffer: file_or_url,
-            name: file_or_url.name.replace(/\..*$/i, '') + '_'
+            buffer: file,
+            name: file.name.replace(/\..*$/i, '') + '_'
          }), 0);
          return deferred.promise;
+      } else {
+         return loadAsBlobFromString(progress, file_or_url);
       }
    }
 
@@ -1109,9 +1110,10 @@ interface MousetrapStatic {
       }, false);
       let f = dz.querySelector('input[type=file]');
       if (f instanceof HTMLInputElement) {
+         let file = f;
          f.addEventListener('change', e => {
-            loader(f.files);
-            f.value = null;
+            loader(file.files);
+            file.value = null;
          }, false);
       }
    }
