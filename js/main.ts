@@ -946,8 +946,8 @@ interface MousetrapStatic {
          throw new Error('element not found: #preview');
       }
       ui.previewCanvas.addEventListener('dragstart', e => {
-         let s = this.toDataURL();
-         let name = this.getAttribute('data-filename');
+         let s = ui.previewCanvas.toDataURL();
+         let name = ui.previewCanvas.getAttribute('data-filename');
          if (name) {
             let p = s.indexOf(';');
             s = s.substring(0, p) + ';filename=' + encodeURIComponent(name) + s.substring(p);
