@@ -1,54 +1,52 @@
 'use strict';
-module Filter {
+module LayerTree {
    interface SerializeItem {
       index: number;
       node: Node;
       fullPathSlash: string;
    }
-   interface PathSet {
+   interface StringSet {
       [k: string]: boolean;
    }
    interface DeserializeNode {
       children: { [k: string]: DeserializeNode };
       checked: boolean;
    }
-   class Node {
-      get checked(): boolean { return this.input.checked; }
-      set checked(v: boolean) { this.input.checked = v; }
-      get disabled(): boolean { return this.input.disabled; }
-      set disabled(v: boolean) { this.input.disabled = v; }
-      get name(): string { return this.name_; }
-      get fullPath(): string { return this.fullPath_; }
-      public children: Node[] = [];
-      constructor(private input: HTMLInputElement, private name_: string, private fullPath_: string, public parent: Node) { }
-   }
    export class Filter {
-      private root: Node = new Node(null, '', '', null);
+      private root: Node = new Node(null, null, '', [], 0, null);
       private nodes: { [seqId: number]: Node } = {};
       constructor(treeRoot: HTMLUListElement, psdRoot: psd.Root) {
          let path: string[] = [];
          let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[]): void => {
+            let indexes: { [SeqID: number]: number } = {};
+            let founds: { [name: string]: number } = {};
+            for (let ll of l) {
+               if (ll.Name in founds) {
+                  indexes[ll.SeqID] = ++founds[ll.Name];
+               } else {
+                  indexes[ll.SeqID] = founds[ll.Name] = 0;
+               }
+            }
             for (let i = l.length - 1; i >= 0; --i) {
-               path.push(Filter.encodeLayerName(l[i].Name));
-
                let elems = this.createElements(l[i]);
-               let cn = new Node(elems.input, l[i].Name, path.join('/'), n);
+               let cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
                n.children.push(cn);
                this.nodes[l[i].SeqID] = cn;
-               let li = document.createElement('li');
+               cn.li = document.createElement('li');
                let cul = document.createElement('ul');
+               path.push(cn.internalName);
                r(cul, cn, l[i].Children);
-               li.appendChild(elems.label);
-               li.appendChild(cul);
-               ul.appendChild(li);
-
                path.pop();
+               cn.li.appendChild(elems.label);
+               cn.li.appendChild(cul);
+               ul.appendChild(cn.li);
             }
          };
          r(treeRoot, this.root, psdRoot.Children);
       }
 
       private createElements(l: psd.Layer): {
+         text: Text;
          label: HTMLLabelElement;
          input: HTMLInputElement;
       } {
@@ -57,11 +55,13 @@ module Filter {
          input.checked = true;
          input.setAttribute('data-seq', l.SeqID.toString());
 
+         let text = document.createTextNode(l.Name);
          let label = document.createElement('label');
          label.className = 'checkbox';
          label.appendChild(input);
-         label.appendChild(document.createTextNode(l.Name));
+         label.appendChild(text);
          return {
+            text: text,
             label: label,
             input: input
          };
@@ -94,7 +94,7 @@ module Filter {
          if (!nodes.length) {
             return '';
          }
-         let i: number, path: SerializeItem[] = [], pathMap: PathSet = {};
+         let i: number, path: SerializeItem[] = [], pathMap: StringSet = {};
          for (i = 0; i < nodes.length; ++i) {
             path.push({
                node: nodes[i],
@@ -144,7 +144,6 @@ module Filter {
             parts = line.split('/');
             node = root;
             for (let part of parts) {
-               part = Filter.decodeLayerName(part);
                if (!(part in node.children)) {
                   node.children[part] = {
                      children: {},
@@ -158,20 +157,17 @@ module Filter {
       }
 
       private apply(dnode: DeserializeNode, fnode: Node, useDisable: boolean): void {
-         let founds: PathSet = {};
+         let founds: StringSet = {};
          let cdnode: DeserializeNode;
          for (let cfnode of fnode.children) {
             if (cfnode.disabled) {
                continue;
             }
 
-            if (cfnode.name in founds) {
-               throw new Error('found more than one same name layer: ' + cfnode.name);
-            }
-            founds[cfnode.name] = true;
+            founds[cfnode.internalName] = true;
 
             if (dnode) {
-               cdnode = dnode.children[cfnode.name];
+               cdnode = dnode.children[cfnode.internalName];
             }
 
             if (!dnode || !cdnode) {
@@ -217,16 +213,6 @@ module Filter {
             this.apply(this.buildDeserializeTree(old), this.root, false);
             throw e;
          }
-      }
-
-      private static encodeLayerName(s: string): string {
-         return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, (m): string => {
-            return '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2);
-         });
-      }
-
-      private static decodeLayerName(s: string): string {
-         return decodeURIComponent(s);
       }
    }
 }

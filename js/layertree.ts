@@ -5,7 +5,7 @@ module LayerTree {
       node: Node;
       fullPathSlash: string;
    }
-   interface PathSet {
+   interface StringSet {
       [k: string]: boolean;
    }
    interface DeserializeNode {
@@ -25,22 +25,46 @@ module LayerTree {
       set disabled(v: boolean) { this.input.disabled = v; }
       get name(): string { return this.name_; }
       get displayName(): string { return this.displayName_.data; }
+      get internalName(): string { return this.internalName_; }
       get fullPath(): string { return this.fullPath_; }
-      get liClassList(): DOMTokenList { return this.li_.classList; }
       get isRoot(): boolean { return !this.input; }
+      public li: HTMLLIElement;
       public children: Node[] = [];
       public clip: Node[];
       public clippedBy: Node;
+      private fullPath_: string;
+      private internalName_: string;
       constructor(
          private input: HTMLInputElement,
-         private li_: HTMLLIElement,
          private displayName_: Text,
          private name_: string,
-         private fullPath_: string,
-         public parent: Node) { }
+         currentPath: string[],
+         indexInSameName: number,
+         public parent: Node) {
+         this.internalName_ = Node.encodeLayerName(this.name, indexInSameName);
+         if (currentPath.length) {
+            this.fullPath_ = currentPath.join('/') + '/' + this.internalName_;
+         } else {
+            this.fullPath_ = this.internalName_;
+         }
+      }
+
+      private static encodeLayerName(s: string, index: number): string {
+         return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, (m): string => {
+            return '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2);
+         }) + (index === 0 ? '' : '\\' + index.toString());
+      }
+
+      private static decodeLayerName(s: string): { name: string; index: number } {
+         let p = s.split('\\');
+         return {
+            name: decodeURIComponent(p[0]),
+            index: p.length === 1 ? 0 : parseInt(p[1], 10)
+         };
+      }
    }
    export class LayerTree {
-      public root: Node = new Node(null, null, null, '', '', null);
+      public root: Node = new Node(null, null, '', [], 0, null);
       public nodes: { [seqId: number]: Node } = {};
 
       get text(): string {
@@ -61,24 +85,31 @@ module LayerTree {
       constructor(private disableExtendedFeature: boolean, treeRoot: HTMLUListElement, psdRoot: psd.Root) {
          let path: string[] = [];
          let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[], parentSeqID: number): void => {
-            for (let i = l.length - 1; i >= 0; --i) {
-               path.push(LayerTree.encodeLayerName(l[i].Name));
-
-               let li = document.createElement('li');
-               if (l[i].Folder) {
-                  li.classList.add('psdtool-folder');
+            let indexes: { [SeqID: number]: number } = {};
+            let founds: { [name: string]: number } = {};
+            for (let ll of l) {
+               if (ll.Name in founds) {
+                  indexes[ll.SeqID] = ++founds[ll.Name];
+               } else {
+                  indexes[ll.SeqID] = founds[ll.Name] = 0;
                }
+            }
+            for (let i = l.length - 1; i >= 0; --i) {
                var elems = this.createElements(l[i], parentSeqID);
-               let cn = new Node(elems.input, li, elems.text, l[i].Name, path.join('/'), n);
+               let cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
                n.children.push(cn);
                this.nodes[l[i].SeqID] = cn;
                let cul = document.createElement('ul');
+               path.push(cn.internalName);
                r(cul, cn, l[i].Children, l[i].SeqID);
-               li.appendChild(elems.div);
-               li.appendChild(cul);
-               ul.appendChild(li);
-
                path.pop();
+               cn.li = document.createElement('li');
+               if (l[i].Folder) {
+                  cn.li.classList.add('psdtool-folder');
+               }
+               cn.li.appendChild(elems.div);
+               cn.li.appendChild(cul);
+               ul.appendChild(cn.li);
             }
          };
          r(treeRoot, this.root, psdRoot.Children, -1);
@@ -178,17 +209,17 @@ module LayerTree {
       public updateClass(): void {
          function r(n: Node): void {
             if (n.checked) {
-               n.liClassList.remove('psdtool-hidden');
+               n.li.classList.remove('psdtool-hidden');
                if (n.clip) {
                   for (let i = 0; i < n.clip.length; ++i) {
-                     n.clip[i].liClassList.remove('psdtool-hidden-by-clipping');
+                     n.clip[i].li.classList.remove('psdtool-hidden-by-clipping');
                   }
                }
             } else {
-               n.liClassList.add('psdtool-hidden');
+               n.li.classList.add('psdtool-hidden');
                if (n.clip) {
                   for (let i = 0; i < n.clip.length; ++i) {
-                     n.clip[i].liClassList.add('psdtool-hidden-by-clipping');
+                     n.clip[i].li.classList.add('psdtool-hidden-by-clipping');
                   }
                }
             }
@@ -248,7 +279,7 @@ module LayerTree {
             }
             return r.join('\n');
          }
-         let i: number, items: SerializeItem[] = [], pathMap: PathSet = {};
+         let i: number, items: SerializeItem[] = [], pathMap: StringSet = {};
          for (i = 0; i < nodes.length; ++i) {
             items.push({
                node: nodes[i],
@@ -295,19 +326,18 @@ module LayerTree {
             checked: true,
             allLayer: allLayer
          };
-         let j: number, node: DeserializeNode, parts: string[], part: string;
+         let j: number, node: DeserializeNode, parts: string[];
          let lines = state.replace(/\r/g, '').split('\n');
          for (let line of lines) {
             parts = line.split('/');
             for (j = allLayer ? 1 : 0, node = root; j < parts.length; ++j) {
-               part = LayerTree.decodeLayerName(parts[j]);
-               if (!(part in node.children)) {
-                  node.children[part] = {
+               if (!(parts[j] in node.children)) {
+                  node.children[parts[j]] = {
                      children: {},
                      checked: !allLayer
                   };
                }
-               node = node.children[part];
+               node = node.children[parts[j]];
             }
             if (allLayer) {
                node.checked = true;
@@ -317,16 +347,13 @@ module LayerTree {
       }
 
       private apply(dnode: DeserializeNode, fnode: Node): void {
-         let founds: PathSet = {};
+         let founds: StringSet = {};
          let cfnode: Node, cdnode: DeserializeNode;
          for (cfnode of fnode.children) {
-            if (cfnode.name in founds) {
-               throw new Error('found more than one same name layer: ' + cfnode.name);
-            }
-            founds[cfnode.name] = true;
+            founds[cfnode.internalName] = true;
 
             if (dnode) {
-               cdnode = dnode.children[cfnode.name];
+               cdnode = dnode.children[cfnode.internalName];
             }
 
             if (!dnode || !cdnode) {
@@ -368,7 +395,6 @@ module LayerTree {
             parts = line.split('/');
             node = root;
             for (let part of parts) {
-               part = LayerTree.decodeLayerName(part); // TODO: use Filter.decodeLayerName
                if (!(part in node.children)) {
                   node.children[part] = {
                      children: {}
@@ -381,23 +407,20 @@ module LayerTree {
       }
 
       private applyWithFilter(dnode: DeserializeNode, filter: FilterNode, fnode: Node): void {
-         let founds: PathSet = {};
+         let founds: StringSet = {};
          let cfnode: Node, cfilter: FilterNode, cdnode: DeserializeNode;
          for (cfnode of fnode.children) {
-            if (cfnode.name in founds) {
-               throw new Error('found more than one same name layer: ' + cfnode.name);
-            }
-            founds[cfnode.name] = true;
+            founds[cfnode.internalName] = true;
 
             if (filter) {
-               cfilter = filter.children[cfnode.name];
+               cfilter = filter.children[cfnode.internalName];
             }
             if (!filter || !cfilter) {
                continue;
             }
 
             if (dnode) {
-               cdnode = dnode.children[cfnode.name];
+               cdnode = dnode.children[cfnode.internalName];
             }
             if (!dnode || !cdnode) {
                cfnode.checked = false;
@@ -470,16 +493,6 @@ module LayerTree {
                continue;
             }
          }
-      }
-
-      private static encodeLayerName(s: string): string {
-         return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, (m): string => {
-            return '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2);
-         });
-      }
-
-      private static decodeLayerName(s: string): string {
-         return decodeURIComponent(s);
       }
    }
 }
