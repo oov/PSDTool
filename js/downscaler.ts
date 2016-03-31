@@ -47,7 +47,7 @@ class DownScaler {
 
    public beautifulWorker(callback: (dest: HTMLCanvasElement) => void): void {
       let w = new Worker(DownScaler.createWorkerURL());
-      w.onmessage = (e: MessageEvent): void => {
+      w.onmessage = e => {
          this.adjustSize();
          let ctx = this.dest.getContext('2d');
          let imgData = ctx.createImageData(this.destWidth, this.destHeight);

@@ -50,9 +50,6 @@ interface MousetrapStatic {
       bulkCreateFolderTextarea: HTMLTextAreaElement;
 
       bulkRenameData: Favorite.RenameNode[];
-
-      exportProgressDialogProgressBar: HTMLElement;
-      exportProgressDialogProgressCaption: HTMLElement;
    } = {
          optionAutoTrim: null,
          optionSafeMode: null,
@@ -83,9 +80,6 @@ interface MousetrapStatic {
          bulkCreateFolderTextarea: null,
 
          bulkRenameData: null,
-
-         exportProgressDialogProgressBar: null,
-         exportProgressDialogProgressCaption: null,
       };
    var renderer: Renderer.Renderer;
    var psdRoot: psd.Root;
@@ -95,7 +89,7 @@ interface MousetrapStatic {
    var droppedPFV: File;
 
    function init() {
-      initDropZone('dropzone', (files: FileList): void => {
+      initDropZone('dropzone', files => {
          let i: number, ext: string;
          for (i = 0; i < files.length; ++i) {
             ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
@@ -181,8 +175,8 @@ interface MousetrapStatic {
       removeAllChild(errorMessageContainer);
       errorMessageContainer.appendChild(errorMessage);
 
-      function progress(phase: string, progress: number): void {
-         var msg: string;
+      let progress = (phase: string, progress: number) => {
+         let msg: string;
          switch (phase) {
             case 'prepare':
                msg = 'Getting ready...';
@@ -195,11 +189,11 @@ interface MousetrapStatic {
                break;
          }
          updateProgress(bar, caption, progress, msg);
-      }
+      };
       progress('prepare', 0);
       loadAsBlob(progress, file_or_url)
          .then(parse.bind(this, progress.bind(this, 'load')))
-         .then((obj: any): any => { return initMain(obj.psd, obj.name); })
+         .then((obj: any) => { return initMain(obj.psd, obj.name); })
          .then(function() {
          fileLoadingUi.style.display = 'none';
          fileOpenUi.style.display = 'none';
@@ -226,12 +220,12 @@ interface MousetrapStatic {
       }
       var ifr = document.createElement('iframe'),
          port: MessagePort;
-      var timer = setTimeout(function() {
+      var timer = setTimeout(() => {
          port.onmessage = null;
          document.body.removeChild(ifr);
          deferred.reject(new Error('something went wrong'));
       }, 20000);
-      (<any>ifr).sandbox = 'allow-scripts allow-same-origin';
+      ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin');
       ifr.onload = function() {
          var msgCh = new MessageChannel();
          port = msgCh.port1;
@@ -269,8 +263,7 @@ interface MousetrapStatic {
          };
          ifr.contentWindow.postMessage(
             location.protocol,
-            url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]
-            );
+            url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]);
       };
       ifr.src = url;
       ifr.style.display = 'none';
@@ -312,7 +305,7 @@ interface MousetrapStatic {
          return loadAsBlobFromString(progress, file_or_url);
       } else {
          var deferred = m.deferred();
-         setTimeout((): void => deferred.resolve({
+         setTimeout(() => deferred.resolve({
             buffer: file_or_url,
             name: file_or_url.name.replace(/\..*$/i, '') + '_'
          }), 0);
@@ -357,7 +350,7 @@ interface MousetrapStatic {
                if (!renderer.nodes.hasOwnProperty(key)) {
                   continue;
                }
-               ((r: Renderer.Node, l: LayerTree.Node): void => {
+               ((r: Renderer.Node, l: LayerTree.Node) => {
                   r.getVisibleState = () => l.checked;
                })(renderer.nodes[key], layerRoot.nodes[key]);
             }
@@ -383,7 +376,7 @@ interface MousetrapStatic {
             favorite.psdHash = psd.Hash;
             if (droppedPFV) {
                let fr = new FileReader();
-               fr.onload = (): void => {
+               fr.onload = () => {
                   favorite.loadFromArrayBuffer(fr.result);
                };
                fr.readAsArrayBuffer(droppedPFV);
@@ -477,10 +470,8 @@ interface MousetrapStatic {
       favorite = new Favorite.Favorite(
          document.getElementById('favorite-tree'),
          document.getElementById('favorite-tree').getAttribute('data-root-name'));
-      favorite.onClearSelection = (): void => {
-         leaveReaderMode();
-      };
-      favorite.onSelect = (item: Favorite.Node): void => {
+      favorite.onClearSelection = () => leaveReaderMode();
+      favorite.onSelect = (item: Favorite.Node) => {
          if (item.type !== 'item') {
             leaveReaderMode();
             return;
@@ -765,14 +756,11 @@ interface MousetrapStatic {
          }), cleanForFilename(favorite.rootName) + '.pfv');
       }, false);
 
-      ui.exportProgressDialogProgressBar = document.getElementById('export-progress-dialog-progress-bar');
-      ui.exportProgressDialogProgressCaption = document.getElementById('export-progress-dialog-progress-caption');
-
       document.getElementById('export-favorites-zip').addEventListener('click', e => {
          let parents: Favorite.Node[] = [];
          let path: string[] = [],
             files: { name: string; value: string; filter?: string }[] = [];
-         function r(children: Favorite.Node[]): void {
+         let r = (children: Favorite.Node[]) => {
             for (let item of children) {
                path.push(cleanForFilename(item.text));
                switch (item.type) {
@@ -817,16 +805,20 @@ interface MousetrapStatic {
                }
                path.pop();
             }
-         }
+         };
          let json = favorite.json;
          r(json);
 
          var backup = layerRoot.serialize(true);
          let z = new Zipper.Zipper();
 
+         let progressBar = document.getElementById('export-progress-dialog-progress-bar');
+         let progressCaption = document.getElementById('export-progress-dialog-progress-caption');
+         let reportProgress: (progress: number, caption: string) => void = updateProgress.bind(this, progressBar, progressCaption);
+
          let aborted = false;
-         let errorHandler = (readableMessage: string, err: any): void => {
-            z.dispose((err: any): void => undefined);
+         let errorHandler = (readableMessage: string, err: any) => {
+            z.dispose(err => undefined);
             console.error(err);
             if (!aborted) {
                alert(readableMessage + ': ' + err);
@@ -837,28 +829,23 @@ interface MousetrapStatic {
          window.addEventListener('unload', () => { aborted = true; }, false);
 
          let added = 0;
-         let addedHandler = (): void => {
+         let addedHandler = () => {
             if (++added < files.length + 1) {
-               updateProgress(
-                  ui.exportProgressDialogProgressBar,
-                  ui.exportProgressDialogProgressCaption,
+               reportProgress(
                   added / (files.length + 1),
                   added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + files[added - 1].name);
                return;
             }
             layerRoot.deserialize(backup);
-            updateProgress(
-               ui.exportProgressDialogProgressBar,
-               ui.exportProgressDialogProgressCaption,
-               1, 'building a zip...');
-            z.generate((blob: Blob): void => {
+            reportProgress(1, 'building a zip...');
+            z.generate(blob => {
                jQuery('#export-progress-dialog').modal('hide');
                saveAs(blob, cleanForFilename(favorite.rootName) + '.zip');
-               z.dispose((err: any): void => undefined);
+               z.dispose(err => undefined);
             }, errorHandler.bind(this, 'cannot create a zip archive'));
          };
 
-         z.init((): void => {
+         z.init(() => {
             z.add(
                'favorites.pfv',
                new Blob([favorite.pfv], { type: 'text/plain; charset=utf-8' }),
@@ -866,13 +853,13 @@ interface MousetrapStatic {
                errorHandler.bind(this, 'cannot write pfv to a zip archive'));
 
             let i = 0;
-            let process = (): void => {
+            let process = () => {
                if ('filter' in files[i]) {
                   layerRoot.deserializePartial('', files[i].value, files[i].filter);
                } else {
                   layerRoot.deserialize(files[i].value);
                }
-               render((progress: number, canvas: HTMLCanvasElement): void => {
+               render((progress, canvas) => {
                   if (progress !== 1) {
                      return;
                   }
@@ -967,9 +954,9 @@ interface MousetrapStatic {
          e.dataTransfer.setData('text/uri-list', s);
          e.dataTransfer.setData('text/plain', s);
       }, false);
-      ui.redraw = (): void => {
+      ui.redraw = () => {
          ui.seqDl.disabled = true;
-         render((progress, canvas): void => {
+         render((progress, canvas) => {
             ui.previewBackground.style.width = canvas.width + 'px';
             ui.previewBackground.style.height = canvas.height + 'px';
             ui.seqDl.disabled = progress !== 1;

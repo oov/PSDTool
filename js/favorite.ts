@@ -98,9 +98,8 @@ module Favorite {
       }
 
       public static encodeName(s: string): string {
-         return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, (m): string => {
-            return '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2);
-         });
+         return s.replace(/[\x00-\x1f\x22\x25\x27\x2f\x5c\x7e\x7f]/g, m =>
+            '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2));
       }
 
       public static decodeName(s: string): string {
