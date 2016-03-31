@@ -309,8 +309,7 @@ module LayerTree {
             }
          }
 
-         items.sort((a, b): number =>
-            a.index > b.index ? 1 : a.index < b.index ? -1 : 0);
+         items.sort((a, b) => a.index > b.index ? -1 : a.index < b.index ? 1 : 0);
 
          parts = [];
          for (let item of items) {

@@ -124,7 +124,7 @@ module LayerTree {
             }
          }
 
-         path.sort((a, b): number => a.index > b.index ? 1 : a.index < b.index ? -1 : 0);
+         path.sort((a, b): number => a.index > b.index ? -1 : a.index < b.index ? 1 : 0);
 
          parts = [];
          for (i = 0; i < path.length; ++i) {
