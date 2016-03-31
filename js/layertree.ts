@@ -54,14 +54,6 @@ module LayerTree {
             return '%' + ('0' + m[0].charCodeAt(0).toString(16)).slice(-2);
          }) + (index === 0 ? '' : '\\' + index.toString());
       }
-
-      private static decodeLayerName(s: string): { name: string; index: number } {
-         let p = s.split('\\');
-         return {
-            name: decodeURIComponent(p[0]),
-            index: p.length === 1 ? 0 : parseInt(p[1], 10)
-         };
-      }
    }
    export class LayerTree {
       public root: Node = new Node(null, null, '', [], 0, null);
