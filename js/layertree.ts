@@ -117,7 +117,7 @@ module LayerTree {
          let name = document.createElement('label');
          let input = document.createElement('input');
          let layerName = l.Name;
-         if (!this.disableExtendedFeature) {
+         if (!this.disableExtendedFeature && layerName.length > 1) {
             switch (layerName.charAt(0)) {
                case '!':
                   input.className = 'psdtool-layer-visible psdtool-layer-force-visible';
@@ -135,14 +135,9 @@ module LayerTree {
                   input.checked = l.Visible;
                   layerName = layerName.substring(1);
                   break;
-               default:
-                  input.className = 'psdtool-layer-visible';
-                  input.name = 'l' + l.SeqID;
-                  input.type = 'checkbox';
-                  input.checked = l.Visible;
-                  break;
             }
-         } else {
+         }
+         if (!input.name) {
             input.className = 'psdtool-layer-visible';
             input.name = 'l' + l.SeqID;
             input.type = 'checkbox';
