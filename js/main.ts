@@ -322,7 +322,7 @@ module psdtool {
                   this.loadRenderer(psd);
 
                   this.maxPixels.value = (this.optionAutoTrim.checked ? this.renderer.Height : this.renderer.CanvasHeight).toString();
-                  this.seqDlPrefix.value = name;
+                  this.seqDlPrefix.value = obj.name;
                   this.seqDlNum.value = '0';
                   this.showReadme.style.display = psd.Readme !== '' ? 'block' : 'none';
                   //  TODO: error handling
