@@ -537,7 +537,7 @@ module Favorite {
             plugins: ['types', 'dnd', 'wholerow'],
          });
          this.jst = this.jq.jstree();
-         this.jq.on('changed.jstree', this.jstSelectionChanged.bind(this));
+         this.jq.on('changed.jstree', e => this.jstSelectionChanged());
          this.jq.on([
             'set_text.jstree',
             'create_node.jstree',
@@ -547,12 +547,12 @@ module Favorite {
             'copy_node.jstree',
             'cut.jstree',
             'paste.jstree'
-         ].join(' '), this.jstChanged.bind(this));
-         this.jq.on('copy_node.jstree', this.jstCopyNode.bind(this));
-         this.jq.on('move_node.jstree', this.jstMoveNode.bind(this));
-         this.jq.on('create_node.jstree', this.jstCreateNode.bind(this));
-         this.jq.on('rename_node.jstree', this.jstRenameNode.bind(this));
-         this.jq.on('dblclick.jstree', this.jstDoubleClick.bind(this));
+         ].join(' '), e => this.jstChanged());
+         this.jq.on('copy_node.jstree', (e, data) => this.jstCopyNode(e, data));
+         this.jq.on('move_node.jstree', (e, data) => this.jstMoveNode(e, data));
+         this.jq.on('create_node.jstree', (e, data) => this.jstCreateNode(e, data));
+         this.jq.on('rename_node.jstree', (e, data) => this.jstRenameNode(e, data));
+         this.jq.on('dblclick.jstree', (e) => this.jstDoubleClick(e));
       }
 
       public loadFromArrayBuffer(ab: ArrayBuffer, uniqueId?: string): boolean {

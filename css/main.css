@@ -71,12 +71,8 @@ h1 small {
 #additional-options {
    margin-top: 8rem;
 }
-#progress-bar, #export-progress-dialog-progress-bar {
+#progress-dialog-progress-bar {
    transition: none;
-}
-#file-loading-ui {
-   margin-top: 4rem;
-   display: none;
 }
 #error-report-ui {
    display: none;

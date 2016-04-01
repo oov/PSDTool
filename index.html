@@ -123,12 +123,6 @@
 			</div>
 		</div>
 	</div>
-	<div id="file-loading-ui" class="container">
-		<div class="progress">
-			<div id="progress-bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-		</div>
-		<div id="progress-caption"></div>
-	</div>
 	<div id="main" class="split-pane fixed-left">
 		<div id="side-container" class="split-pane-component">
 			<div id="side-head">
@@ -293,16 +287,16 @@
 		</div>
 	</div>
 
-	<div class="modal" id="export-progress-dialog" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false" aria-labelledby="export-progress-dialog-label">
+	<div class="modal" id="progress-dialog" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false" aria-labelledby="progress-dialog-label">
 		<div class="modal-dialog" role="document">
 			<div class="modal-content">
 				<div class="modal-header">
-					<h4 class="modal-title" id="export-progress-dialog-label">エクスポートデータの作成中...</h4>
+					<h4 class="modal-title" id="progress-dialog-label">Progress Dialog</h4>
 				</div>
 				<div class="modal-body">
-					<div id="export-progress-dialog-progress-caption"></div>
+					<div id="progress-dialog-progress-caption"></div>
 					<div class="progress">
-						<div id="export-progress-dialog-progress-bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+						<div id="progress-dialog-progress-bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
 					</div>
 				</div>
 			</div>
