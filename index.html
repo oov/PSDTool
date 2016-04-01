@@ -275,7 +275,16 @@
 					</p>
 					<p><small>PFV ファイルはお気に入りの情報が記録されたテキストファイルで、「インポート」を使って読み込んだりエディタで開いて直接編集したりできます。</small></p>
 					<p>
-						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
+						<div class="btn-group">
+						  <button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
+						  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						    <span class="caret"></span>
+						    <span class="sr-only">オプション</span>
+						  </button>
+						  <ul class="dropdown-menu">
+						    <li><a href="#" data-dismiss="modal" id="export-favorites-zip-filter-solo">フィルタリングされた項目は残ったパーツのみを出力</a></li>
+						  </ul>
+						</div>
 					</p>
 					<p><small>PNG ファイルと PFV ファイルを無圧縮の ZIP ファイルに書き出します。パターン数に応じて相応の時間が掛かります。画像には現在の左右反転や縮小などの設定が適用されます。</small></p>
 					<p>

@@ -574,132 +574,137 @@ module psdtool {
                type: 'text/plain'
             }), Main.cleanForFilename(this.favorite.rootName) + '.pfv');
          }, false);
-
          document.getElementById('export-favorites-zip').addEventListener('click', e => {
-            let parents: Favorite.Node[] = [];
-            let path: string[] = [],
-               files: { name: string; value: string; filter?: string }[] = [];
-            let r = (children: Favorite.Node[]) => {
-               for (let item of children) {
-                  path.push(Main.cleanForFilename(item.text));
-                  switch (item.type) {
-                     case 'root':
-                        path.pop();
-                        r(item.children);
-                        path.push('');
-                        break;
-                     case 'folder':
-                        parents.unshift(item);
-                        r(item.children);
-                        parents.shift();
-                        break;
-                     case 'filter':
-                        parents.unshift(item);
-                        r(item.children);
-                        parents.shift();
-                        break;
-                     case 'item':
-                        let filter: string;
-                        for (let p of parents) {
-                           if (p.type === 'filter') {
-                              filter = p.data.value;
-                              break;
-                           }
-                        }
-                        if (filter) {
-                           files.push({
-                              name: path.join('\\') + '.png',
-                              value: item.data.value,
-                              filter: filter
-                           });
-                        } else {
-                           files.push({
-                              name: path.join('\\') + '.png',
-                              value: item.data.value
-                           });
-                        }
-                        break;
-                     default:
-                        throw new Error('unknown item type: ' + item.type);
-                  }
-                  path.pop();
-               }
-            };
-            let json = this.favorite.json;
-            r(json);
-
-            let backup = this.layerRoot.serialize(true);
-            let z = new Zipper.Zipper();
-
-            let prog = new ProgressDialog('Exporting...', '');
-
-            let aborted = false;
-            let errorHandler = (readableMessage: string, err: any) => {
-               z.dispose(err => undefined);
-               console.error(err);
-               if (!aborted) {
-                  alert(readableMessage + ': ' + err);
-               }
-               prog.close();
-            };
-            // it is needed to avoid alert storm when reload during exporting.
-            window.addEventListener('unload', () => { aborted = true; }, false);
-
-            let added = 0;
-            let addedHandler = () => {
-               if (++added < files.length + 1) {
-                  prog.update(
-                     added / (files.length + 1),
-                     added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + files[added - 1].name);
-                  return;
-               }
-               this.layerRoot.deserialize(backup);
-               prog.update(1, 'building a zip...');
-               z.generate(blob => {
-                  prog.close();
-                  saveAs(blob, Main.cleanForFilename(this.favorite.rootName) + '.zip');
-                  z.dispose(err => undefined);
-               }, e => errorHandler('cannot create a zip archive', e));
-            };
-
-            z.init(() => {
-               z.add(
-                  'favorites.pfv',
-                  new Blob([this.favorite.pfv], { type: 'text/plain; charset=utf-8' }),
-                  addedHandler,
-                  e => errorHandler('cannot write pfv to a zip archive', e));
-
-               let i = 0;
-               let process = () => {
-                  if ('filter' in files[i]) {
-                     this.layerRoot.deserializePartial('', files[i].value, files[i].filter);
-                  } else {
-                     this.layerRoot.deserialize(files[i].value);
-                  }
-                  this.render((progress, canvas) => {
-                     if (progress !== 1) {
-                        return;
-                     }
-                     z.add(
-                        files[i].name,
-                        new Blob([Main.dataSchemeURIToArrayBuffer(canvas.toDataURL())], { type: 'image/png' }),
-                        addedHandler,
-                        e => errorHandler('cannot write png to a zip archive', e));
-                     if (++i < files.length) {
-                        setTimeout(process, 0);
-                     }
-                  });
-               };
-               process();
-            }, e => errorHandler('cannot create a zip archive', e));
+            this.exportZIP(false);
          }, false);
-
+         document.getElementById('export-favorites-zip-filter-solo').addEventListener('click', e => {
+            this.exportZIP(true);
+         }, false);
          document.getElementById('export-layer-structure').addEventListener('click', e => {
             saveAs(new Blob([this.layerRoot.text], {
                type: 'text/plain'
             }), 'layer.txt');
          }, false);
 
+      }
+
+      private exportZIP(filterSolo: boolean): void {
+         let parents: Favorite.Node[] = [];
+         let path: string[] = [],
+            files: { name: string; value: string; filter?: string }[] = [];
+         let r = (children: Favorite.Node[]) => {
+            for (let item of children) {
+               path.push(Main.cleanForFilename(item.text));
+               switch (item.type) {
+                  case 'root':
+                     path.pop();
+                     r(item.children);
+                     path.push('');
+                     break;
+                  case 'folder':
+                     parents.unshift(item);
+                     r(item.children);
+                     parents.shift();
+                     break;
+                  case 'filter':
+                     parents.unshift(item);
+                     r(item.children);
+                     parents.shift();
+                     break;
+                  case 'item':
+                     let filter: string;
+                     for (let p of parents) {
+                        if (p.type === 'filter') {
+                           filter = p.data.value;
+                           break;
+                        }
+                     }
+                     if (filter) {
+                        files.push({
+                           name: path.join('\\') + '.png',
+                           value: item.data.value,
+                           filter: filter
+                        });
+                     } else {
+                        files.push({
+                           name: path.join('\\') + '.png',
+                           value: item.data.value
+                        });
+                     }
+                     break;
+                  default:
+                     throw new Error('unknown item type: ' + item.type);
+               }
+               path.pop();
+            }
+         };
+         let json = this.favorite.json;
+         r(json);
+
+         let backup = this.layerRoot.serialize(true);
+         let z = new Zipper.Zipper();
+
+         let prog = new ProgressDialog('Exporting...', '');
+
+         let aborted = false;
+         let errorHandler = (readableMessage: string, err: any) => {
+            z.dispose(err => undefined);
+            console.error(err);
+            if (!aborted) {
+               alert(readableMessage + ': ' + err);
+            }
+            prog.close();
+         };
+         // it is needed to avoid alert storm when reload during exporting.
+         window.addEventListener('unload', () => { aborted = true; }, false);
+
+         let added = 0;
+         let addedHandler = () => {
+            if (++added < files.length + 1) {
+               prog.update(
+                  added / (files.length + 1),
+                  added === 1 ? 'drawing...' : '(' + added + '/' + files.length + ') ' + files[added - 1].name);
+               return;
+            }
+            this.layerRoot.deserialize(backup);
+            prog.update(1, 'building a zip...');
+            z.generate(blob => {
+               prog.close();
+               saveAs(blob, Main.cleanForFilename(this.favorite.rootName) + '.zip');
+               z.dispose(err => undefined);
+            }, e => errorHandler('cannot create a zip archive', e));
+         };
+
+         z.init(() => {
+            z.add(
+               'favorites.pfv',
+               new Blob([this.favorite.pfv], { type: 'text/plain; charset=utf-8' }),
+               addedHandler,
+               e => errorHandler('cannot write pfv to a zip archive', e));
+
+            let i = 0;
+            let process = () => {
+               if ('filter' in files[i]) {
+                  this.layerRoot.deserializePartial(filterSolo ? '' : backup, files[i].value, files[i].filter);
+               } else {
+                  this.layerRoot.deserialize(files[i].value);
+               }
+               this.render((progress, canvas) => {
+                  if (progress !== 1) {
+                     return;
+                  }
+                  z.add(
+                     files[i].name,
+                     new Blob([Main.dataSchemeURIToArrayBuffer(canvas.toDataURL())], { type: 'image/png' }),
+                     addedHandler,
+                     e => errorHandler('cannot write png to a zip archive', e));
+                  if (++i < files.length) {
+                     setTimeout(process, 0);
+                  }
+               });
+            };
+            process();
+         }, e => errorHandler('cannot create a zip archive', e));
       }
 
       private initUI() {
