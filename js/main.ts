@@ -806,9 +806,8 @@ module psdtool {
             if (num < 0) {
                num = 0;
             }
-            if (this.save(prefix + ('0000' + num).slice(-4) + '.png')) {
-               this.seqDlNum.value = (num + 1).toString();
-            }
+            this.save(prefix + ('0000' + num).slice(-4) + '.png');
+            this.seqDlNum.value = (num + 1).toString();
          }, false);
 
          Mousetrap.pause();
