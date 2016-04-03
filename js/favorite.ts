@@ -430,7 +430,7 @@ module Favorite {
             }
             switch (node.type) {
                case 'item':
-                  node.data.value = original.data.value;
+                  node.data = { value: original.data.value };
                   break;
                case 'folder':
                   for (let i = 0; i < node.children.length; ++i) {
@@ -438,6 +438,7 @@ module Favorite {
                   }
                   break;
                case 'filter':
+                  node.data = { value: original.data.value };
                   for (let i = 0; i < node.children.length; ++i) {
                      process(this.jst.get_node(node.children[i]), this.jst.get_node(original.children[i]));
                   }
