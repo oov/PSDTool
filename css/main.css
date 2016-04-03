@@ -139,25 +139,33 @@ h1 small {
 .jstree-default .jstree-node {
    margin-left: 12px;
 }
-#filter-tree,
-#filter-tree ul {
+#filter-tree, #filter-tree ul {
    list-style-type: none;
+   padding-left: 0;
+}
+#filter-tree ul {
+   margin-left: 2em;
 }
 #filter-tree.disabled {
    display: none;
+}
+#filter-tree li.checked {
+   background-color: #def;
 }
 #filter-tree li.disabled {
    display: none;
 }
 #filter-tree li:not(.checked) {
-   color: #ccc;
-   text-decoration: line-through;
+   color: #888;
+   background-color: #fff;
 }
 #filter-tree label {
    margin: 0;
 }
-#bulk-rename-tree,
-#bulk-rename-tree ul {
+#filter-tree input[type=checkbox] {
+   margin: 0 4px;
+}
+#bulk-rename-tree, #bulk-rename-tree ul {
    list-style-type: none;
    padding-left: 1em;
 }

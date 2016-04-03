@@ -57,7 +57,6 @@ module LayerTree {
 
          let text = document.createTextNode(l.Name);
          let label = document.createElement('label');
-         label.className = 'checkbox';
          label.appendChild(input);
          label.appendChild(text);
          return {
@@ -192,7 +191,7 @@ module LayerTree {
                   continue;
                }
                this.nodes[key].disabled = false;
-               this.nodes[key].checked = true;
+               this.nodes[key].checked = false;
             }
             for (let i = parents.length - 1; i >= 0; --i) {
                this.apply(this.buildDeserializeTree(parents[i]), this.root, true);
@@ -202,12 +201,6 @@ module LayerTree {
                return;
             }
 
-            for (let key in this.nodes) {
-               if (!this.nodes.hasOwnProperty(key)) {
-                  continue;
-               }
-               this.nodes[key].checked = false;
-            }
             this.apply(this.buildDeserializeTree(state), this.root, false);
          } catch (e) {
             this.apply(this.buildDeserializeTree(old), this.root, false);
