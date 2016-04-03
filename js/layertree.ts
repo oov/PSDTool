@@ -332,7 +332,7 @@ module LayerTree {
          return root;
       }
 
-      private apply(dnode: DeserializeNode, fnode: Node): void {
+      private apply(dnode: DeserializeNode, fnode: Node, allLayer: boolean): void {
          let founds: StringSet = {};
          let cfnode: Node, cdnode: DeserializeNode;
          for (cfnode of fnode.children) {
@@ -344,14 +344,16 @@ module LayerTree {
 
             if (!dnode || !cdnode) {
                cfnode.checked = false;
-               this.apply(null, cfnode);
+               if (allLayer) {
+                  this.apply(null, cfnode, allLayer);
+               }
                continue;
             }
 
             if (cdnode.checked) {
                cfnode.checked = true;
             }
-            this.apply(cdnode, cfnode);
+            this.apply(cdnode, cfnode, allLayer);
          }
       }
 
@@ -363,11 +365,11 @@ module LayerTree {
                this.clear();
                this.normalize();
             }
-            this.apply(t, this.root);
+            this.apply(t, this.root, t.allLayer);
          } catch (e) {
             this.clear();
             this.normalize();
-            this.apply(this.buildDeserializeTree(old), this.root);
+            this.apply(this.buildDeserializeTree(old), this.root, true);
             throw e;
          }
       }
@@ -433,7 +435,7 @@ module LayerTree {
                      this.clear();
                      this.normalize();
                   }
-                  this.apply(base, this.root);
+                  this.apply(base, this.root, base.allLayer);
                }
             }
             let overlay = this.buildDeserializeTree(overlayState);
@@ -444,7 +446,7 @@ module LayerTree {
          } catch (e) {
             this.clear();
             this.normalize();
-            this.apply(this.buildDeserializeTree(old), this.root);
+            this.apply(this.buildDeserializeTree(old), this.root, true);
             throw e;
          }
       }
