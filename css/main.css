@@ -92,7 +92,7 @@ h1 small {
    left: 0;
    top: 0;
    min-width: 32px;
-   width: 25vw;
+   width: 28vw;
    height: 100vh;
    overflow: auto;
    box-sizing: border-box;
@@ -170,12 +170,12 @@ h1 small {
    padding-left: 1em;
 }
 #splitter {
-   left: 25vw;
+   left: 28vw;
    width: 4px;
 }
 #main-container {
    position: absolute;
-   left: 25vw;
+   left: 28vw;
    top: 0;
    padding: 0;
    margin: 0;

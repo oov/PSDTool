@@ -197,23 +197,19 @@
 						</div>
 					</div>
 					<div class="form-group psdtool-ui-item">
-						<label for="fixed-side">縮小</label>
 						<select class="form-control" id="fixed-side">
 							<option value="h" selected="selected">縦</option>
 							<option value="w">横</option>
 						</select>
 						<div class="input-group">
-							<div class="input-group-addon">最大</div>
-							<input type="text" class="form-control" id="max-pixels" inputmode="numeric" value="1200">
-							<div class="input-group-addon">px</div>
+							<input type="text" class="form-control" id="max-pixels" inputmode="numeric" value="1200" title="ここで入力したピクセル数に収まるように縮小されます。拡大はされません">
+							<div class="input-group-addon"><small>px まで</small></div>
 						</div>
 					</div>
 					<div class="form-group psdtool-ui-item">
-						<label for="seq-dl-prefix">連番DL</label>
-						<input id="seq-dl-prefix" type="text" class="form-control" value="file_">
-						<label class="sr-only" for="seq-dl-num">番号</label>
-						<input type="number" class="form-control" id="seq-dl-num" inputmode="numeric" value="0">
-						<button id="seq-dl" class="btn btn-primary">.png</button>
+						<input id="seq-dl-prefix" type="text" class="form-control" value="file_" title="ダウンロードする時のファイル名の接頭辞">
+						<input type="number" class="form-control" id="seq-dl-num" inputmode="numeric" value="0" title="ファイル番号">
+						<button id="seq-dl" class="btn btn-primary" title="このボタンを押すと PNG 形式で画像が保存されます">.png</button>
 					</div>
 				</div>
 			</div>
