@@ -19,6 +19,11 @@ module Favorite {
       originalText: string;
       children: RenameNode[];
    }
+   export const enum FaviewMode {
+      ShowLayerTree,
+      ShowFaview,
+      ShowFaviewAndReadme
+   }
    class JSONBuilder {
       private json_: Node[];
       get json(): Node[] { return this.json_; }
@@ -145,9 +150,13 @@ module Favorite {
    export class Favorite {
       public psdHash = '';
 
+      public onModified: () => void;
+      public onLoaded: () => void;
       public onClearSelection: () => void;
       public onSelect: (item: Node) => void;
       public onDoubleClick: (item: Node) => void;
+
+      public faviewMode: FaviewMode = FaviewMode.ShowFaviewAndReadme;
 
       private uniqueId = Date.now().toString() + Math.random().toString().substring(2);
       private tree: HTMLElement;
@@ -167,13 +176,56 @@ module Favorite {
       }
 
       get pfv(): string {
-         return buildPFV(this.json);
+         let json = this.json;
+         if (json.length !== 1) {
+            throw new Error('sorry but favorite tree data is broken');
+         }
+
+         let path: string[] = [];
+         let lines = ['[PSDToolFavorites-v1]'];
+         let r = (children: Node[]): void => {
+            for (let item of children) {
+               path.push(JSONBuilder.encodeName(item.text));
+               switch (item.type) {
+                  case 'root':
+                     lines.push('root-name/' + path[0]);
+                     lines.push('faview-mode/' + this.faviewMode.toString());
+                     lines.push('');
+                     path.pop();
+                     r(<Node[]>item.children);
+                     path.push('');
+                     break;
+                  case 'folder':
+                     if (item.children.length) {
+                        r(<Node[]>item.children);
+                     } else {
+                        lines.push('//' + path.join('/') + '~folder');
+                        lines.push('');
+                     }
+                     break;
+                  case 'filter':
+                     lines.push('//' + path.join('/') + '~filter');
+                     lines.push(item.data.value);
+                     lines.push('');
+                     r(<Node[]>item.children);
+                     break;
+                  case 'item':
+                     lines.push('//' + path.join('/'));
+                     lines.push(item.data.value);
+                     lines.push('');
+                     break;
+               }
+               path.pop();
+            }
+         };
+         r(json);
+         return lines.join('\n');
       }
 
-      constructor(element: HTMLElement, private defaultRootName: string) {
+      constructor(element: HTMLElement, private defaultRootName: string, loaded?: () => void) {
          this.tree = element;
          this.jq = jQuery(this.tree);
-         this.initTree();
+         this.initTree(loaded);
       }
 
       get renameNodes(): RenameNode[] {
@@ -230,6 +282,10 @@ module Favorite {
          }
       }
 
+      public get(id: string): Node {
+         return this.jst.get_node(id);
+      }
+
       public edit(id?: string): void {
          let target: any = id;
          if (id === undefined) {
@@ -257,10 +313,26 @@ module Favorite {
          }
       }
 
-      public getParents(n: Node): Node[] {
+      public getFirstFilter(n: Node): string {
+         for (let p of this.getParents(n, 'filter')) {
+            return p.data.value;
+         }
+      }
+
+      public getAncestorFilters(n: Node): string[] {
+         let r: string[] = [];
+         for (let p of this.getParents(n, 'filter')) {
+            r.push(p.data.value);
+         }
+         return r;
+      }
+
+      private getParents(n: Node, typeFilter?: string): Node[] {
          let parents: Node[] = [];
          for (let p = this.jst.get_node(n.parent); p; p = this.jst.get_node(p.parent)) {
-            parents.push(p);
+            if (typeFilter === undefined || typeFilter === p.type) {
+               parents.push(p);
+            }
          }
          return parents;
       }
@@ -396,8 +468,11 @@ module Favorite {
          }
          this.changedTimer = setTimeout(() => {
             this.changedTimer = 0;
+            if (this.onModified) {
+               this.onModified();
+            }
             this.updateLocalStorage();
-         }, 100);
+         }, 32);
       }
 
       private jstSelectionChanged(): void {
@@ -509,7 +584,7 @@ module Favorite {
          return newText + i;
       }
 
-      private initTree(data?: Node[]): void {
+      private initTree(loaded?: () => void, data?: Node[]): void {
          this.jq.jstree('destroy');
          this.jq.jstree({
             core: {
@@ -554,6 +629,11 @@ module Favorite {
          this.jq.on('create_node.jstree', (e, data) => this.jstCreateNode(e, data));
          this.jq.on('rename_node.jstree', (e, data) => this.jstRenameNode(e, data));
          this.jq.on('dblclick.jstree', (e) => this.jstDoubleClick(e));
+         this.jq.on('ready.jstree', (e) => {
+            if (loaded) {
+               loaded();
+            }
+         });
       }
 
       public loadFromArrayBuffer(ab: ArrayBuffer, uniqueId?: string): boolean {
@@ -574,14 +654,20 @@ module Favorite {
       }
 
       public loadFromString(s: string, uniqueId?: string): boolean {
-         this.initTree(this.stringToNodeTree(s));
-         if (uniqueId !== undefined) {
-            this.uniqueId = uniqueId;
-         }
+         let r = this.stringToNodeTree(s);
+         this.initTree((): void => {
+            if (uniqueId !== undefined) {
+               this.uniqueId = uniqueId;
+            }
+            this.faviewMode = r.faviewMode;
+            if (this.onLoaded) {
+               this.onLoaded();
+            }
+         }, r.root);
          return true;
       }
 
-      private stringToNodeTree(s: string): Node[] {
+      private stringToNodeTree(s: string): { root: Node[], faviewMode: FaviewMode } {
          let lines = s.replace(/\r/g, '').split('\n');
          if (lines.shift() !== '[PSDToolFavorites-v1]') {
             throw new Error('given PFV file does not have a valid header');
@@ -589,7 +675,8 @@ module Favorite {
 
          let jb = new JSONBuilder(this.defaultRootName);
          let setting: { [name: string]: string } = {
-            'root-name': this.defaultRootName
+            'root-name': this.defaultRootName,
+            'faview-mode': FaviewMode.ShowFaviewAndReadme.toString(),
          };
          let name: string,
             type: string,
@@ -633,7 +720,22 @@ module Favorite {
          } else {
             jb.add(name, type, data.join('\n'));
          }
-         return jb.json;
+         let faviewMode: FaviewMode;
+         let n = parseInt(setting['faview-mode'], 10);
+         switch (n) {
+            case FaviewMode.ShowLayerTree:
+            case FaviewMode.ShowFaview:
+            case FaviewMode.ShowFaviewAndReadme:
+               faviewMode = n;
+               break;
+            default:
+               faviewMode = FaviewMode.ShowFaviewAndReadme;
+               break;
+         }
+         return {
+            root: jb.json,
+            faviewMode: faviewMode
+         };
       }
    }
 
@@ -649,49 +751,293 @@ module Favorite {
       return c;
    }
 
-   function buildPFV(json: Node[]): string {
-      if (json.length !== 1) {
-         throw new Error('sorry but favorite tree data is broken');
-      }
-
-      let path: string[] = [];
-      let lines = ['[PSDToolFavorites-v1]'];
-      function r(children: Node[]) {
-         for (let item of children) {
-            path.push(JSONBuilder.encodeName(item.text));
-            switch (item.type) {
-               case 'root':
-                  lines.push('root-name/' + path[0]);
-                  lines.push('');
-                  path.pop();
-                  r(<Node[]>item.children);
-                  path.push('');
-                  break;
-               case 'folder':
-                  if (item.children.length) {
-                     r(<Node[]>item.children);
-                  } else {
-                     lines.push('//' + path.join('/') + '~folder');
-                     lines.push('');
-                  }
-                  break;
-               case 'filter':
-                  lines.push('//' + path.join('/') + '~filter');
-                  lines.push(item.data.value);
-                  lines.push('');
-                  r(<Node[]>item.children);
-                  break;
-               case 'item':
-                  lines.push('//' + path.join('/'));
-                  lines.push(item.data.value);
-                  lines.push('');
-                  break;
-            }
-            path.pop();
-         }
-      }
-      r(json);
-      return lines.join('\n');
+   interface SerializedFaviewDataItem {
+      [itemId: string]: {
+         value: string;
+         lastMod: number;
+      };
    }
 
+   interface SerializedFaviewData {
+      rootSelectedValue: string;
+      items: {
+         [rootItemId: string]: SerializedFaviewDataItem;
+      };
+   }
+
+   export class Faview {
+      public onChange: (node: Node) => void;
+      public onRootChanged: () => void;
+      get roots(): number {
+         return this.treeRoots.length;
+      }
+
+      private closed_: boolean = true;
+      get closed(): boolean {
+         return this.closed_;
+      }
+
+      private treeRoots: HTMLLIElement[] = [];
+      constructor(private favorite: Favorite, private rootSel: HTMLSelectElement, private root: HTMLUListElement) {
+         root.addEventListener('click', e => this.click(e), false);
+         root.addEventListener('change', e => this.change(e), false);
+         root.addEventListener('keyup', e => this.keyup(e), false);
+         rootSel.addEventListener('change', e => this.change(e), false);
+         rootSel.addEventListener('keyup', e => this.keyup(e), false);
+      }
+
+      private serialize(): SerializedFaviewData {
+         let result: SerializedFaviewData = {
+            rootSelectedValue: this.rootSel.value,
+            items: {}
+         };
+         for (let i = 0; i < this.treeRoots.length; ++i) {
+            let item: SerializedFaviewDataItem = {};
+            let selects = this.treeRoots[i].getElementsByTagName('select');
+            for (let i = 0; i < selects.length; ++i) {
+               item[selects[i].getAttribute('data-id')] = {
+                  value: selects[i].value,
+                  lastMod: parseInt(selects[i].getAttribute('data-lastmod'), 10)
+               };
+            }
+
+            let opt = this.rootSel.options[i];
+            if (opt instanceof HTMLOptionElement) {
+               result.items[opt.value] = item;
+            }
+         }
+         return result;
+      }
+
+      private deserialize(state: SerializedFaviewData): void {
+         for (let i = 0; i < this.rootSel.length; ++i) {
+            let opt = this.rootSel.options[i];
+            if (opt instanceof HTMLOptionElement && opt.value in state.items) {
+               let item = state.items[opt.value];
+               let elems = this.treeRoots[i].getElementsByTagName('select');
+               for (let i = 0; i < elems.length; ++i) {
+                  let elem = elems[i];
+                  if (elem instanceof HTMLSelectElement) {
+                     let id = elem.getAttribute('data-id');
+                     if (!(id in item)) {
+                        continue;
+                     }
+                     for (let j = 0; j < elem.length; ++j) {
+                        let opt = elem.options[j];
+                        if (opt instanceof HTMLOptionElement && opt.value === item[id].value) {
+                           elem.selectedIndex = j;
+                           elem.setAttribute('data-lastmod', item[id].lastMod.toString());
+                           break;
+                        }
+                     }
+                  }
+               }
+
+               if (state.rootSelectedValue === opt.value) {
+                  this.rootSel.selectedIndex = i;
+               }
+            }
+         }
+      }
+
+      private rootChanged(): void {
+         for (let i = 0; i < this.treeRoots.length; ++i) {
+            if (this.rootSel.selectedIndex !== i) {
+               this.treeRoots[i].style.display = 'none';
+               continue;
+            }
+
+            this.treeRoots[i].style.display = 'block';
+         }
+         if (this.onRootChanged) {
+            this.onRootChanged();
+         }
+      }
+
+      private changed(select: HTMLSelectElement): void {
+         select.setAttribute('data-lastmod', Date.now().toString());
+         if (this.onChange) {
+            this.onChange(this.favorite.get(select.value));
+         }
+      }
+
+      private keyup(e: KeyboardEvent): void {
+         let target = e.target;
+         if (target instanceof HTMLSelectElement) {
+            // it is a workaround for Firefox that does not fire change event by keyboard input
+            target.blur();
+            target.focus();
+         }
+      }
+
+      private change(e: Event): void {
+         let target = e.target;
+         if (target instanceof HTMLSelectElement) {
+            if (target === this.rootSel) {
+               this.rootChanged();
+               return;
+            }
+            this.changed(target);
+         }
+      }
+
+      private click(e: MouseEvent): void {
+         let target = e.target;
+         if (target instanceof HTMLButtonElement) {
+            let mv = 0;
+            if (target.classList.contains('psdtool-faview-prev')) {
+               mv = -1;
+            } else if (target.classList.contains('psdtool-faview-next')) {
+               mv = 1;
+            }
+            if (mv === 0) {
+               return;
+            }
+            let sel = target.parentElement.querySelector('select');
+            if (sel instanceof HTMLSelectElement) {
+               sel.selectedIndex = (sel.length + sel.selectedIndex + mv) % sel.length;
+               sel.focus();
+               this.changed(sel);
+            }
+         }
+      }
+
+      private addNode(n: Node, ul: HTMLUListElement): void {
+         let li = document.createElement('li');
+         let span = document.createElement('span');
+         span.className = 'glyphicon glyphicon-asterisk';
+         li.appendChild(span);
+         li.appendChild(document.createTextNode(n.text.replace(/^\*?/, ' ')));
+         ul.appendChild(li);
+
+         let sel = document.createElement('select');
+         sel.className = 'form-control psdtool-faview-select';
+         sel.setAttribute('data-id', n.id);
+         let cul = document.createElement('ul');
+         let opt: HTMLOptionElement;
+         let firstItemId: string;
+         let numItems = 0, numChild = 0;
+         for (let cn of n.children) {
+            if (typeof cn !== 'string') {
+               switch (cn.type) {
+                  case 'item':
+                     opt = document.createElement('option');
+                     opt.textContent = (++numItems).toString() + '. ' + cn.text;
+                     opt.value = cn.id;
+                     if (numItems === 1) {
+                        firstItemId = cn.id;
+                     }
+                     sel.appendChild(opt);
+                     break;
+                  case 'folder':
+                  case 'filter':
+                     this.addNode(cn, cul);
+                     ++numChild;
+                     break;
+               }
+            }
+         }
+         // show filtered entry only
+         if (numItems > 0 && this.favorite.getFirstFilter(this.favorite.get(firstItemId)) !== '') {
+            let prev = document.createElement('button');
+            prev.className = 'btn btn-default psdtool-faview-prev';
+            prev.innerHTML = '&lt;';
+            prev.tabIndex = -1;
+            let next = document.createElement('button');
+            next.className = 'btn btn-default psdtool-faview-next';
+            next.innerHTML = '&gt;';
+            next.tabIndex = -1;
+            let fs = document.createElement('div');
+            fs.className = 'psdtool-faview-select-container';
+            if (numItems === 1) {
+               fs.style.display = 'none';
+            }
+            fs.appendChild(prev);
+            fs.appendChild(sel);
+            fs.appendChild(next);
+            li.appendChild(fs);
+         }
+         if (numChild > 0) {
+            li.appendChild(cul);
+         }
+      }
+
+      private addRoot(nodes: Node[]): void {
+         let opt: HTMLOptionElement;
+         for (let n of nodes) {
+            if (n.text.length > 1 && n.text.charAt(0) === '*') {
+               opt = document.createElement('option');
+               opt.value = n.id;
+               opt.textContent = n.text.substring(1);
+               this.rootSel.appendChild(opt);
+
+               let ul = document.createElement('ul');
+               for (let cn of n.children) {
+                  if (typeof cn !== 'string') {
+                     switch (cn.type) {
+                        case 'folder':
+                        case 'filter':
+                           this.addNode(cn, ul);
+                     }
+                  }
+               }
+
+               let li = document.createElement('li');
+               li.style.display = 'none';
+               li.appendChild(ul);
+               this.treeRoots.push(li);
+               this.root.appendChild(li);
+
+               let selects = li.getElementsByTagName('select');
+               for (let i = 0; i < selects.length; ++i) {
+                  selects[i].setAttribute('data-lastmod', (selects.length - i).toString());
+               }
+            }
+            this.addRoot(n.children);
+         }
+      }
+
+      public start(state?: SerializedFaviewData): void {
+         this.treeRoots = [];
+         this.rootSel.innerHTML = '';
+         this.root.innerHTML = '';
+         this.addRoot(this.favorite.json);
+         if (state !== undefined) {
+            this.deserialize(state);
+         }
+         if (this.roots > 0) {
+            this.rootChanged();
+         }
+         this.closed_ = false;
+      }
+
+      public refresh(): void {
+         this.start(this.serialize());
+      }
+
+      public getActive(): Node[] {
+         let selects = this.treeRoots[this.rootSel.selectedIndex].getElementsByTagName('select');
+         let items: { n: Node, lastMod: number }[] = [];
+         for (let i = 0; i < selects.length; ++i) {
+            items.push({
+               n: this.favorite.get(selects[i].value),
+               lastMod: parseInt(selects[i].getAttribute('data-lastmod'), 10)
+            });
+         }
+         items.sort((a, b): number => a.lastMod === b.lastMod ? 0
+            : a.lastMod < b.lastMod ? -1 : 1);
+         let nodes: Node[] = [];
+         for (let i of items) {
+            nodes.push(i.n);
+         }
+         return nodes;
+      }
+
+      public close(): void {
+         this.treeRoots = [];
+         this.rootSel.innerHTML = '';
+         this.root.innerHTML = '';
+         this.closed_ = true;
+      }
+   }
 }

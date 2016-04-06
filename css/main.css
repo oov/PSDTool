@@ -124,10 +124,10 @@ h1 small {
    box-shadow: 1px -1px 2px #ddd;
    border-top: 2px solid #9bf;
 }
-#favs-pane {
+.psdtool-tab-pane {
    position: relative;
 }
-#favorite-toolbar {
+.psdtool-tab-toolbar {
    position: absolute;
    background: linear-gradient(to bottom, #ffffff 0%, #efefef 100%);
    left: 0;
@@ -300,4 +300,51 @@ label {
 .psdtool-clipped-mark {
    height: 1rem;
    margin: 0 0.5rem 0 0.25rem;
+}
+#faview {
+   padding: 8px 0 0 0;
+}
+#faview-tree, #faview-tree ul {
+   list-style-type: none;
+}
+#faview-tree, #faview-tree > li > ul {
+   padding: 0;
+}
+#faview-tree li {
+   margin-top: 1em;
+}
+#faview-tree ul {
+   padding: 0 0 0 1em;
+}
+.psdtool-faview-select-container {
+   position: relative;
+   margin: 0 3em;
+}
+.psdtool-faview-prev,
+.psdtool-faview-next {
+   position: absolute;
+   top: 0;
+   width: 3em;
+   border: 0;
+}
+.psdtool-faview-prev:focus,
+.psdtool-faview-next:focus,
+   .psdtool-faview-prev:active:focus,
+   .psdtool-faview-next:active:focus {
+      outline: 0;
+}
+.psdtool-faview-prev {
+   left: 0;
+   margin-left: -3em;
+}
+.psdtool-faview-next {
+   right: 0;
+   margin-right: -3em;
+}
+#readme {
+   font: 12pt/1.7 Osaka-mono, "Osaka-等幅", "MS Gothic", monospace;
+   white-space: pre-wrap;
+   padding: 0;
+   border: 0;
+   background: transparent;
 }

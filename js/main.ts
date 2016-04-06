@@ -106,18 +106,13 @@ module psdtool {
             }
          }
          jQuery(this.dialog).on('shown.bs.modal', e => {
-            let parents: string[] = [];
-            for (let p of this.favorite.getParents(this.node)) {
-               if (p.type === 'filter') {
-                  parents.push(p.data.value);
-               }
-            }
+            let filters = this.favorite.getAncestorFilters(this.node);
             if (this.node.type === 'filter') {
                this.useFilter.checked = true;
-               this.root.deserialize(this.node.data.value, parents);
+               this.root.deserialize(this.node.data.value, filters);
             } else {
                this.useFilter.checked = false;
-               this.root.deserialize('', parents);
+               this.root.deserialize('', filters);
             }
             this.updateClass();
          });
@@ -184,6 +179,42 @@ module psdtool {
          }
       }
    }
+   class FaviewSettingDialog {
+      public onUpdate: () => void;
+      private faviewMode: HTMLSelectElement;
+      private dialog: HTMLDivElement;
+
+      constructor(private favorite: Favorite.Favorite) {
+         {
+            let faviewMode = document.getElementById('faview-mode');
+            if (faviewMode instanceof HTMLSelectElement) {
+               this.faviewMode = faviewMode;
+            } else {
+               throw new Error('#faview-mode is not a SELECT element');
+            }
+         }
+         this.faviewMode.addEventListener('change', e => this.update());
+
+         {
+            let dialog = document.getElementById('faview-setting-dialog');
+            if (dialog instanceof HTMLDivElement) {
+               this.dialog = dialog;
+            } else {
+               throw new Error('#faview-setting-dialog is not an DIV element');
+            }
+         }
+         jQuery(this.dialog).on('shown.bs.modal', e => {
+            this.faviewMode.selectedIndex = this.favorite.faviewMode;
+         });
+      }
+
+      private update(): void {
+         this.favorite.faviewMode = this.faviewMode.selectedIndex;
+         if (this.onUpdate) {
+            this.onUpdate();
+         }
+      }
+   }
    export class Main {
       private optionAutoTrim: HTMLInputElement;
       private optionSafeMode: HTMLInputElement;
@@ -194,7 +225,6 @@ module psdtool {
       private previewCanvas: HTMLCanvasElement;
       private previewBackground: HTMLElement;
 
-      private showReadme: HTMLButtonElement;
       private invertInput: HTMLInputElement;
       private fixedSide: HTMLSelectElement;
       private maxPixels: HTMLInputElement;
@@ -202,7 +232,6 @@ module psdtool {
       private seqDlNum: HTMLInputElement;
       private seqDl: HTMLButtonElement;
 
-      private favoriteToolbar: HTMLElement;
       private bulkCreateFolderTextarea: HTMLTextAreaElement;
       private bulkRenameData: Favorite.RenameNode[];
 
@@ -255,20 +284,34 @@ module psdtool {
          let mainContainer = document.getElementById('main-container');
          let miscUi = document.getElementById('misc-ui');
          let previewContainer = document.getElementById('preview-container');
+         let old = previewContainer.style.display;
          previewContainer.style.display = 'none';
          previewContainer.style.width = mainContainer.clientWidth + 'px';
          previewContainer.style.height = (mainContainer.clientHeight - miscUi.offsetHeight) + 'px';
-         previewContainer.style.display = 'block';
+         previewContainer.style.display = old;
 
          let sideContainer = document.getElementById('side-container');
          let sideHead = document.getElementById('side-head');
          let sideBody = document.getElementById('side-body');
+         old = sideBody.style.display;
          sideBody.style.display = 'none';
          sideBody.style.width = sideContainer.clientWidth + 'px';
          sideBody.style.height = (sideContainer.clientHeight - sideHead.offsetHeight) + 'px';
-         sideBody.style.display = 'block';
+         sideBody.style.display = old;
 
-         document.getElementById('favorite-tree').style.paddingTop = this.favoriteToolbar.clientHeight + 'px';
+         let toolbars = document.querySelectorAll('.psdtool-tab-toolbar');
+         for (let i = 0; i < toolbars.length; ++i) {
+            let elem = toolbars[i];
+            if (elem instanceof HTMLElement) {
+               let p = elem.parentElement;
+               while (!p.classList.contains('psdtool-tab-pane') && p) {
+                  p = p.parentElement;
+               }
+               if (p) {
+                  p.style.paddingTop = elem.clientHeight + 'px';
+               }
+            }
+         }
       }
 
       private loadAndParse(input: File | string) {
@@ -317,6 +360,7 @@ module psdtool {
             progress,
             psd => {
                try {
+                  this.psdRoot = psd;
                   this.loadLayerTree(psd);
                   this.filterDialog.load(psd);
                   this.loadRenderer(psd);
@@ -324,7 +368,20 @@ module psdtool {
                   this.maxPixels.value = (this.optionAutoTrim.checked ? this.renderer.Height : this.renderer.CanvasHeight).toString();
                   this.seqDlPrefix.value = obj.name;
                   this.seqDlNum.value = '0';
-                  this.showReadme.style.display = psd.Readme !== '' ? 'block' : 'none';
+
+                  let readmeButtons = document.querySelectorAll('.psdtool-show-readme');
+                  for (let i = 0, elem: Element; i < readmeButtons.length; ++i) {
+                     elem = readmeButtons[i];
+                     if (elem instanceof HTMLElement) {
+                        if (psd.Readme !== '') {
+                           elem.classList.remove('hidden');
+                        } else {
+                           elem.classList.add('hidden');
+                        }
+                     }
+                  }
+                  document.getElementById('readme').textContent = psd.Readme;
+
                   //  TODO: error handling
                   this.favorite.psdHash = psd.Hash;
                   if (this.droppedPFV) {
@@ -340,7 +397,6 @@ module psdtool {
                         }
                      }
                   }
-                  this.psdRoot = psd;
                   this.redraw();
                   deferred.resolve(true);
                } catch (e) {
@@ -375,6 +431,30 @@ module psdtool {
          this.favorite = new Favorite.Favorite(
             document.getElementById('favorite-tree'),
             document.getElementById('favorite-tree').getAttribute('data-root-name'));
+         this.favorite.onModified = () => {
+            this.needRefreshFaview = true;
+         };
+         this.favorite.onLoaded = () => {
+            this.startFaview();
+            switch (this.favorite.faviewMode) {
+               case Favorite.FaviewMode.ShowLayerTree:
+                  this.toogleTreeFaview(false);
+                  break;
+               case Favorite.FaviewMode.ShowFaview:
+                  if (!this.faview.closed) {
+                     this.toogleTreeFaview(true);
+                  }
+                  break;
+               case Favorite.FaviewMode.ShowFaviewAndReadme:
+                  if (!this.faview.closed) {
+                     this.toogleTreeFaview(true);
+                     if (this.psdRoot.Readme !== '') {
+                        jQuery('#readme-dialog').modal('show');
+                     }
+                  }
+                  break;
+            }
+         };
          this.favorite.onClearSelection = () => this.leaveReaderMode();
          this.favorite.onSelect = (item: Favorite.Node) => {
             if (item.type !== 'item') {
@@ -382,14 +462,10 @@ module psdtool {
                return;
             }
             try {
-               let filter: string;
-               for (let p of this.favorite.getParents(item)) {
-                  if (p.type === 'filter') {
-                     filter = p.data.value;
-                     break;
-                  }
-               }
-               this.enterReaderMode(item.data.value, filter, item.text + '.png');
+               this.enterReaderMode(
+                  item.data.value,
+                  this.favorite.getFirstFilter(item),
+                  item.text + '.png');
             } catch (e) {
                console.error(e);
                alert(e);
@@ -399,14 +475,7 @@ module psdtool {
             try {
                switch (item.type) {
                   case 'item':
-                     let filter: string;
-                     for (let p of this.favorite.getParents(item)) {
-                        if (p.type === 'filter') {
-                           filter = p.data.value;
-                           break;
-                        }
-                     }
-                     this.leaveReaderMode(item.data.value, filter);
+                     this.leaveReaderMode(item.data.value, this.favorite.getFirstFilter(item));
                      break;
                   case 'folder':
                   case 'filter':
@@ -585,7 +654,93 @@ module psdtool {
                type: 'text/plain'
             }), 'layer.txt');
          }, false);
+         document.getElementById('toggle-tree-faview').addEventListener('click', e => {
+            this.toogleTreeFaview();
+         }, false);
 
+         this.faviewSettingDialog = new FaviewSettingDialog(this.favorite);
+         this.faviewSettingDialog.onUpdate = () => this.favorite.updateLocalStorage();
+      }
+
+      private toogleTreeFaview(forceActiveFaview?: boolean): void {
+         let tree = document.getElementById('layer-tree');
+         let faview = document.getElementById('faview');
+         if (forceActiveFaview === undefined) {
+            forceActiveFaview = faview.classList.contains('hidden');
+         }
+         if (forceActiveFaview) {
+            tree.classList.add('hidden');
+            faview.classList.remove('hidden');
+            this.faviewOnRootChanged();
+         } else {
+            tree.classList.remove('hidden');
+            faview.classList.add('hidden');
+         }
+      }
+
+      private faviewSettingDialog: FaviewSettingDialog;
+      private faview: Favorite.Faview;
+      private needRefreshFaview: boolean;
+      private startFaview(): void {
+         this.resized();
+         if (!this.faview) {
+            let rootSel: HTMLSelectElement;
+            let root: HTMLUListElement;
+            let elem = document.getElementById('faview-root-node');
+            if (elem instanceof HTMLSelectElement) {
+               rootSel = elem;
+            } else {
+               throw new Error('element not found: #faview-root-node');
+            }
+            elem = document.getElementById('faview-tree');
+            if (elem instanceof HTMLUListElement) {
+               root = elem;
+            } else {
+               throw new Error('element not found: #faview-tree');
+            }
+            this.faview = new Favorite.Faview(this.favorite, rootSel, root);
+            this.faview.onRootChanged = () => this.faviewOnRootChanged();
+            this.faview.onChange = node => this.faviewOnChange(node);
+         }
+         document.getElementById('layer-tree-toolbar').classList.remove('hidden');
+         this.faview.start();
+         this.needRefreshFaview = false;
+         if (this.faview.roots === 0) {
+            this.endFaview();
+         } else {
+            this.resized();
+         }
+      }
+
+      private refreshFaview(): void {
+         if (!this.needRefreshFaview) {
+            return;
+         }
+         this.faview.refresh();
+         this.needRefreshFaview = false;
+         if (this.faview.roots === 0) {
+            this.endFaview();
+         }
+      }
+
+      private faviewOnRootChanged(): void {
+         this.leaveReaderMode();
+         for (let n of this.faview.getActive()) {
+            this.layerRoot.deserializePartial(
+               undefined, n.data.value, this.favorite.getFirstFilter(n));
+         }
+         this.redraw();
+      }
+
+      private faviewOnChange(node: Favorite.Node): void {
+         this.leaveReaderMode(node.data.value, this.favorite.getFirstFilter(node));
+      }
+
+      private endFaview() {
+         document.getElementById('layer-tree-toolbar').classList.add('hidden');
+         this.toogleTreeFaview(false);
+         this.resized();
+         this.faview.close();
       }
 
       private exportZIP(filterSolo: boolean): void {
@@ -594,7 +749,7 @@ module psdtool {
             files: { name: string; value: string; filter?: string }[] = [];
          let r = (children: Favorite.Node[]) => {
             for (let item of children) {
-               path.push(Main.cleanForFilename(item.text));
+               path.push(Main.cleanForFilename(item.text.replace(/^\*/, '')));
                switch (item.type) {
                   case 'root':
                      path.pop();
@@ -712,10 +867,16 @@ module psdtool {
          this.optionSafeMode = Main.getInputElement('#option-safe-mode');
 
          // save and restore scroll position of side-body on each tab.
-         this.favoriteToolbar = document.getElementById('favorite-toolbar');
+         let toolbars = document.querySelectorAll('.psdtool-tab-toolbar');
          this.sideBody = document.getElementById('side-body');
          this.sideBody.addEventListener('scroll', e => {
-            this.favoriteToolbar.style.top = this.sideBody.scrollTop + 'px';
+            let pos = this.sideBody.scrollTop + 'px';
+            for (let i = 0; i < toolbars.length; ++i) {
+               let elem = toolbars[i];
+               if (elem instanceof HTMLElement) {
+                  elem.style.top = pos;
+               }
+            }
          }, false);
          this.sideBodyScrollPos = {};
          jQuery('a[data-toggle="tab"]').on('hide.bs.tab', e => {
@@ -734,6 +895,10 @@ module psdtool {
          });
          jQuery('a[data-toggle="tab"][href="#layer-tree-pane"]').on('show.bs.tab', e => {
             this.leaveReaderMode();
+            if (!this.faview || this.faview.closed) {
+               this.startFaview();
+            }
+            this.refreshFaview();
          });
 
          this.initFavoriteUI();
@@ -754,18 +919,6 @@ module psdtool {
             }
             e.dataTransfer.setData('text/uri-list', s);
             e.dataTransfer.setData('text/plain', s);
-         }, false);
-
-         elem = document.getElementById('show-readme');
-         if (elem instanceof HTMLButtonElement) {
-            this.showReadme = elem;
-         } else {
-            throw new Error('element not found: #show-readme');
-         }
-         this.showReadme.addEventListener('click', e => {
-            let w = window.open('', null);
-            w.document.body.innerHTML = '<title>Readme - PSDTool</title><pre style="font: 12pt/1.7 monospace;"></pre>';
-            w.document.querySelector('pre').textContent = this.psdRoot.Readme;
          }, false);
 
          jQuery('#main').on('splitpaneresize', e => this.resized()).splitPane();
@@ -1160,7 +1313,7 @@ module psdtool {
    let originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;
    Mousetrap.prototype.stopCallback = function(e: KeyboardEvent, element: HTMLElement, combo?: string): boolean {
       if (!this.paused) {
-         if (element.classList.contains('psdtool-layer-visible')) {
+         if (element.classList.contains('psdtool-layer-visible') || element.classList.contains('psdtool-faview-select')) {
             return false;
          }
       }

@@ -126,7 +126,7 @@
 	<div id="main" class="split-pane fixed-left">
 		<div id="side-container" class="split-pane-component">
 			<div id="side-head">
-				<button class="btn btn-sm btn-info btn-block" id="show-readme">Readme を読む</button>
+				<button class="btn btn-sm btn-info btn-block psdtool-show-readme" data-toggle="modal" data-target="#readme-dialog">Readme を読む</button>
 				<ul id="side-tab" class="nav nav-tabs">
 					<li role="presentation" class="active"><a href="#layer-tree-pane" aria-controls="レイヤー" role="tab" data-toggle="tab">レイヤー</a></li>
 					<li role="presentation"><a href="#favs-pane" aria-controls="お気に入り" role="tab" data-toggle="tab">お気に入り</a></li>
@@ -134,14 +134,25 @@
 			</div>
 			<div id="side-body">
 				<div class="tab-content">
-					<div role="tabpanel" class="tab-pane active" id="layer-tree-pane">
+					<div role="tabpanel" class="tab-pane psdtool-tab-pane active" id="layer-tree-pane">
 						<ul id="layer-tree"></ul>
+						<div id="faview" class="hidden">
+							<select class="form-control" id="faview-root-node"></select>
+							<ul id="faview-tree"></ul>
+						</div>
+						<div id="layer-tree-toolbar" class="psdtool-tab-toolbar hidden clearfix">
+							<div class="btn-toolbar pull-right" role="toolbar" aria-label="お気に入り編集">
+								<div class="btn-group" role="group" aria-label="その他">
+									<button type="button" id="toggle-tree-faview" class="btn btn-default btn-sm" title="レイヤーツリービューとシンプルビューを切り替え(F9)">ツリー ⇆ シンプル</button>
+								</div>
+							</div>
+						</div>
 					</div>
-					<div role="tabpanel" class="tab-pane" id="favs-pane">
+					<div role="tabpanel" class="tab-pane psdtool-tab-pane" id="favs-pane">
 						<div id="pfv-dropzone2">
 							<div id="favorite-tree" data-root-name="お気に入り"></div>
 						</div>
-						<div id="favorite-toolbar" class="clearfix">
+						<div id="favorite-toolbar" class="psdtool-tab-toolbar clearfix">
 							<div class="btn-toolbar pull-right" role="toolbar" aria-label="お気に入り編集">
 								<div class="btn-group" role="group" aria-label="新規">
 									<button type="button" class="btn btn-default btn-sm" data-psdtool-tree-add-item="#favorite-tree" title="現在のレイヤー表示をお気に入りに追加(Ctrl + B / Option + B)" data-caption="現在のレイヤー表示をお気に入りに追加"><span class="glyphicon glyphicon-star"></span></button>
@@ -160,6 +171,8 @@
 										<ul class="dropdown-menu dropdown-menu-right">
 											<li><a href="#" data-toggle="modal" data-target="#bulk-create-folder-dialog"><span class="glyphicon glyphicon-folder-open"></span> 一括フォルダー作成</a></li>
 											<li><a href="#" data-toggle="modal" data-target="#bulk-rename-dialog"><span class="glyphicon glyphicon-pencil"></span> 一括名前変更</a></li>
+											<li role="separator" class="divider"></li>
+											<li><a href="#" data-toggle="modal" data-target="#faview-setting-dialog"><span class="glyphicon glyphicon-th-list"></span> シンプルビュー設定</a></li>
 											<li role="separator" class="divider"></li>
 											<li><a href="#" data-toggle="modal" data-target="#import-dialog"><span class="glyphicon glyphicon-open-file"></span> インポート</a></li>
 											<li><a href="#" data-toggle="modal" data-target="#export-dialog"><span class="glyphicon glyphicon-save-file"></span> エクスポート</a></li>
@@ -276,14 +289,14 @@
 					<p><small>PFV ファイルはお気に入りの情報が記録されたテキストファイルで、「インポート」を使って読み込んだりエディタで開いて直接編集したりできます。</small></p>
 					<p>
 						<div class="btn-group">
-						  <button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
-						  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-						    <span class="caret"></span>
-						    <span class="sr-only">オプション</span>
-						  </button>
-						  <ul class="dropdown-menu">
-						    <li><a href="#" data-dismiss="modal" id="export-favorites-zip-filter-solo">フィルタリングされた項目は残ったパーツのみを出力</a></li>
-						  </ul>
+							<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
+							<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								<span class="caret"></span>
+								<span class="sr-only">オプション</span>
+							</button>
+							<ul class="dropdown-menu">
+								<li><a href="#" data-dismiss="modal" id="export-favorites-zip-filter-solo">フィルタリングされた項目は残ったパーツのみを出力</a></li>
+							</ul>
 						</div>
 					</p>
 					<p><small>PNG ファイルと PFV ファイルを無圧縮の ZIP ファイルに書き出します。パターン数に応じて相応の時間が掛かります。画像には現在の左右反転や縮小などの設定が適用されます。</small></p>
@@ -324,7 +337,9 @@
 						お気に入りに作成したいフォルダー名を改行で区切って入力してください。
 						<br>先頭や末尾のスペース、空行などは無視されます。
 					</p>
-					<p><textarea id="bulk-create-folder-textarea" class="form-control" rows="8"></textarea></p>
+					<p>
+						<textarea id="bulk-create-folder-textarea" class="form-control" rows="8"></textarea>
+					</p>
 					<button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-create-folder">フォルダー作成</button>
 				</div>
 			</div>
@@ -344,6 +359,45 @@
 					</p>
 					<ul id="bulk-rename-tree"></ul>
 					<button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-rename">名前を変更</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal" id="readme-dialog" tabindex="-1" role="dialog" aria-labelledby="readme-dialog-label">
+		<div class="modal-dialog modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<h4 class="modal-title" id="readme-dialog-label">Readme</h4>
+				</div>
+				<div class="modal-body">
+					<pre id="readme"></pre>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal" id="faview-setting-dialog" tabindex="-1" role="dialog" aria-labelledby="faview-setting-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<h4 class="modal-title" id="faview-setting-dialog-label">シンプルビュー設定</h4>
+				</div>
+				<div class="modal-body">
+					<p><small>
+						「シンプルビュー」はレイヤーツリーの代わりに使える、シンプルな切り替え方式の表示形式です。<br>
+						これを使用するためにはフィルタリングされたお気に入りを組み立てる必要があります。<a href="manual.html#feature-faview" target="manual">詳細</a>
+					</small></p>
+					<div class="form-group">
+						<label for="faview-mode">シンプルビューが使えるお気に入りデータを読み込んだ時の動作</label>
+						<select class="form-control" id="faview-mode">
+							<option value="0">レイヤーツリーを表示</option>
+							<option value="1">シンプルビューを表示</option>
+							<option value="2">シンプルビューを表示 ＋ Readme があれば自動表示</option>
+						</select>
+					</div>
 				</div>
 			</div>
 		</div>
