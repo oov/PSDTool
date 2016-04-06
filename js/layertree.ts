@@ -18,6 +18,16 @@ module LayerTree {
    interface FilterNode {
       children: { [k: string]: FilterNode };
    }
+   export const enum FlipType {
+      NoFlip,
+      FlipX,
+      FlipY,
+      FlipXY,
+   }
+   interface FlipSet {
+      normal: Node;
+      flipped: Node;
+   }
    export class Node {
       get checked(): boolean { return this.input.checked; }
       set checked(v: boolean) { this.input.checked = v; }
@@ -74,7 +84,92 @@ module LayerTree {
          return text.join('\n');
       }
 
-      constructor(private disableExtendedFeature: boolean, treeRoot: HTMLUListElement, psdRoot: psd.Root) {
+      private flipX: FlipSet[] = [];
+      private flipY: FlipSet[] = [];
+      private flipXY: FlipSet[] = [];
+      private flip_ = FlipType.NoFlip;
+      get flip(): FlipType { return this.flip_; }
+      set flip(v: FlipType) {
+         this.flip_ = v;
+         this.treeRoot.classList.remove('psdtool-flip-x', 'psdtool-flip-y', 'psdtool-flip-xy');
+         switch (v) {
+            case FlipType.NoFlip:
+               this.doFlip(this.flipX, false);
+               this.doFlip(this.flipY, false);
+               this.doFlip(this.flipXY, false);
+               break;
+            case FlipType.FlipX:
+               this.doFlip(this.flipY, false);
+               this.doFlip(this.flipXY, false);
+               this.doFlip(this.flipX, true);
+               this.treeRoot.classList.add('psdtool-flip-x');
+               break;
+            case FlipType.FlipY:
+               this.doFlip(this.flipXY, false);
+               this.doFlip(this.flipX, false);
+               this.doFlip(this.flipY, true);
+               this.treeRoot.classList.add('psdtool-flip-y');
+               break;
+            case FlipType.FlipXY:
+               this.doFlip(this.flipX, false);
+               this.doFlip(this.flipY, false);
+               this.doFlip(this.flipXY, true);
+               this.treeRoot.classList.add('psdtool-flip-xy');
+               break;
+         }
+      }
+
+      private flipSerialize(root: Node): DeserializeNode {
+         let r = (n: Node, dn: DeserializeNode): void => {
+            let cdn: DeserializeNode;
+            for (let cn of n.children) {
+               dn.children[cn.internalName] = cdn = {
+                  checked: cn.checked,
+                  children: {}
+               };
+               r(cn, cdn);
+            }
+         };
+         let result: DeserializeNode = {
+            checked: root.checked,
+            children: {},
+         };
+         r(root, result);
+         return result;
+      }
+
+      private flipDeserialize(root: Node, state: DeserializeNode): void {
+         let r = (n: Node, dn: DeserializeNode): void => {
+            let cdn: DeserializeNode;
+            for (let cn of n.children) {
+               if (!(cn.internalName in dn.children)) {
+                  continue;
+               }
+               cdn = dn.children[cn.internalName];
+               cn.checked = cdn.checked;
+               r(cn, cdn);
+            }
+         };
+         r(root, state);
+      }
+
+      private doFlip(flipSet: FlipSet[], flip: boolean): void {
+         for (let fs of flipSet) {
+            if (flip && fs.normal.checked) {
+               let state = this.flipSerialize(fs.normal);
+               this.flipDeserialize(fs.flipped, state);
+               fs.flipped.checked = true;
+               fs.normal.checked = false;
+            } else if (!flip && fs.flipped.checked) {
+               let state = this.flipSerialize(fs.flipped);
+               this.flipDeserialize(fs.normal, state);
+               fs.normal.checked = true;
+               fs.flipped.checked = false;
+            }
+         }
+      }
+
+      constructor(private disableExtendedFeature: boolean, private treeRoot: HTMLUListElement, psdRoot: psd.Root) {
          let path: string[] = [];
          let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[], parentSeqID: number): void => {
             let indexes: { [SeqID: number]: number } = {};
@@ -106,7 +201,11 @@ module LayerTree {
          };
          r(treeRoot, this.root, psdRoot.Children, -1);
          this.registerClippingGroup(psdRoot.Children);
+         if (!this.disableExtendedFeature) {
+            this.registerFlippingGroup();
+         }
          this.normalize();
+         this.flip = this.flip;
       }
 
       private createElements(l: psd.Layer, parentSeqID: number): {
@@ -143,6 +242,12 @@ module LayerTree {
             input.type = 'checkbox';
             input.checked = l.Visible;
          }
+
+         if (!this.disableExtendedFeature) {
+            // trim :flipx :flipy :flipxy
+            layerName = this.parseToken(layerName).name;
+         }
+
          input.setAttribute('data-seq', l.SeqID.toString());
          name.appendChild(input);
 
@@ -237,6 +342,81 @@ module LayerTree {
                clip = [];
             }
          }
+      }
+
+      private parseToken(name: string): { tokens: string[], name: string } {
+         let token: string[] = [];
+         let p = name.split(':');
+         for (let i = p.length - 1; i >= 0; --i) {
+            switch (p[i]) {
+               case 'flipx':
+               case 'flipy':
+               case 'flipxy':
+                  token.push(p.pop());
+                  break;
+               default:
+                  return { tokens: token, name: p.join(':') };
+            }
+         }
+      }
+
+      private registerFlippingGroup(): void {
+         let r = (n: Node): void => {
+            for (let cn of n.children) {
+               r(cn);
+
+               let tokens = this.parseToken(cn.name);
+               let flips: FlipType[] = [];
+               for (let tk of tokens.tokens) {
+                  switch (tk) {
+                     case 'flipx':
+                        flips.push(FlipType.FlipX);
+                        break;
+                     case 'flipy':
+                        flips.push(FlipType.FlipY);
+                        break;
+                     case 'flipxy':
+                        flips.push(FlipType.FlipXY);
+                        break;
+                  }
+               }
+               if (flips.length === 0) {
+                  continue;
+               }
+
+               let o: Node;
+               for (let on of n.children) {
+                  if (on.name === tokens.name) {
+                     o = on;
+                     break;
+                  }
+               }
+               if (!o) {
+                  continue;
+               }
+
+               for (let fp of flips) {
+                  switch (fp) {
+                     case FlipType.FlipX:
+                        o.li.classList.add('psdtool-item-flip-x-orig');
+                        cn.li.classList.add('psdtool-item-flip-x');
+                        this.flipX.push({ normal: o, flipped: cn });
+                        break;
+                     case FlipType.FlipY:
+                        o.li.classList.add('psdtool-item-flip-y-orig');
+                        cn.li.classList.add('psdtool-item-flip-y');
+                        this.flipY.push({ normal: o, flipped: cn });
+                        break;
+                     case FlipType.FlipXY:
+                        o.li.classList.add('psdtool-item-flip-xy-orig');
+                        cn.li.classList.add('psdtool-item-flip-xy');
+                        this.flipXY.push({ normal: o, flipped: cn });
+                        break;
+                  }
+               }
+            }
+         };
+         r(this.root);
       }
 
       private getAllNode(): Node[] {
@@ -366,10 +546,10 @@ module LayerTree {
                this.normalize();
             }
             this.apply(t, this.root, t.allLayer);
+            this.flip = this.flip;
          } catch (e) {
-            this.clear();
-            this.normalize();
             this.apply(this.buildDeserializeTree(old), this.root, true);
+            this.flip = this.flip;
             throw e;
          }
       }
@@ -443,10 +623,10 @@ module LayerTree {
                throw new Error('cannot use allLayer mode in LayerTree.deserializePartial');
             }
             this.applyWithFilter(overlay, this.buildFilterTree(filter), this.root);
+            this.flip = this.flip;
          } catch (e) {
-            this.clear();
-            this.normalize();
             this.apply(this.buildDeserializeTree(old), this.root, true);
+            this.flip = this.flip;
             throw e;
          }
       }

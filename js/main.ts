@@ -225,7 +225,7 @@ module psdtool {
       private previewCanvas: HTMLCanvasElement;
       private previewBackground: HTMLElement;
 
-      private invertInput: HTMLInputElement;
+      private flip: HTMLSelectElement;
       private fixedSide: HTMLSelectElement;
       private maxPixels: HTMLInputElement;
       private seqDlPrefix: HTMLInputElement;
@@ -543,6 +543,11 @@ module psdtool {
                   let elems = document.querySelectorAll('input[name="' + target.name + '"].psdtool-layer-radio');
                   for (let i = 0; i < elems.length; ++i) {
                      n = this.layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq'), 10)];
+                     if (n.li.classList.contains('psdtool-item-flip-x') ||
+                        n.li.classList.contains('psdtool-item-flip-y') ||
+                        n.li.classList.contains('psdtool-item-flip-xy')) {
+                        continue;
+                     }
                      n.checked = true;
                      this.favorite.add('item', false, n.displayName, this.layerRoot.serialize(false));
                      created.push(n.displayName);
@@ -923,8 +928,12 @@ module psdtool {
 
          jQuery('#main').on('splitpaneresize', e => this.resized()).splitPane();
 
-         this.invertInput = Main.getInputElement('#invert-input');
-         this.invertInput.addEventListener('click', e => this.redraw(), false);
+         elem = document.getElementById('flip');
+         if (elem instanceof HTMLSelectElement) {
+            this.flip = elem;
+         }
+         this.flip.addEventListener('change', e => this.redraw(), false);
+         this.flip.addEventListener('keyup', e => { this.flip.blur(); this.flip.focus(); }, false);
          elem = document.getElementById('fixed-side');
          if (elem instanceof HTMLSelectElement) {
             this.fixedSide = elem;
@@ -1035,7 +1044,29 @@ module psdtool {
                scale = 1 / w;
             }
          }
-         this.renderer.render(scale, autoTrim, this.invertInput.checked, callback);
+         let rf: Renderer.FlipType;
+         let flipType: LayerTree.FlipType = parseInt(this.flip.value, 10);
+         switch (flipType) {
+            case LayerTree.FlipType.NoFlip:
+               rf = Renderer.FlipType.NoFlip;
+               break;
+            case LayerTree.FlipType.FlipX:
+               rf = Renderer.FlipType.FlipX;
+               break;
+            case LayerTree.FlipType.FlipY:
+               rf = Renderer.FlipType.FlipY;
+               break;
+            case LayerTree.FlipType.FlipXY:
+               rf = Renderer.FlipType.FlipXY;
+               break;
+            default:
+               rf = Renderer.FlipType.NoFlip;
+               flipType = LayerTree.FlipType.NoFlip;
+         }
+         if (this.layerRoot.flip !== flipType) {
+            this.layerRoot.flip = flipType;
+         }
+         this.renderer.render(scale, autoTrim, rf, callback);
       }
 
       // layerTree --------------------------------

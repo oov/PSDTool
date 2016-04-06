@@ -52,7 +52,10 @@ h1 small {
 #manual h3 {
    margin: 4rem 0 2rem;
 }
-#dropzone, #pfv-dropzone, #pfv-dropzone2, #try-sample {
+#dropzone,
+#pfv-dropzone,
+#pfv-dropzone2,
+#try-sample {
    min-height: 26rem;
    border: 1px dashed transparent;
    background-color: #fff;
@@ -60,11 +63,14 @@ h1 small {
 #pfv-dropzone {
    min-height: 8rem;
 }
-#dropzone input[type=file], #pfv-dropzone input[type=file] {
+#dropzone input[type=file],
+#pfv-dropzone input[type=file] {
    display: block;
    width: 100%;
 }
-#dropzone.psdtool-drop-active, #pfv-dropzone.psdtool-drop-active, #pfv-dropzone2.psdtool-drop-active {
+#dropzone.psdtool-drop-active,
+#pfv-dropzone.psdtool-drop-active,
+#pfv-dropzone2.psdtool-drop-active {
    border: 1px dashed #4bf;
    background-color: #def;
 }
@@ -139,7 +145,8 @@ h1 small {
 .jstree-default .jstree-node {
    margin-left: 12px;
 }
-#filter-tree, #filter-tree ul {
+#filter-tree,
+#filter-tree ul {
    list-style-type: none;
    padding-left: 0;
 }
@@ -165,7 +172,8 @@ h1 small {
 #filter-tree input[type=checkbox] {
    margin: 0 4px;
 }
-#bulk-rename-tree, #bulk-rename-tree ul {
+#bulk-rename-tree,
+#bulk-rename-tree ul {
    list-style-type: none;
    padding-left: 1em;
 }
@@ -193,11 +201,13 @@ h1 small {
 #misc-ui .psdtool-ui-item {
    padding: 8px 0.75em;
 }
-#fixed-side {
+#fixed-side,
+#flip {
    padding: 0;
 }
 @media (min-width: 768px) {
-   #max-pixels, #seq-dl-num {
+   #max-pixels,
+   #seq-dl-num {
       width: 6rem;
       padding: 0 0 0 4px;
    }
@@ -246,6 +256,19 @@ h1 small {
    margin: auto;
    display: block;
 }
+.psdtool-item-flip-x,
+.psdtool-item-flip-y,
+.psdtool-item-flip-xy,
+.psdtool-flip-x .psdtool-item-flip-x-orig,
+.psdtool-flip-y .psdtool-item-flip-y-orig,
+.psdtool-flip-xy .psdtool-item-flip-xy-orig {
+   display: none;
+}
+.psdtool-flip-x .psdtool-item-flip-x,
+.psdtool-flip-y .psdtool-item-flip-y,
+.psdtool-flip-xy .psdtool-item-flip-xy {
+   display: block;
+}
 label {
    user-select: none;
    -moz-user-select: none;
@@ -264,7 +287,8 @@ label {
    padding: 4px;
    white-space: nowrap;
 }
-#invert input, .psdtool-layer-name input {
+#invert input,
+.psdtool-layer-name input {
    margin: 0;
    vertical-align: middle;
 }
@@ -272,7 +296,8 @@ label {
    transition: opacity 0.25s;
    opacity: 1;
 }
-.psdtool-folder.psdtool-hidden > ul, .psdtool-hidden-by-clipping > .psdtool-layer-name > label {
+.psdtool-folder.psdtool-hidden > ul,
+.psdtool-hidden-by-clipping > .psdtool-layer-name > label {
    opacity: 0.25;
 }
 .psdtool-thumbnail {
@@ -291,7 +316,10 @@ label {
 #layer-tree li {
    list-style-type: none;
 }
-#invert input, .psdtool-layer-name input, #layer-tree .psdtool-icon, #layer-tree .psdtool-thumbnail {
+#invert input,
+.psdtool-layer-name input,
+#layer-tree .psdtool-icon,
+#layer-tree .psdtool-thumbnail {
    margin-right: 0.5rem;
 }
 #layer-tree .psdtool-icon {
@@ -304,10 +332,12 @@ label {
 #faview {
    padding: 8px 0 0 0;
 }
-#faview-tree, #faview-tree ul {
+#faview-tree,
+#faview-tree ul {
    list-style-type: none;
 }
-#faview-tree, #faview-tree > li > ul {
+#faview-tree,
+#faview-tree > li > ul {
    padding: 0;
 }
 #faview-tree li {
@@ -329,9 +359,9 @@ label {
 }
 .psdtool-faview-prev:focus,
 .psdtool-faview-next:focus,
-   .psdtool-faview-prev:active:focus,
-   .psdtool-faview-next:active:focus {
-      outline: 0;
+.psdtool-faview-prev:active:focus,
+.psdtool-faview-next:active:focus {
+   outline: 0;
 }
 .psdtool-faview-prev {
    left: 0;

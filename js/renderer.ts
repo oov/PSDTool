@@ -1,5 +1,11 @@
 'use strict';
 module Renderer {
+   export const enum FlipType {
+      NoFlip,
+      FlipX,
+      FlipY,
+      FlipXY
+   }
    export class Node {
       get visible(): boolean { return this.getVisibleState(); }
 
@@ -99,7 +105,7 @@ module Renderer {
          }
       }
 
-      public render(scale: number, autoTrim: boolean, mirror: boolean,
+      public render(scale: number, autoTrim: boolean, flip: FlipType,
          callback: (progress: number, canvas: HTMLCanvasElement) => void): void {
          let s = Date.now();
 
@@ -136,9 +142,19 @@ module Renderer {
             let ctx = canvas.getContext('2d');
             this.clear(ctx);
             ctx.save();
-            if (mirror) {
-               ctx.translate(canvas.width, 0);
-               ctx.scale(-1, 1);
+            switch (flip) {
+               case FlipType.FlipX:
+                  ctx.translate(canvas.width, 0);
+                  ctx.scale(-1, 1);
+                  break;
+               case FlipType.FlipY:
+                  ctx.translate(0, canvas.height);
+                  ctx.scale(1, -1);
+                  break;
+               case FlipType.FlipXY:
+                  ctx.translate(canvas.width, canvas.height);
+                  ctx.scale(-1, -1);
+                  break;
             }
             ctx.drawImage(
                c,
