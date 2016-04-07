@@ -6,8 +6,8 @@
 //   use web worker
 //   convert to type script
 class DownScaler {
-   get destWidth(): number { return 0 | this.src.width * this.scale; }
-   get destHeight(): number { return 0 | this.src.height * this.scale; }
+   get destWidth(): number { return 0 | Math.max(1, this.src.width * this.scale); }
+   get destHeight(): number { return 0 | Math.max(1, this.src.height * this.scale); }
    private dest: HTMLCanvasElement = document.createElement('canvas');
    constructor(private src: HTMLCanvasElement, private scale: number) { }
 
