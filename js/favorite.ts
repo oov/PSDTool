@@ -1,5 +1,11 @@
 'use strict';
 module Favorite {
+   export interface PFVOnLS {
+      id: string;
+      time: number;
+      hash: string;
+      data: string;
+   }
    export interface Node {
       id?: string;
       text?: string;
@@ -110,6 +116,12 @@ module Favorite {
       public static decodeName(s: string): string {
          return decodeURIComponent(s);
       }
+   }
+
+   function stringToArrayBuffer(s: string, complete: (ab: ArrayBuffer) => void): void {
+      let fr = new FileReader();
+      fr.onload = e => complete(fr.result);
+      fr.readAsArrayBuffer(new Blob([s]));
    }
 
    // https://gist.github.com/boushley/5471599
@@ -434,35 +446,6 @@ module Favorite {
          return ids;
       }
 
-      public updateLocalStorage(): void {
-         let p = this.pfv;
-         let pfvs: any[] = [];
-         if ('psdtool_pfv' in localStorage) {
-            pfvs = JSON.parse(localStorage['psdtool_pfv']);
-         }
-         let found = false;
-         for (let i = 0; i < pfvs.length; ++i) {
-            if (pfvs[i].id === this.uniqueId && pfvs[i].hash === this.psdHash) {
-               pfvs.splice(i, 1);
-               found = true;
-               break;
-            }
-         }
-         if (!found && countEntries(p) === 0) {
-            return;
-         }
-         pfvs.push({
-            id: this.uniqueId,
-            time: new Date().getTime(),
-            hash: this.psdHash,
-            data: p
-         });
-         while (pfvs.length > 8) {
-            pfvs.shift();
-         }
-         localStorage['psdtool_pfv'] = JSON.stringify(pfvs);
-      }
-
       private changedTimer = 0;
       private jstChanged(): void {
          if (this.changedTimer) {
@@ -638,15 +621,55 @@ module Favorite {
          });
       }
 
-      public loadFromArrayBuffer(ab: ArrayBuffer, uniqueId?: string): boolean {
-         return this.loadFromString(arrayBufferToString(ab), uniqueId);
+      public updateLocalStorage(): void {
+         let pfv = this.pfv;
+         stringToArrayBuffer(pfv, ab => {
+            let pfvs = this.getPFVListFromLocalStorage();
+            let found = false;
+            let newUniqueId = 'pfv' + CRC32.crc32(ab).toString(16);
+            for (let i = 0; i < pfvs.length; ++i) {
+               if (pfvs[i].id === this.uniqueId && pfvs[i].hash === this.psdHash) {
+                  pfvs.splice(i, 1);
+                  found = true;
+                  continue;
+               }
+               if (pfvs[i].id === newUniqueId && pfvs[i].hash === this.psdHash) {
+                  pfvs.splice(i, 1);
+               }
+            }
+            if (!found && countEntries(pfv) === 0) {
+               return;
+            }
+            this.uniqueId = newUniqueId;
+            pfvs.push({
+               id: this.uniqueId,
+               time: new Date().getTime(),
+               hash: this.psdHash,
+               data: pfv
+            });
+            while (pfvs.length > 8) {
+               pfvs.shift();
+            }
+            localStorage['psdtool_pfv'] = JSON.stringify(pfvs);
+         });
+      }
+
+      public getPFVListFromLocalStorage(): PFVOnLS[] {
+         if (!('psdtool_pfv' in localStorage)) {
+            return [];
+         }
+         return JSON.parse(localStorage['psdtool_pfv']);
+      }
+
+      public loadFromArrayBuffer(ab: ArrayBuffer): boolean {
+         return this.loadFromString(arrayBufferToString(ab), 'pfv' + CRC32.crc32(ab).toString(16));
       }
 
       public loadFromLocalStorage(hash: string): boolean {
-         if (!('psdtool_pfv' in localStorage)) {
+         let pfv = this.getPFVListFromLocalStorage();
+         if (!pfv.length) {
             return false;
          }
-         let pfv = JSON.parse(localStorage['psdtool_pfv']);
          for (var i = pfv.length - 1; i >= 0; --i) {
             if (pfv[i].hash === hash) {
                return this.loadFromString(pfv[i].data, pfv[i].id);
@@ -656,16 +679,23 @@ module Favorite {
       }
 
       public loadFromString(s: string, uniqueId?: string): boolean {
-         let r = this.stringToNodeTree(s);
-         this.initTree((): void => {
-            if (uniqueId !== undefined) {
-               this.uniqueId = uniqueId;
-            }
-            this.faviewMode = r.faviewMode;
-            if (this.onLoaded) {
-               this.onLoaded();
-            }
-         }, r.root);
+         let load = (id: string): void => {
+            let r = this.stringToNodeTree(s);
+            this.initTree((): void => {
+               this.uniqueId = id;
+               this.faviewMode = r.faviewMode;
+               if (this.onLoaded) {
+                  this.onLoaded();
+               }
+            }, r.root);
+         };
+         if (uniqueId !== undefined) {
+            load(uniqueId);
+         } else {
+            stringToArrayBuffer(s, ab => {
+               load('pfv' + CRC32.crc32(ab).toString(16));
+            });
+         }
          return true;
       }
 
@@ -1040,6 +1070,32 @@ module Favorite {
          this.rootSel.innerHTML = '';
          this.root.innerHTML = '';
          this.closed_ = true;
+      }
+   }
+
+   class CRC32 {
+      // Based on http://stackoverflow.com/a/18639999
+      private static makeCRCTable(): Uint32Array {
+         let c: number, n: number, k: number;
+         const crcTable = new Uint32Array(256);
+         for (n = 0; n < 256; n++) {
+            c = n;
+            for (k = 0; k < 8; k++) {
+               c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+            }
+            crcTable[n] = c;
+         }
+         return crcTable;
+      }
+      private static crcTable = CRC32.makeCRCTable();
+      public static crc32(src: ArrayBuffer): number {
+         const crcTable = CRC32.crcTable;
+         let u8a = new Uint8Array(src);
+         let crc = 0 ^ (-1);
+         for (let i = 0; i < u8a.length; i++) {
+            crc = (crc >>> 8) ^ crcTable[(crc ^ u8a[i]) & 0xFF];
+         }
+         return (crc ^ (-1)) >>> 0;
       }
    }
 }

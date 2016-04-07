@@ -575,11 +575,8 @@ module psdtool {
             // build the recent list
             let recents = document.getElementById('pfv-recents');
             recents.innerHTML = '';
-            let pfvs: { id: string; hash: string; data: string; time: number }[] = [],
-               btn: HTMLButtonElement;
-            if ('psdtool_pfv' in localStorage) {
-               pfvs = JSON.parse(localStorage['psdtool_pfv']);
-            }
+            let btn: HTMLButtonElement;
+            let pfvs = this.favorite.getPFVListFromLocalStorage();
             for (let i = pfvs.length - 1; i >= 0; --i) {
                btn = document.createElement('button');
                btn.type = 'button';
