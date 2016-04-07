@@ -501,8 +501,8 @@ module psdtool {
          });
          Mousetrap.bind('mod+b', e => {
             e.preventDefault();
-            let text = prompt(document.querySelector('button[data-psdtool-tree-add-item]').getAttribute('data-caption'), '');
-            if (text === null || text === '') {
+            let text = prompt(document.querySelector('button[data-psdtool-tree-add-item]').getAttribute('data-caption'), 'New Item');
+            if (text === null) {
                return;
             }
             this.leaveReaderMode();
@@ -514,8 +514,8 @@ module psdtool {
          });
          Mousetrap.bind('mod+d', e => {
             e.preventDefault();
-            let text = prompt(document.querySelector('button[data-psdtool-tree-add-folder]').getAttribute('data-caption'), '');
-            if (text === null || text === '') {
+            let text = prompt(document.querySelector('button[data-psdtool-tree-add-folder]').getAttribute('data-caption'), 'New Folder');
+            if (text === null) {
                return;
             }
             this.favorite.clearSelection();

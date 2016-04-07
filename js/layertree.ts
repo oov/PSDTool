@@ -592,7 +592,6 @@ module LayerTree {
             }
             if (!dnode || !cdnode) {
                cfnode.checked = false;
-               this.applyWithFilter(null, cfilter, cfnode);
                continue;
             }
 
