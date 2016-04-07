@@ -661,21 +661,20 @@ module Favorite {
          return JSON.parse(localStorage['psdtool_pfv']);
       }
 
-      public loadFromArrayBuffer(ab: ArrayBuffer): boolean {
-         return this.loadFromString(arrayBufferToString(ab), 'pfv' + CRC32.crc32(ab).toString(16));
-      }
-
-      public loadFromLocalStorage(hash: string): boolean {
-         let pfv = this.getPFVListFromLocalStorage();
-         if (!pfv.length) {
-            return false;
+      public getPFVFromLocalStorage(hash: string): PFVOnLS {
+         let pfvs = this.getPFVListFromLocalStorage();
+         if (!pfvs.length) {
+            return null;
          }
-         for (var i = pfv.length - 1; i >= 0; --i) {
-            if (pfv[i].hash === hash) {
-               return this.loadFromString(pfv[i].data, pfv[i].id);
+         for (var i = pfvs.length - 1; i >= 0; --i) {
+            if (pfvs[i].hash === hash) {
+               return pfvs[i];
             }
          }
-         return false;
+      }
+
+      public loadFromArrayBuffer(ab: ArrayBuffer): boolean {
+         return this.loadFromString(arrayBufferToString(ab), 'pfv' + CRC32.crc32(ab).toString(16));
       }
 
       public loadFromString(s: string, uniqueId?: string): boolean {

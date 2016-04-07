@@ -400,10 +400,11 @@ module psdtool {
                      };
                      fr.readAsArrayBuffer(this.droppedPFV);
                   } else {
-                     if (!this.favorite.loadFromLocalStorage(psd.Hash)) {
-                        if (psd.PFV !== '') {
-                           this.favorite.loadFromString(psd.PFV);
-                        }
+                     let pfvData = this.favorite.getPFVFromLocalStorage(psd.Hash);
+                     if (pfvData && pfvData.time / 1000 > psd.PFVModDate) {
+                        this.favorite.loadFromString(pfvData.data, pfvData.id);
+                     } else if (psd.PFV) {
+                        this.favorite.loadFromString(psd.PFV);
                      }
                   }
                   this.redraw();
