@@ -981,7 +981,9 @@ module Favorite {
             let fs = document.createElement('div');
             fs.className = 'psdtool-faview-select-container';
             if (numItems === 1) {
-               fs.style.display = 'none';
+               prev.disabled = true;
+               sel.disabled = true;
+               next.disabled = true;
             }
             fs.appendChild(prev);
             fs.appendChild(sel);
