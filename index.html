@@ -192,6 +192,7 @@
 				<div class="form-inline">
 					<div class="form-group psdtool-ui-item">
 						<div class="checkbox">
+							<label for="flip" class="sr-only">画像の反転</label>
 							<select id="flip" class="form-control" title="画像を反転">
 								<option value="0">反転なし</option>
 								<option value="1">左右反転</option>
@@ -201,18 +202,23 @@
 						</div>
 					</div>
 					<div class="form-group psdtool-ui-item">
+						<label for="fixed-side" class="sr-only">最大ピクセル数を指定する方向</label>
 						<select class="form-control" id="fixed-side">
 							<option value="h" selected="selected">縦</option>
 							<option value="w">横</option>
 						</select>
 						<div class="input-group">
+							<label for="max-pixels" class="sr-only">画像の最大ピクセル数</label>
 							<input type="text" class="form-control" id="max-pixels" inputmode="numeric" value="1200" title="このピクセル数に収まるように画像を縮小">
 							<div class="input-group-addon input-sm"><small>pxまで</small></div>
 						</div>
 					</div>
 					<div class="form-group psdtool-ui-item">
+						<label for="seq-dl-prefix" class="sr-only">ダウンロードファイル名の接頭辞</label>
 						<input id="seq-dl-prefix" type="text" class="form-control" value="file_" title="ダウンロードする時のファイル名の接頭辞">
+						<label for="seq-dl-num" class="sr-only">ダウンロードファイル名の通し番号</label>
 						<input type="number" class="form-control" id="seq-dl-num" inputmode="numeric" value="0" title="ファイルの通し番号">
+						<label for="seq-dl" class="sr-only">ファイルをダウンロード</label>
 						<button id="seq-dl" class="btn btn-primary" title="PNG 形式で画像を保存">.png</button>
 					</div>
 				</div>
