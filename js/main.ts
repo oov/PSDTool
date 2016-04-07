@@ -68,7 +68,7 @@ module psdtool {
             let inp = e.target;
             if (inp instanceof HTMLInputElement) {
                let li = inp.parentElement;
-               while (li && !(li instanceof HTMLLIElement)) {
+               while (!(li instanceof HTMLLIElement)) {
                   li = li.parentElement;
                }
                let checked = inp.checked;
@@ -79,11 +79,20 @@ module psdtool {
                      inp.checked = checked;
                   }
                }
+               if (checked) {
+                  for (let parent = li.parentElement; parent !== this.treeRoot; parent = parent.parentElement) {
+                     if (parent instanceof HTMLLIElement) {
+                        let inp = parent.querySelector('input');
+                        if (inp instanceof HTMLInputElement) {
+                           inp.checked = true;
+                        }
+                     }
+                  }
+               }
                this.updateClass();
                this.update();
             }
          }, false);
-
          {
             let useFilter = document.getElementById('use-filter');
             if (useFilter instanceof HTMLInputElement) {
