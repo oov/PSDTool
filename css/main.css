@@ -307,6 +307,18 @@ label {
    width: 24px;
    height: 24px;
 }
+#faview,
+#show-layer-tree-view,
+.faview-active #layer-tree,
+.faview-active #show-faview {
+   display: none;
+}
+#layer-tree,
+#show-faview,
+.faview-active #faview,
+.faview-active #show-layer-tree-view {
+   display: block;
+}
 #layer-tree {
    padding: 8px 0 0 0;
    margin-bottom: 0;

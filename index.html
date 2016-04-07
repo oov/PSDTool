@@ -117,7 +117,7 @@
 			<div class="col-xs-12">
 				<div class="well text-center">
 					<small>
-						Created by <a href="https://github.com/oov/psdtool" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a> | Please listen to <a href="https://www.youtube.com/watch?v=SldjqJz3thA" target="_blank">my song</a>
+						Created by <a href="https://github.com/oov/PSDTool" target="_blank">oov</a> | Powered by <a href="http://www.gopherjs.org/" target="_blank">GopherJS</a> | Please use a <a href="https://whatbrowser.org/" target="_blank">modern browser</a> | Please listen to <a href="https://www.youtube.com/watch?v=SldjqJz3thA" target="_blank">my song</a>
 					</small>
 				</div>
 			</div>
@@ -136,14 +136,15 @@
 				<div class="tab-content">
 					<div role="tabpanel" class="tab-pane psdtool-tab-pane active" id="layer-tree-pane">
 						<ul id="layer-tree"></ul>
-						<div id="faview" class="hidden">
+						<div id="faview">
 							<select class="form-control" id="faview-root-node"></select>
 							<ul id="faview-tree"></ul>
 						</div>
 						<div id="layer-tree-toolbar" class="psdtool-tab-toolbar hidden clearfix">
 							<div class="btn-toolbar pull-right" role="toolbar" aria-label="お気に入り編集">
 								<div class="btn-group" role="group" aria-label="その他">
-									<button type="button" id="toggle-tree-faview" class="btn btn-default btn-sm" title="レイヤーツリービューとシンプルビューを切り替え(F9)">ツリー ⇆ シンプル</button>
+									<button type="button" id="show-layer-tree-view" class="btn btn-default btn-sm psdtool-toggle-tree-faview">レイヤーツリーに切り替え</button>
+									<button type="button" id="show-faview" class="btn btn-default btn-sm psdtool-toggle-tree-faview">シンプルビューに切り替え</button>
 								</div>
 							</div>
 						</div>
@@ -191,7 +192,7 @@
 				<div class="form-inline">
 					<div class="form-group psdtool-ui-item">
 						<div class="checkbox">
-							<select id="flip" class="form-control" title="画像を反転させます">
+							<select id="flip" class="form-control" title="画像を反転">
 								<option value="0">反転なし</option>
 								<option value="1">左右反転</option>
 								<option value="2">上下反転</option>
@@ -205,14 +206,14 @@
 							<option value="w">横</option>
 						</select>
 						<div class="input-group">
-							<input type="text" class="form-control" id="max-pixels" inputmode="numeric" value="1200" title="ここで入力したピクセル数に収まるように縮小されます。拡大はされません">
+							<input type="text" class="form-control" id="max-pixels" inputmode="numeric" value="1200" title="このピクセル数に収まるように画像を縮小">
 							<div class="input-group-addon input-sm"><small>pxまで</small></div>
 						</div>
 					</div>
 					<div class="form-group psdtool-ui-item">
 						<input id="seq-dl-prefix" type="text" class="form-control" value="file_" title="ダウンロードする時のファイル名の接頭辞">
-						<input type="number" class="form-control" id="seq-dl-num" inputmode="numeric" value="0" title="ファイル番号">
-						<button id="seq-dl" class="btn btn-primary" title="このボタンを押すと PNG 形式で画像が保存されます">.png</button>
+						<input type="number" class="form-control" id="seq-dl-num" inputmode="numeric" value="0" title="ファイルの通し番号">
+						<button id="seq-dl" class="btn btn-primary" title="PNG 形式で画像を保存">.png</button>
 					</div>
 				</div>
 			</div>

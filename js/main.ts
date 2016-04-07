@@ -690,27 +690,26 @@ module psdtool {
                type: 'text/plain'
             }), 'layer.txt');
          }, false);
-         document.getElementById('toggle-tree-faview').addEventListener('click', e => {
-            this.toogleTreeFaview();
-         }, false);
+
+         let faviewToggleButtons = document.querySelectorAll('.psdtool-toggle-tree-faview');
+         for (let i = 0; i < faviewToggleButtons.length; ++i) {
+            faviewToggleButtons[i].addEventListener('click', e => this.toogleTreeFaview(), false);
+         }
 
          this.faviewSettingDialog = new FaviewSettingDialog(this.favorite);
          this.faviewSettingDialog.onUpdate = () => this.favorite.updateLocalStorage();
       }
 
       private toogleTreeFaview(forceActiveFaview?: boolean): void {
-         let tree = document.getElementById('layer-tree');
-         let faview = document.getElementById('faview');
+         let pane = document.getElementById('layer-tree-pane');
          if (forceActiveFaview === undefined) {
-            forceActiveFaview = faview.classList.contains('hidden');
+            forceActiveFaview = !pane.classList.contains('faview-active');
          }
          if (forceActiveFaview) {
-            tree.classList.add('hidden');
-            faview.classList.remove('hidden');
+            pane.classList.add('faview-active');
             this.faviewOnRootChanged();
          } else {
-            tree.classList.remove('hidden');
-            faview.classList.add('hidden');
+            pane.classList.remove('faview-active');
          }
       }
 
