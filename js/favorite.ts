@@ -318,6 +318,7 @@ module Favorite {
          for (let p of this.getParents(n, 'filter')) {
             return p.data.value;
          }
+         return '';
       }
 
       public getAncestorFilters(n: Node): string[] {
