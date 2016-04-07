@@ -339,7 +339,7 @@
 					<p>
 						<textarea id="bulk-create-folder-textarea" class="form-control" rows="8"></textarea>
 					</p>
-					<button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-create-folder">フォルダー作成</button>
+					<button type="button" class="btn btn-primary" data-dismiss="modal" id="bulk-create-folder">フォルダー作成</button>
 				</div>
 			</div>
 		</div>
@@ -354,10 +354,22 @@
 				</div>
 				<div class="modal-body">
 					<p>
-						テキストを書き換えて「名前を変更」ボタンを押すと変更されます。
+						入力欄を書き換えて「名前を変更」ボタンを押すと変更されます。
+						<br> また、入力欄を空欄して名前を変更をすると、上から順番に数字が割り当てられます。
 					</p>
 					<ul id="bulk-rename-tree"></ul>
-					<button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-rename">名前を変更</button>
+					<p class="form-inline">空欄には
+						<select id="rename-digits" class="form-control">
+							<option value="1">1</option>
+							<option value="2" selected>2</option>
+							<option value="3">3</option>
+							<option value="4">4</option>
+						</select>
+						桁の数字を
+						<input type="number" id="rename-start-number" inputmode="numeric" value="0" class="form-control">
+						から順番に割り当て
+					</p>
+					<button type="button" class="btn btn-primary" data-dismiss="modal" id="bulk-rename">名前を変更</button>
 				</div>
 			</div>
 		</div>

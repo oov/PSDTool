@@ -207,7 +207,8 @@ h1 small {
 }
 @media (min-width: 768px) {
    #max-pixels,
-   #seq-dl-num {
+   #seq-dl-num,
+   #rename-start-number {
       width: 5rem;
       padding: 0 0 0 4px;
    }

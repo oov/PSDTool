@@ -246,15 +246,16 @@ module Favorite {
       }
 
       public bulkRename(nodes: RenameNode[]): void {
-         let r = (n: RenameNode[]): void => {
+         let r = (n: RenameNode[], reserve: boolean): void => {
             for (let cn of n) {
                if (cn.originalText !== cn.text) {
-                  this.jst.rename_node(cn.id, cn.text);
+                  this.jst.rename_node(cn.id, reserve ? '_' : cn.text);
                }
-               r(cn.children);
+               r(cn.children, reserve);
             }
          };
-         r(nodes);
+         r(nodes, true);
+         r(nodes, false);
       }
 
       private jstCheck(op: string, node: Node, parent: Node): boolean {

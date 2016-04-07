@@ -640,6 +640,30 @@ module psdtool {
             r(elem, this.bulkRenameData);
          });
          document.getElementById('bulk-rename').addEventListener('click', e => {
+            // auto numbering
+            let digits = 1;
+            {
+               let elem = document.getElementById('rename-digits');
+               if (elem instanceof HTMLSelectElement) {
+                  digits = parseInt(elem.value, 10);
+               }
+            }
+            let n = 0;
+            {
+               let elem = document.getElementById('rename-start-number');
+               if (elem instanceof HTMLInputElement) {
+                  n = parseInt(elem.value, 10);
+               }
+            }
+            let elems = document.getElementById('bulk-rename-tree').querySelectorAll('input');
+            for (let i = 0; i < elems.length; ++i) {
+               let elem = elems[i];
+               if (elem instanceof HTMLInputElement && elem.value === '') {
+                  elem.value = ('0000' + n.toString()).slice(-digits);
+                  elem.onblur(null);
+                  ++n;
+               }
+            }
             this.favorite.bulkRename(this.bulkRenameData);
          }, false);
 
