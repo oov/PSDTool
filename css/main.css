@@ -98,7 +98,7 @@ h1 small {
    left: 0;
    top: 0;
    min-width: 32px;
-   width: 28vw;
+   width: 29vw;
    height: 100vh;
    overflow: auto;
    box-sizing: border-box;
@@ -178,12 +178,12 @@ h1 small {
    padding-left: 1em;
 }
 #splitter {
-   left: 28vw;
+   left: 29vw;
    width: 4px;
 }
 #main-container {
    position: absolute;
-   left: 28vw;
+   left: 29vw;
    top: 0;
    padding: 0;
    margin: 0;
@@ -208,7 +208,7 @@ h1 small {
 @media (min-width: 768px) {
    #max-pixels,
    #seq-dl-num {
-      width: 6rem;
+      width: 5rem;
       padding: 0 0 0 4px;
    }
    #seq-dl-prefix {
