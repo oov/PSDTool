@@ -492,6 +492,7 @@ module psdtool {
          this.filterDialog.onUpdate = (id, type, data) => {
             this.favorite.update({ id, type, data: { value: data } });
             this.favorite.updateLocalStorage();
+            this.needRefreshFaview = true;
          };
 
          jQuery('button[data-psdtool-tree-add-item]').on('click', e => {
