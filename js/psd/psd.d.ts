@@ -39,6 +39,7 @@ declare module psd {
 
       Hash: string;
       PFV: string;
+      PFVModDate: number;
       Readme: string;
    }
    interface PSD {

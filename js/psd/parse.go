@@ -29,6 +29,7 @@ type root struct {
 	CanvasHeight int
 	Hash         string
 	PFV          string
+	PFVModDate   int64
 	Readme       string
 
 	realRect image.Rectangle
@@ -164,11 +165,6 @@ func readTextFile(r io.Reader) (string, error) {
 	return string(b), nil
 }
 
-type reader interface {
-	io.Reader
-	Sum() []byte
-}
-
 func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID int, layer *psd.Layer)) (*root, error) {
 	var r root
 	s := time.Now().UnixNano()
@@ -177,11 +173,10 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 		return nil, errors.New("unsupported file type")
 	}
 	var head [4]byte
-	_, err := rd.ReadAt(head[:], 0)
-	if err != nil {
+	if _, err := rd.ReadAt(head[:], 0); err != nil {
 		return nil, err
 	}
-	var reader reader
+	var psdReader *genericProgressReader
 	switch string(head[:]) {
 	case "PK\x03\x04": // zip archive
 		zr, err := zip.NewReader(rd, rd.Size())
@@ -208,11 +203,13 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 		}
 
 		if pfvf != nil {
-			pfvr, err := pfvf.Open()
+			var pfvr io.ReadCloser
+			pfvr, err = pfvf.Open()
 			if err != nil {
 				return nil, err
 			}
 			defer pfvr.Close()
+			r.PFVModDate = pfvf.ModTime().Unix()
 			r.PFV, err = readTextFile(pfvr)
 			if err != nil {
 				return nil, err
@@ -220,7 +217,8 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 		}
 
 		if txtf != nil {
-			txtr, err := txtf.Open()
+			var txtr io.ReadCloser
+			txtr, err = txtf.Open()
 			if err != nil {
 				return nil, err
 			}
@@ -236,7 +234,7 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 			return nil, err
 		}
 		defer rc.Close()
-		reader = &genericProgressReader{
+		psdReader = &genericProgressReader{
 			R:        rc,
 			Hash:     md5.New(),
 			Progress: progress,
@@ -245,7 +243,7 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 	case "7z\xbc\xaf": // 7z archive
 		return nil, errors.New("7z archive is not supported")
 	case "8BPS": // psd file
-		reader = &genericProgressReader{
+		psdReader = &genericProgressReader{
 			R:        bufio.NewReaderSize(rd, 1024*1024*2),
 			Hash:     md5.New(),
 			Progress: progress,
@@ -255,7 +253,7 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 	default:
 		return nil, errors.New("unsupported file type")
 	}
-	psdImg, _, err := psd.Decode(reader, &psd.DecodeOptions{
+	psdImg, _, err := psd.Decode(psdReader, &psd.DecodeOptions{
 		LayerImageLoaded: func(layer *psd.Layer, index int, total int) {
 			makeCanvas(index, layer)
 		},
@@ -272,19 +270,11 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 	}
 
 	s = time.Now().UnixNano()
-	r.Hash = fmt.Sprintf("%x", reader.Sum())
+	r.Hash = fmt.Sprintf("%x", psdReader.Sum())
 	if err = r.Build(psdImg); err != nil {
 		return nil, err
 	}
 	e = time.Now().UnixNano()
 	log.Println("build layer tree:", (e-s)/1e6)
 	return &r, nil
-}
-
-func countLayers(l []psd.Layer) int {
-	r := len(l)
-	for i := range l {
-		r += countLayers(l[i].Layer)
-	}
-	return r
 }
