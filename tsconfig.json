@@ -34,7 +34,6 @@
     "./js/blend/blend.d.ts",
     "./js/downscaler.ts",
     "./js/favorite.ts",
-    "./js/filter.ts",
     "./js/layertree.ts",
     "./js/main.ts",
     "./js/psd/psd.d.ts",
