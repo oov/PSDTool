@@ -168,7 +168,7 @@ module Favorite {
       public onSelect: (item: Node) => void;
       public onDoubleClick: (item: Node) => void;
 
-      public faviewMode: FaviewMode = FaviewMode.ShowFaviewAndReadme;
+      public faviewMode: FaviewMode = FaviewMode.ShowFaview;
 
       private uniqueId = Date.now().toString() + Math.random().toString().substring(2);
       private tree: HTMLElement;
