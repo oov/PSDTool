@@ -812,6 +812,7 @@ module Favorite {
       constructor(private favorite: Favorite, private rootSel: HTMLSelectElement, private root: HTMLUListElement) {
          root.addEventListener('click', e => this.click(e), false);
          root.addEventListener('change', e => this.change(e), false);
+         root.addEventListener('input', e => this.input(e), false);
          root.addEventListener('keyup', e => this.keyup(e), false);
          rootSel.addEventListener('change', e => this.change(e), false);
          rootSel.addEventListener('keyup', e => this.keyup(e), false);
@@ -858,6 +859,10 @@ module Favorite {
                         if (opt instanceof HTMLOptionElement && opt.value === item[id].value) {
                            elem.selectedIndex = j;
                            elem.setAttribute('data-lastmod', item[id].lastMod.toString());
+                           let range = elem.parentElement.querySelector('input[type=range]');
+                           if (range instanceof HTMLInputElement) {
+                              range.value = j.toString();
+                           }
                            break;
                         }
                      }
@@ -887,6 +892,10 @@ module Favorite {
 
       private changed(select: HTMLSelectElement): void {
          select.setAttribute('data-lastmod', Date.now().toString());
+         let range = select.parentElement.querySelector('input[type=range]');
+         if (range instanceof HTMLInputElement) {
+            range.value = select.selectedIndex.toString();
+         }
          if (this.onChange) {
             this.onChange(this.favorite.get(select.value));
          }
@@ -909,6 +918,23 @@ module Favorite {
                return;
             }
             this.changed(target);
+         } else if (target instanceof HTMLInputElement && target.type === 'range') {
+            let sel = target.parentElement.querySelector('select');
+            if (sel instanceof HTMLSelectElement) {
+               sel.selectedIndex = parseInt(target.value, 10);
+               this.changed(sel);
+            }
+         }
+      }
+
+      private input(e: Event): void {
+         let target = e.target;
+         if (target instanceof HTMLInputElement && target.type === 'range') {
+            let sel = target.parentElement.querySelector('select');
+            if (sel instanceof HTMLSelectElement) {
+               sel.selectedIndex = parseInt(target.value, 10);
+               this.changed(sel);
+            }
          }
       }
 
@@ -953,9 +979,9 @@ module Favorite {
                switch (cn.type) {
                   case 'item':
                      opt = document.createElement('option');
-                     opt.textContent = (++numItems).toString() + '. ' + cn.text;
+                     opt.textContent = cn.text;
                      opt.value = cn.id;
-                     if (numItems === 1) {
+                     if (++numItems === 1) {
                         firstItemId = cn.id;
                      }
                      sel.appendChild(opt);
@@ -970,6 +996,10 @@ module Favorite {
          }
          // show filtered entry only
          if (numItems > 0 && this.favorite.getFirstFilter(this.favorite.get(firstItemId)) !== '') {
+            let range = document.createElement('input');
+            range.type = 'range';
+            range.max = (numItems - 1).toString();
+            range.value = '0';
             let prev = document.createElement('button');
             prev.className = 'btn btn-default psdtool-faview-prev';
             prev.innerHTML = '&lt;';
@@ -983,10 +1013,12 @@ module Favorite {
             if (numItems === 1) {
                prev.disabled = true;
                sel.disabled = true;
+               range.disabled = true;
                next.disabled = true;
             }
             fs.appendChild(prev);
             fs.appendChild(sel);
+            fs.appendChild(range);
             fs.appendChild(next);
             li.appendChild(fs);
          }
