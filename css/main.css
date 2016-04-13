@@ -207,10 +207,9 @@ h1 small {
    border-bottom: #bbb 1px solid;
 }
 #misc-ui .psdtool-ui-item {
-   padding: 8px 0.75em;
+   padding: 8px 0.6em;
 }
-#fixed-side,
-#flip {
+#fixed-side {
    padding: 0;
 }
 @media (min-width: 768px) {

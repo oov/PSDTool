@@ -191,14 +191,14 @@
 			<div id="misc-ui">
 				<div class="form-inline">
 					<div class="form-group psdtool-ui-item">
-						<div class="checkbox">
-							<label for="flip" class="sr-only">画像の反転</label>
-							<select id="flip" class="form-control" title="画像を反転">
-								<option value="0">反転なし</option>
-								<option value="1">左右反転</option>
-								<option value="2">上下反転</option>
-								<option value="3">上下左右</option>
-							</select>
+						<label for="flip" class="sr-only">反転</label>
+						<div class="btn-group psdtool-flip-buttons" data-toggle="buttons">
+							<label class="btn btn-default" title="左右反転">
+								<input type="checkbox" id="flip-x"> ⇆
+							</label>
+							<label class="btn btn-default" title="上下反転">
+								<input type="checkbox" id="flip-y"> ⇅
+							</label>
 						</div>
 					</div>
 					<div class="form-group psdtool-ui-item">
@@ -207,8 +207,8 @@
 							<option value="h" selected="selected">縦</option>
 							<option value="w">横</option>
 						</select>
+						<label for="max-pixels" class="sr-only">画像の最大ピクセル数</label>
 						<div class="input-group">
-							<label for="max-pixels" class="sr-only">画像の最大ピクセル数</label>
 							<input type="text" class="form-control" id="max-pixels" inputmode="numeric" value="1200" title="このピクセル数に収まるように画像を縮小">
 							<div class="input-group-addon input-sm"><small>pxまで</small></div>
 						</div>
@@ -373,8 +373,7 @@
 							<option value="4">4</option>
 						</select>
 						桁の数字を
-						<input type="number" id="rename-start-number" inputmode="numeric" value="0" class="form-control">
-						から順番に割り当て
+						<input type="number" id="rename-start-number" inputmode="numeric" value="0" class="form-control"> から順番に割り当て
 					</p>
 					<button type="button" class="btn btn-primary" data-dismiss="modal" id="bulk-rename">名前を変更</button>
 				</div>
