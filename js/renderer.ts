@@ -14,7 +14,9 @@ module Renderer {
       public getVisibleState = (): boolean => { return this.layer.Visible; };
       public id: number;
       public state: string = '';
+      get stateHash(): string { return Node.calcHash(this.state).toString(16); }
       public nextState: string = '';
+      get nextStateHash(): string { return Node.calcHash(this.nextState).toString(16); }
       public children: Node[] = [];
       public clip: Node[];
       public clippedBy: Node;
@@ -33,6 +35,20 @@ module Renderer {
          this.buffer = document.createElement('canvas');
          this.buffer.width = w;
          this.buffer.height = h;
+      }
+
+      // http://stackoverflow.com/a/7616484
+      private static calcHash(s: string): number {
+         if (s.length === 0) {
+            return 0;
+         }
+         let hash = 0, chr: number;
+         for (let i = 0; i < s.length; ++i) {
+            chr = s.charCodeAt(i);
+            hash = ((hash << 5) - hash) + chr;
+            hash |= 0; // Convert to 32bit integer
+         }
+         return hash;
       }
    }
 
@@ -113,7 +129,7 @@ module Renderer {
          for (let cn of this.root.children) {
             if (!cn.layer.Clipping) {
                if (this.calculateNextState(cn, cn.layer.Opacity / 255, cn.layer.BlendMode)) {
-                  this.root.nextState += cn.nextState + '+';
+                  this.root.nextState += cn.nextStateHash + '+';
                }
             }
          }
@@ -184,13 +200,13 @@ module Renderer {
          n.nextState = '';
          if (n.layer.Children.length) {
             if (blendMode === 'pass-through') {
-               n.nextState += n.parent.nextState + '+';
+               n.nextState += n.parent.nextStateHash + '+';
             }
             for (let i = 0, child: psd.Layer; i < n.layer.Children.length; ++i) {
                child = n.layer.Children[i];
                if (!child.Clipping) {
                   if (this.calculateNextState(n.children[i], child.Opacity / 255, child.BlendMode)) {
-                     n.nextState += n.children[i].nextState + '+';
+                     n.nextState += n.children[i].nextStateHash + '+';
                   }
                }
             }
@@ -211,7 +227,7 @@ module Renderer {
             for (let i = 0, cn: Node; i < n.clip.length; ++i) {
                cn = n.clip[i];
                if (this.calculateNextState(n.clip[i], cn.layer.Opacity / 255, cn.layer.BlendMode)) {
-                  n.nextState += n.clip[i].nextState + '+';
+                  n.nextState += n.clip[i].nextStateHash + '+';
                }
             }
             return true;
@@ -222,7 +238,7 @@ module Renderer {
 
          for (let cn of n.clip) {
             if (this.calculateNextState(cn, 1, 'source-over')) {
-               n.nextState += cn.nextState + '+';
+               n.nextState += cn.nextStateHash + '+';
             }
          }
          return true;
