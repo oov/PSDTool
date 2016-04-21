@@ -51,7 +51,7 @@ func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *j
 				)
 			}
 			if m, ok := l.Channel[-2]; ok && l.Mask.Enabled() && !l.Mask.Rect.Empty() {
-				mask = createMaskCanvas(l.Mask.Rect.Dx(), l.Mask.Rect.Dx(), m.Data, l.Mask.DefaultColor)
+				mask = createMaskCanvas(l.Mask.Rect.Dx(), l.Mask.Rect.Dy(), m.Data, l.Mask.DefaultColor)
 			}
 			canvasMap[seqID] = [2]*js.Object{canvas, mask}
 		})

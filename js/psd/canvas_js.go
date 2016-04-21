@@ -45,24 +45,22 @@ func createMaskCanvas(w int, h int, mask []byte, defaultColor int) *js.Object {
 	cvs.Set("height", h)
 	ctx := cvs.Call("getContext", "2d")
 	imgData := ctx.Call("createImageData", w, h)
-	dw := imgData.Get("width").Int()
+	dw := imgData.Get("width").Int() << 2
 	data := imgData.Get("data")
 
-	var ofsd, ofss, x, y, sx, dx int
+	var ofsd, ofss, x, y int
 	if defaultColor == 0 {
 		for y = 0; y < h; y++ {
-			ofss, ofsd = y*w, y*dw<<2
+			ofss, ofsd = y*w, y*dw
 			for x = 0; x < w; x++ {
-				sx, dx = ofss+x, ofsd+x<<2
-				data.SetIndex(dx+3, mask[sx])
+				data.SetIndex(ofsd+x<<2+3, mask[ofss+x])
 			}
 		}
 	} else {
 		for y = 0; y < h; y++ {
-			ofss, ofsd = y*w, y*dw<<2
+			ofss, ofsd = y*w, y*dw
 			for x = 0; x < w; x++ {
-				sx, dx = ofss+x, ofsd+x<<2
-				data.SetIndex(dx+3, 255-mask[sx])
+				data.SetIndex(ofsd+x<<2+3, 255-mask[ofss+x])
 			}
 		}
 	}
