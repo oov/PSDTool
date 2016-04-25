@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/oov/psd"
-	"github.com/saintfish/chardet"
 	"golang.org/x/text/encoding/japanese"
 )
 
@@ -32,7 +31,9 @@ type root struct {
 	PFVModDate   int64
 	Readme       string
 
-	realRect image.Rectangle
+	psdImg           *psd.PSD
+	realRect         image.Rectangle
+	layerNameCharset string
 }
 
 type layer struct {
@@ -73,8 +74,15 @@ func (r *root) buildLayer(l *layer) error {
 	l.SeqID = l.psdLayer.SeqID
 
 	if l.psdLayer.UnicodeName == "" && l.psdLayer.MBCSName != "" {
-		if l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName); err != nil {
-			l.Name = l.psdLayer.MBCSName
+		switch r.detectLayerNameCharset() {
+		case "ISO-2022-JP":
+			l.Name, err = japanese.ISO2022JP.NewDecoder().String(l.psdLayer.MBCSName)
+		case "EUC-JP":
+			l.Name, err = japanese.EUCJP.NewDecoder().String(l.psdLayer.MBCSName)
+		case "Shift_JIS":
+			l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName)
+		default:
+			l.Name, err = l.psdLayer.MBCSName, nil
 		}
 	} else {
 		l.Name = l.psdLayer.UnicodeName
@@ -119,7 +127,39 @@ func (r *root) buildLayer(l *layer) error {
 	return nil
 }
 
+func (r *root) detectLayerNameCharsetRecursive(l *psd.Layer) []string {
+	var s []string
+	for i := range l.Layer {
+		s = append(s, l.Layer[i].MBCSName)
+		if len(l.Layer[i].Layer) > 0 {
+			s = append(s, r.detectLayerNameCharsetRecursive(&l.Layer[i])...)
+		}
+	}
+	return s
+}
+
+func (r *root) detectLayerNameCharset() string {
+	if r.layerNameCharset != "" {
+		return r.layerNameCharset
+	}
+
+	var s []string
+	for i := range r.psdImg.Layer {
+		s = append(s, r.psdImg.Layer[i].MBCSName)
+		if len(r.psdImg.Layer[i].Layer) > 0 {
+			s = append(s, r.detectLayerNameCharsetRecursive(&r.psdImg.Layer[i])...)
+		}
+	}
+	if len(s) > 0 {
+		r.layerNameCharset = identifyCharset([]byte(strings.Join(s, "")))
+	} else {
+		r.layerNameCharset = "ASCII"
+	}
+	return r.layerNameCharset
+}
+
 func (r *root) Build(img *psd.PSD) error {
+	r.psdImg = img
 	r.CanvasWidth = img.Config.Rect.Dx()
 	r.CanvasHeight = img.Config.Rect.Dy()
 	for i := range img.Layer {
@@ -142,22 +182,13 @@ func readTextFile(r io.Reader) (string, error) {
 		return "", err
 	}
 
-	d, err := chardet.NewTextDetector().DetectBest(b)
-	if err != nil {
-		return "", err
-	}
-
-	switch d.Charset {
+	switch identifyCharset(b) {
 	case "ISO-2022-JP":
 		b, err = japanese.ISO2022JP.NewDecoder().Bytes(b)
 	case "EUC-JP":
 		b, err = japanese.EUCJP.NewDecoder().Bytes(b)
 	case "Shift_JIS":
 		b, err = japanese.ShiftJIS.NewDecoder().Bytes(b)
-	case "UTF-8":
-		break
-	default:
-		return "", errors.New("unsupported charset: " + d.Charset)
 	}
 	if err != nil {
 		return "", err
