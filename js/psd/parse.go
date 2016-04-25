@@ -73,23 +73,8 @@ func (r *root) buildLayer(l *layer) error {
 	l.SeqID = l.psdLayer.SeqID
 
 	if l.psdLayer.UnicodeName == "" && l.psdLayer.MBCSName != "" {
-		var d *chardet.Result
-		d, err = chardet.NewTextDetector().DetectBest([]byte(l.psdLayer.MBCSName))
-		if err != nil {
+		if l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName); err != nil {
 			l.Name = l.psdLayer.MBCSName
-		} else {
-			switch d.Charset {
-			case "ISO-2022-JP":
-				l.Name, err = japanese.ISO2022JP.NewDecoder().String(l.psdLayer.MBCSName)
-			case "EUC-JP":
-				l.Name, err = japanese.EUCJP.NewDecoder().String(l.psdLayer.MBCSName)
-			case "Shift_JIS":
-				l.Name, err = japanese.ShiftJIS.NewDecoder().String(l.psdLayer.MBCSName)
-			case "UTF-8":
-				l.Name = l.psdLayer.MBCSName
-			default:
-				l.Name = l.psdLayer.MBCSName
-			}
 		}
 	} else {
 		l.Name = l.psdLayer.UnicodeName
