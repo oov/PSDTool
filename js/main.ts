@@ -243,6 +243,7 @@ module psdtool {
 
       private bulkCreateFolderTextarea: HTMLTextAreaElement;
       private bulkRenameData: Favorite.RenameNode[];
+      private lastCheckedNode: LayerTree.Node;
 
       private psdRoot: psd.Root;
       private favorite: Favorite.Favorite;
@@ -511,7 +512,8 @@ module psdtool {
          });
          Mousetrap.bind('mod+b', e => {
             e.preventDefault();
-            let text = prompt(document.querySelector('button[data-psdtool-tree-add-item]').getAttribute('data-caption'), 'New Item');
+            let text = this.lastCheckedNode ? this.lastCheckedNode.displayName : 'New Item';
+            text = prompt(document.querySelector('button[data-psdtool-tree-add-item]').getAttribute('data-caption'), text);
             if (text === null) {
                return;
             }
@@ -1118,6 +1120,9 @@ module psdtool {
             let target = e.target;
             if (target instanceof HTMLInputElement && target.classList.contains('psdtool-layer-visible')) {
                let n = this.layerRoot.nodes[parseInt(target.getAttribute('data-seq'), 10)];
+               if (target.checked) {
+                  this.lastCheckedNode = n;
+               }
                for (let p = n.parent; !p.isRoot; p = p.parent) {
                   p.checked = true;
                }
