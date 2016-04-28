@@ -55,7 +55,10 @@ module Zipper {
             }
             if (cursor instanceof IDBCursorWithValue) {
                if (cursor.value.lastMod.getTime() < d) {
-                  this.remove(os, cursor.key[1], error);
+                  let key = (<IDBArrayKey>cursor.key)[1];
+                  if (typeof key === 'string') {
+                     this.remove(os, key, error);
+                  }
                }
                cursor.continue();
                return;
