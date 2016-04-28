@@ -450,16 +450,16 @@ module psdtool {
             this.startFaview();
             switch (this.favorite.faviewMode) {
                case Favorite.FaviewMode.ShowLayerTree:
-                  this.toogleTreeFaview(false);
+                  this.toggleTreeFaview(false);
                   break;
                case Favorite.FaviewMode.ShowFaview:
                   if (!this.faview.closed) {
-                     this.toogleTreeFaview(true);
+                     this.toggleTreeFaview(true);
                   }
                   break;
                case Favorite.FaviewMode.ShowFaviewAndReadme:
                   if (!this.faview.closed) {
-                     this.toogleTreeFaview(true);
+                     this.toggleTreeFaview(true);
                      if (this.psdRoot.Readme !== '') {
                         jQuery('#readme-dialog').modal('show');
                      }
@@ -697,14 +697,14 @@ module psdtool {
 
          let faviewToggleButtons = document.querySelectorAll('.psdtool-toggle-tree-faview');
          for (let i = 0; i < faviewToggleButtons.length; ++i) {
-            faviewToggleButtons[i].addEventListener('click', e => this.toogleTreeFaview(), false);
+            faviewToggleButtons[i].addEventListener('click', e => this.toggleTreeFaview(), false);
          }
 
          this.faviewSettingDialog = new FaviewSettingDialog(this.favorite);
          this.faviewSettingDialog.onUpdate = () => this.favorite.updateLocalStorage();
       }
 
-      private toogleTreeFaview(forceActiveFaview?: boolean): void {
+      private toggleTreeFaview(forceActiveFaview?: boolean): void {
          let pane = document.getElementById('layer-tree-pane');
          if (forceActiveFaview === undefined) {
             forceActiveFaview = !pane.classList.contains('faview-active');
@@ -777,7 +777,7 @@ module psdtool {
 
       private endFaview() {
          document.getElementById('layer-tree-toolbar').classList.add('hidden');
-         this.toogleTreeFaview(false);
+         this.toggleTreeFaview(false);
          this.resized();
          this.faview.close();
       }
