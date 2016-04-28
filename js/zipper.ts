@@ -114,7 +114,17 @@ module Zipper {
          tx.onerror = error;
          let os = tx.objectStore(fileStoreName);
          os.put({ lastMod: new Date() }, ['meta', this.id]);
-         this.receiveFiles((blobs: Blob[]): void => complete(this.makeZIP(blobs)), error);
+         this.receiveFiles((blobs: Blob[]): void => {
+            let size = Zip.endOfCentralDirectorySize;
+            this.fileInfos.forEach((fi): void => {
+               size += fi.localFileHeaderSize + fi.fileSize + fi.centralDirectoryRecordSize;
+            });
+            if (size > 0xffffffff || this.fileInfos.length > 0xffff) {
+               complete(this.makeZIP64(blobs));
+            } else {
+               complete(this.makeZIP(blobs));
+            }
+         }, error);
       }
 
       private receiveFiles(success: (blobs: Blob[]) => void, error: (err: any) => void): void {
@@ -151,6 +161,24 @@ module Zipper {
             cdrSize += fi.centralDirectoryRecordSize;
          });
          zip.push(Zip.buildEndOfCentralDirectory(this.fileInfos.length, cdrSize, pos));
+         return new Blob(zip, { type: 'application/zip' });
+      }
+
+      private makeZIP64(fileBodies: Blob[]): Blob {
+         let zip: Blob[] = [];
+         let pos = 0;
+         this.fileInfos.forEach((fi, i): void => {
+            zip.push(fi.toLocalFileHeader64(pos), fileBodies[i]);
+            pos += fi.fileSize + fi.localFileHeaderSize64;
+         });
+         pos = 0;
+         let cdrSize = 0;
+         this.fileInfos.forEach((fi): void => {
+            zip.push(fi.toCentralDirectoryRecord64(pos));
+            pos += fi.fileSize + fi.localFileHeaderSize64;
+            cdrSize += fi.centralDirectoryRecordSize64;
+         });
+         zip.push(Zip64.buildEndOfCentralDirectory(this.fileInfos.length, cdrSize, pos));
          return new Blob(zip, { type: 'application/zip' });
       }
    }
@@ -199,16 +227,32 @@ module Zipper {
          return Zip.calcLocalFileHeaderSize(this.name);
       }
 
+      get localFileHeaderSize64(): number {
+         return Zip64.calcLocalFileHeaderSize(this.name);
+      }
+
       public toLocalFileHeader(): Blob {
          return Zip.buildLocalFileHeader(this.name, this.crc, this.date, this.size);
+      }
+
+      public toLocalFileHeader64(lfhOffset: number): Blob {
+         return Zip64.buildLocalFileHeader(this.name, this.crc, this.date, this.size, lfhOffset);
       }
 
       get centralDirectoryRecordSize(): number {
          return Zip.calcCentralDirectoryRecordSize(this.name);
       }
 
+      get centralDirectoryRecordSize64(): number {
+         return Zip64.calcCentralDirectoryRecordSize(this.name);
+      }
+
       public toCentralDirectoryRecord(lfhOffset: number): Blob {
          return Zip.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, lfhOffset);
+      }
+
+      public toCentralDirectoryRecord64(lfhOffset: number): Blob {
+         return Zip64.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, lfhOffset);
       }
    }
 
@@ -337,6 +381,10 @@ module Zipper {
          return (date << 16) | time; // YYYYYYYm mmmddddd HHHHHMMM MMMSSSSS
       }
 
+      static get endOfCentralDirectorySize(): number {
+         return 22;
+      }
+
       public static buildEndOfCentralDirectory(files: number, cdrSize: number, cdrOffset: number): Blob {
          let eoc = new ArrayBuffer(22);
          let v = new DataView(eoc);
@@ -357,6 +405,237 @@ module Zipper {
          // zipfile comment length
          v.setUint16(20, 0, true);
          return new Blob([eoc]);
+      }
+   }
+
+   class Zip64 {
+      public static calcLocalFileHeaderSize(name: ArrayBuffer): number {
+         return 30 + name.byteLength + 32 + 9 + name.byteLength;
+      }
+
+      public static buildLocalFileHeader(name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
+         let d = Zip64.formatDate(lastMod);
+         let lfh = new ArrayBuffer(30), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
+         let v = new DataView(lfh);
+         // Local file header signature
+         v.setUint32(0, 0x04034b50, true);
+         // Version needed to extract
+         v.setUint16(4, 0x002d, true);
+         // General purpose bit flag
+         // 0x0800 = the file name is encoded with UTF-8
+         v.setUint16(6, 0x0800, true);
+         // Compression method
+         // 0 = stored (no compression)
+         v.setUint16(8, 0x0000, true);
+         // Last mod file time
+         v.setUint16(10, d & 0xffff, true);
+         // Last mod file date
+         v.setUint16(12, (d >>> 16) & 0xffff, true);
+         // CRC-32
+         v.setUint32(14, crc, true);
+         // Compressed size
+         v.setUint32(18, 0xffffffff, true);
+         // Uncompressed size
+         v.setUint32(22, 0xffffffff, true);
+         // Filename length
+         v.setUint16(26, name.byteLength, true);
+
+         // Extra field length
+         // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+         v.setUint16(28, extraFieldZip64.byteLength + extraFieldName.byteLength + name.byteLength, true);
+
+         // 4.5.3 -Zip64 Extended Information Extra Field (0x0001):
+         // Value      Size       Description
+         // -----      ----       -----------
+         // 0x0001     2 bytes    Tag for this "extra" block type
+         // Size       2 bytes    Size of this "extra" block
+         // Original
+         // Size       8 bytes    Original uncompressed file size
+         // Compressed
+         // Size       8 bytes    Size of compressed data
+         // Relative Header
+         // Offset     8 bytes    Offset of local header record
+         // Disk Start
+         // Number     4 bytes    Number of the disk on which
+         //                       this file starts
+         v = new DataView(extraFieldZip64);
+         // Tag for this extra block type
+         v.setUint16(0, 0x0001, true);
+         // Size
+         v.setUint16(2, 28, true);
+         // Original Size
+         Zip64.setUint64(v, 4, fileSize);
+         // Compressed Size
+         Zip64.setUint64(v, 12, fileSize);
+         // Relative Header Offset
+         Zip64.setUint64(v, 20, lfhOffset);
+         // Disk Start Number
+         v.setUint32(28, 0);
+
+         // 4.6.9 -Info-ZIP Unicode Path Extra Field (0x7075):
+         // Value         Size        Description
+         // -----         ----        -----------
+         // 0x7075        Short       tag for this extra block type ("up")
+         // TSize         Short       total data size for this block
+         // Version       1 byte      version of this extra field, currently 1
+         // NameCRC32     4 bytes     File Name Field CRC32 Checksum
+         // UnicodeName   Variable    UTF-8 version of the entry File Name
+
+         v = new DataView(extraFieldName);
+         // Tag for this extra block type
+         v.setUint16(0, 0x7075, true);
+         // TSize
+         v.setUint16(2, 5 + name.byteLength, true);
+         // Version
+         v.setUint8(4, 0x01);
+         // NameCRC32
+         v.setUint32(5, CRC32.crc32(name), true);
+         return new Blob([lfh, name, extraFieldZip64, extraFieldName, name]);
+      }
+
+      public static calcCentralDirectoryRecordSize(name: ArrayBuffer): number {
+         return 46 + name.byteLength + 32 + 9 + name.byteLength;
+      }
+
+      public static buildCentralDirectoryRecord(
+         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
+         let d = Zip64.formatDate(lastMod);
+         let cdr = new ArrayBuffer(46), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
+         let v = new DataView(cdr);
+         // Central file header signature
+         v.setUint32(0, 0x02014b50, true);
+         // Version made by
+         v.setUint16(4, 0x002d, true);
+         // Version needed to extract
+         v.setUint16(6, 0x002d, true);
+         // General purpose bit flag
+         // 0x0800 = the file name is encoded with UTF-8
+         v.setUint16(8, 0x0800, true);
+         // Compression method
+         // 0 = stored (no compression)
+         v.setUint16(10, 0x0000, true);
+         // Last mod file time
+         v.setUint16(12, d & 0xffff, true);
+         // Last mod file date
+         v.setUint16(14, (d >>> 16) & 0xffff, true);
+         // CRC-32
+         v.setUint32(16, crc, true);
+         // Compressed size
+         v.setUint32(20, 0xffffffff, true);
+         // Uncompressed size
+         v.setUint32(24, 0xffffffff, true);
+         // Filename length
+         v.setUint16(28, name.byteLength, true);
+         // Extra field length
+         v.setUint16(30, extraFieldZip64.byteLength + extraFieldName.byteLength + name.byteLength, true);
+         // File comment length
+         v.setUint16(32, 0, true);
+         // Disk number start
+         v.setUint16(34, 0xffff, true);
+         // Internal file attributes
+         v.setUint16(36, 0, true);
+         // External file attributes
+         v.setUint32(38, 0, true);
+         // Relative offset of local header
+         v.setUint32(42, 0xffffffff, true);
+
+         v = new DataView(extraFieldZip64);
+         // Tag for this extra block type
+         v.setUint16(0, 0x0001, true);
+         // Size
+         v.setUint16(2, 28, true);
+         // Original Size
+         Zip64.setUint64(v, 4, fileSize);
+         // Compressed Size
+         Zip64.setUint64(v, 12, fileSize);
+         // Relative Header Offset
+         Zip64.setUint64(v, 20, lfhOffset);
+         // Disk Start Number
+         v.setUint32(28, 0);
+
+         v = new DataView(extraFieldName);
+         // Tag for this extra block type
+         v.setUint16(0, 0x7075, true);
+         // TSize
+         v.setUint16(2, 5 + name.byteLength, true);
+         // Version
+         v.setUint8(4, 0x01);
+         // NameCRC32
+         v.setUint32(5, CRC32.crc32(name), true);
+
+         return new Blob([cdr, name, extraFieldZip64, extraFieldName, name]);
+      }
+
+      private static formatDate(d: Date): number {
+         if (!d) {
+            d = new Date();
+         }
+         let date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+         let time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
+         return (date << 16) | time; // YYYYYYYm mmmddddd HHHHHMMM MMMSSSSS
+      }
+
+      static get endOfCentralDirectorySize(): number {
+         return 22 + 56 + 20;
+      }
+
+      public static buildEndOfCentralDirectory(files: number, cdrSize: number, cdrOffset: number): Blob {
+         let eoc = new ArrayBuffer(22), eoc64 = new ArrayBuffer(56), eocl64 = new ArrayBuffer(20);
+         let v = new DataView(eoc64);
+         // zip64 end of central dir signature
+         v.setUint32(0, 0x06064b50, true);
+         // size of zip64 end of central directory record
+         Zip64.setUint64(v, 4, eoc64.byteLength + eocl64.byteLength + eoc.byteLength - 12);
+         // version made by
+         v.setUint16(12, 0x002d, true);
+         // version needed to extract
+         v.setUint16(14, 0x002d, true);
+         // number of this disk
+         v.setUint32(16, 0, true);
+         // number of the disk with the start of the central directory
+         v.setUint32(20, 0, true);
+         // total number of entries in the central directory on this disk
+         Zip64.setUint64(v, 24, files);
+         // total number of entries in the central directory
+         Zip64.setUint64(v, 32, files);
+         // size of the central directory
+         Zip64.setUint64(v, 40, cdrSize);
+         // offset of start of central directory with respect to the starting disk number
+         Zip64.setUint64(v, 48, cdrOffset);
+
+         v = new DataView(eocl64);
+         // zip64 end of central dir locator signature
+         v.setUint32(0, 0x07064b50, true);
+         // number of the disk with the start of the zip64 end of central directory
+         v.setUint32(4, 0, true);
+         // relative offset of the zip64 end of central directory record
+         Zip64.setUint64(v, 8, cdrOffset + cdrSize);
+         // total number of disks
+         v.setUint32(16, 1, true);
+
+         v = new DataView(eoc);
+         // End of central dir signature
+         v.setUint32(0, 0x06054b50, true);
+         // Number of this disk
+         v.setUint16(4, 0xffff, true);
+         // Number of the disk with the start of the central directory
+         v.setUint16(6, 0xffff, true);
+         // Total number of entries in the central dir on this disk
+         v.setUint16(8, 0xffff, true);
+         // Total number of entries in the central dir
+         v.setUint16(10, 0xffff, true);
+         // Size of the central directory
+         v.setUint32(12, 0xffffffff, true);
+         // Offset of start of central directory with respect to the starting disk number
+         v.setUint32(16, 0xffffffff, true);
+         // zipfile comment length
+         v.setUint16(20, 0, true);
+         return new Blob([eoc64, eocl64, eoc]);
+      }
+
+      private static setUint64(v: DataView, offset: number, value: number): void {
+         v.setUint32(offset, value & 0xffffffff, true);
+         v.setUint32(offset + 4, Math.floor(value / 0x100000000), true);
       }
    }
 
