@@ -391,6 +391,10 @@ label {
    right: 0;
    margin-right: -3em;
 }
+.psdtool-export-faview-type-caption {
+   min-width: 15em;
+   display: inline-block;
+}
 #readme {
    font: 12pt/1.7 Osaka-mono, "Osaka-等幅", "MS Gothic", monospace;
    white-space: pre-wrap;
