@@ -347,13 +347,13 @@ module psdtool {
             (o: { buffer: ArrayBuffer | Blob, name: string; }) =>
                this.parse(p => prog.update(p, 'Loading file...'), o))
             .then(() => {
-            prog.close();
-            fileOpenUi.style.display = 'none';
-            errorReportUi.style.display = 'none';
-            main.style.display = 'block';
-            Mousetrap.unpause();
-            this.resized();
-         }, e => {
+               prog.close();
+               fileOpenUi.style.display = 'none';
+               errorReportUi.style.display = 'none';
+               main.style.display = 'block';
+               Mousetrap.unpause();
+               this.resized();
+            }, e => {
                prog.close();
                fileOpenUi.style.display = 'block';
                errorReportUi.style.display = 'block';
@@ -416,7 +416,7 @@ module psdtool {
                }
             },
             error => deferred.reject(error)
-            );
+         );
          return deferred.promise;
       }
 
@@ -600,7 +600,7 @@ module psdtool {
                   Favorite.countEntries(pfvs[i].data) +
                   ' item(s) / Created at ' +
                   Main.formateDate(new Date(pfvs[i].time))
-                  ));
+               ));
                recents.appendChild(btn);
             }
          });
@@ -689,6 +689,17 @@ module psdtool {
          document.getElementById('export-favorites-zip-filter-solo').addEventListener('click', e => {
             this.exportZIP(true);
          }, false);
+         let faviewExports = document.querySelectorAll('[data-export-faview]');
+         for (let i = 0; i < faviewExports.length; ++i) {
+            ((elem: Element): void => {
+               elem.addEventListener('click', e => {
+                  this.exportFaview(
+                     elem.getAttribute('data-export-faview') === 'standard',
+                     elem.getAttribute('data-structure') === 'flat'
+                  );
+               });
+            })(faviewExports[i]);
+         }
          document.getElementById('export-layer-structure').addEventListener('click', e => {
             saveAs(new Blob([this.layerRoot.text], {
                type: 'text/plain'
@@ -752,6 +763,9 @@ module psdtool {
       }
 
       private refreshFaview(): void {
+         if (!this.faview || this.faview.closed) {
+            this.startFaview();
+         }
          if (!this.needRefreshFaview) {
             return;
          }
@@ -901,6 +915,121 @@ module psdtool {
          }, e => errorHandler('cannot create a zip archive', e));
       }
 
+      private exportFaview(includeItemCaption: boolean, flatten: boolean): void {
+         this.refreshFaview();
+         let items = this.faview.items;
+         let total = 0;
+         for (let item of items) {
+            if (!item.selects.length) {
+               continue;
+            }
+            let n = 1;
+            for (let select of item.selects) {
+               n *= select.items.length;
+            }
+            total += n;
+         }
+         if (!total) {
+            alert('You need at least one simple-view item to export.');
+            return;
+         }
+
+         let backup = this.layerRoot.serialize(true);
+         let z = new Zipper.Zipper();
+         let prog = new ProgressDialog('Exporting...', '');
+
+         let aborted = false;
+         let errorHandler = (readableMessage: string, err: any) => {
+            z.dispose(err => undefined);
+            console.error(err);
+            if (!aborted) {
+               alert(readableMessage + ': ' + err);
+            }
+            prog.close();
+         };
+         // it is needed to avoid alert storm when reload during exporting.
+         window.addEventListener('unload', () => { aborted = true; }, false);
+
+         let added = 0;
+         let addedHandler = (name: string) => {
+            if (++added < total) {
+               prog.update(
+                  added / total,
+                  added === 1 ? 'drawing...' : '(' + added + '/' + total + ') ' + name);
+               return;
+            }
+            this.layerRoot.deserialize(backup);
+            prog.update(1, 'building a zip...');
+            z.generate(blob => {
+               prog.close();
+               saveAs(blob, 'simple-view.zip');
+               z.dispose(err => undefined);
+            }, e => errorHandler('cannot create a zip archive', e));
+         };
+
+         let sels: Favorite.FaviewSelect[];
+         let path: string[] = [];
+         let nextRoot: (index: number, complete: () => void) => void;
+         let nextItem = (depth: number, index: number, complete: () => void): void => {
+            let sel = sels[depth];
+            let item = sel.items[index];
+            path.push(Main.cleanForFilename((includeItemCaption ? sel.caption + '-' : '') + item.name));
+            let fav = this.favorite.get(item.value);
+            this.layerRoot.deserializePartial(undefined, fav.data.value, this.favorite.getFirstFilter(fav));
+            let next = (): void => {
+               path.pop();
+               if (index < sel.items.length - 1) {
+                  nextItem(depth, index + 1, complete);
+               } else {
+                  complete();
+               }
+            };
+            if (depth < sels.length - 1) {
+               if (sels[depth + 1].items.length) {
+                  nextItem(depth + 1, 0, next);
+               } else {
+                  next();
+               }
+            } else {
+               this.render((progress, canvas) => {
+                  if (progress !== 1) {
+                     return;
+                  }
+                  let name = path.join(flatten ? '_' : '\\') + '.png';
+                  z.add(
+                     name,
+                     new Blob([Main.dataSchemeURIToArrayBuffer(canvas.toDataURL())], { type: 'image/png' }),
+                     (): void => {
+                        addedHandler(name);
+                        next();
+                     },
+                     e => errorHandler('cannot write png to a zip archive', e));
+               });
+            }
+         };
+         nextRoot = (index: number, complete: () => void): void => {
+            let item = items[index];
+            path.push(Main.cleanForFilename(item.name));
+            sels = item.selects;
+            let next = (): void => {
+               path.pop();
+               if (++index >= items.length) {
+                  complete();
+               } else {
+                  nextRoot(index, complete);
+               }
+            };
+            if (sels.length && sels[0].items.length) {
+               nextItem(0, 0, next);
+            } else {
+               next();
+            }
+         };
+         z.init(() => {
+            nextRoot(0, (): void => undefined);
+         }, e => errorHandler('cannot create a zip archive', e));
+      }
+
       private initUI() {
          this.optionAutoTrim = Main.getInputElement('#option-auto-trim');
          this.optionSafeMode = Main.getInputElement('#option-safe-mode');
@@ -934,9 +1063,6 @@ module psdtool {
          });
          jQuery('a[data-toggle="tab"][href="#layer-tree-pane"]').on('show.bs.tab', e => {
             this.leaveReaderMode();
-            if (!this.faview || this.faview.closed) {
-               this.startFaview();
-            }
             this.refreshFaview();
          });
 

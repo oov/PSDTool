@@ -796,11 +796,68 @@ module Favorite {
       };
    }
 
+   export interface FaviewSelect {
+      caption: string;
+      items: {
+         name: string;
+         value: string;
+      }[];
+      selectedIndex: number;
+   }
+
+   export interface FaviewRootItem {
+      name: string;
+      value: string;
+      selects: FaviewSelect[];
+   }
+
    export class Faview {
       public onChange: (node: Node) => void;
       public onRootChanged: () => void;
       get roots(): number {
          return this.treeRoots.length;
+      }
+
+      get selectedRootIndex(): number {
+         return this.rootSel.selectedIndex;
+      }
+
+      set selectedRootIndex(n: number) {
+         this.rootSel.selectedIndex = n;
+      }
+
+      get items(): FaviewRootItem[] {
+         let r: FaviewRootItem[] = [];
+         for (let i = 0; i < this.rootSel.length; ++i) {
+            let fsels: FaviewSelect[] = [];
+            let selects = this.treeRoots[i].getElementsByTagName('select');
+            for (let j = 0; j < selects.length; ++j) {
+               let sel = selects[j];
+               if (sel instanceof HTMLSelectElement) {
+                  let fsel: FaviewSelect = {
+                     caption: sel.getAttribute('data-caption'),
+                     items: [],
+                     selectedIndex: sel.selectedIndex
+                  };
+                  for (let k = 0; k < sel.length; ++k) {
+                     let opt = sel.options[k];
+                     fsel.items.push({
+                        name: opt.textContent,
+                        value: opt.value
+                     });
+                  }
+                  fsels.push(fsel);
+               }
+            }
+
+            let opt = this.rootSel.options[i];
+            r.push({
+               name: opt.textContent,
+               value: opt.value,
+               selects: fsels
+            });
+         }
+         return r;
       }
 
       private closed_: boolean = true;
@@ -960,16 +1017,18 @@ module Favorite {
       }
 
       private addNode(n: Node, ul: HTMLUListElement): void {
+         let caption = n.text.replace(/^\*/, '');
          let li = document.createElement('li');
          let span = document.createElement('span');
          span.className = 'glyphicon glyphicon-asterisk';
          li.appendChild(span);
-         li.appendChild(document.createTextNode(n.text.replace(/^\*?/, ' ')));
+         li.appendChild(document.createTextNode(' ' + caption));
          ul.appendChild(li);
 
          let sel = document.createElement('select');
          sel.className = 'form-control psdtool-faview-select';
          sel.setAttribute('data-id', n.id);
+         sel.setAttribute('data-caption', caption);
          let cul = document.createElement('ul');
          let opt: HTMLOptionElement;
          let firstItemId: string;

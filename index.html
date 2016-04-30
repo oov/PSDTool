@@ -317,7 +317,25 @@
 							</ul>
 						</div>
 					</p>
-					<p><small>PNG ファイルと PFV ファイルを無圧縮の ZIP ファイルに書き出します。パターン数に応じて相応の時間が掛かります。画像には現在の左右反転や縮小などの設定が適用されます。</small></p>
+					<p><small>PNG ファイルと PFV ファイルを無圧縮の ZIP ファイルに書き出します。画像には現在の反転や縮小の設定が適用されます。</small></p>
+					<p>
+						<div class="btn-group">
+							<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								シンプルビューの全パターンを ZIP ファイルでエクスポート <span class="caret"></span>
+							</button>
+							<ul class="dropdown-menu">
+								<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名あり / 入れ子</span><small class="text-muted">例: キャラ名\眉-困り\目-にっこり\口-笑い.png</small></a></li>
+								<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名あり / フラット</span><small class="text-muted">例: キャラ名_眉-困り_目-にっこり_口-笑い.png</small></a></li>
+								<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名なし / 入れ子</span><small class="text-muted">例: キャラ名\困り\にっこり\笑い.png</small></a></li>
+								<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名なし / フラット</span><small class="text-muted">例: キャラ名_困り_にっこり_笑い.png</small></a></li>
+							</ul>
+						</div>
+					</p>
+					<p><small>
+						シンプルビューで作成可能な全ての組み合わせを PNG ファイルで無圧縮の ZIP ファイルに書き出します。
+						ただし「目を決めるセレクトボックスが複数ある」など項目を操作した順番によって結果が変わるようなものには対応していません。
+						画像には現在の反転や縮小の設定が適用されます。
+					</small></p>
 					<p>
 						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-layer-structure">レイヤー構造をテキストファイルでエクスポート</button>
 					</p>
