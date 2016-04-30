@@ -7,10 +7,15 @@ module Zipper {
       private db: IDBDatabase;
       private fileInfos: FileInfo[] = [];
       public init(success: () => void, error: (err: any) => void) {
-         let req = indexedDB.open(databaseName, 1);
+         let req = indexedDB.open(databaseName, 2);
          req.onupgradeneeded = e => {
             let db: IDBDatabase = req.result;
             if (db instanceof IDBDatabase) {
+               try {
+                  db.deleteObjectStore(fileStoreName);
+               } catch (e) {
+                  //
+               }
                db.createObjectStore(fileStoreName);
                return;
             }
@@ -46,7 +51,7 @@ module Zipper {
          let tx = this.db.transaction(fileStoreName, 'readwrite');
          tx.onerror = error;
          let os = tx.objectStore(fileStoreName);
-         let req = os.openCursor(IDBKeyRange.bound(['meta', ''], ['meta', []], false, true));
+         let req = os.openCursor(IDBKeyRange.bound('meta_', 'meta`', false, true));
          let d = new Date().getTime() - 60 * 1000;
          req.onsuccess = e => {
             let cursor: IDBCursorWithValue = req.result;
@@ -55,9 +60,9 @@ module Zipper {
             }
             if (cursor instanceof IDBCursorWithValue) {
                if (cursor.value.lastMod.getTime() < d) {
-                  let key = (<IDBArrayKey>cursor.key)[1];
+                  let key = cursor.key;
                   if (typeof key === 'string') {
-                     this.remove(os, key, error);
+                     this.remove(os, key.split('_')[1], error);
                   }
                }
                cursor.continue();
@@ -75,9 +80,9 @@ module Zipper {
          if (!this.db) {
             return;
          }
-         let req = os.delete(IDBKeyRange.bound(['body', id, 0], ['body', id, ''], false, true));
+         let req = os.delete(IDBKeyRange.bound('body_' + id + '_', 'body_' + id + '`', false, true));
          req.onsuccess = e => {
-            os.delete(['meta', id]);
+            os.delete('meta_' + id);
          };
       }
 
@@ -90,8 +95,8 @@ module Zipper {
          let tx = this.db.transaction(fileStoreName, 'readwrite');
          tx.onerror = error;
          let os = tx.objectStore(fileStoreName);
-         os.put({ lastMod: new Date() }, ['meta', this.id]);
-         let req = os.put(blob, ['body', this.id, this.fileInfos.length]);
+         os.put({ lastMod: new Date() }, 'meta_' + this.id);
+         let req = os.put(blob, 'body_' + this.id + '_' + this.fileInfos.length);
          req.onsuccess = e => {
             if (!--reqs) {
                complete();
@@ -113,7 +118,7 @@ module Zipper {
          let tx = this.db.transaction(fileStoreName, 'readwrite');
          tx.onerror = error;
          let os = tx.objectStore(fileStoreName);
-         os.put({ lastMod: new Date() }, ['meta', this.id]);
+         os.put({ lastMod: new Date() }, 'meta_' + this.id);
          this.receiveFiles((blobs: Blob[]): void => {
             let size = Zip.endOfCentralDirectorySize;
             this.fileInfos.forEach((fi): void => {
@@ -135,7 +140,7 @@ module Zipper {
          tx.onerror = error;
          let os = tx.objectStore(fileStoreName);
          this.fileInfos.forEach((fi, i): void => {
-            let req = os.get(['body', this.id, i]);
+            let req = os.get('body_' + this.id + '_' + i);
             req.onsuccess = e => {
                let result: Blob = req.result;
                if (result instanceof Blob) {
