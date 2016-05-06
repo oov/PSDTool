@@ -303,20 +303,16 @@ module Renderer {
          let cbbctx = cbb.getContext('2d');
 
          if (n.layer.BlendClippedElements) {
-            this.clear(cbbctx);
-            this.draw(cbbctx, bb, 0, 0, 1, 'source-over');
-            let changed = false;
+            this.draw(cbbctx, bb, 0, 0, 1, 'copy-opaque');
             for (let cn of n.clip) {
-               changed = this.drawLayer(
+               this.drawLayer(
                   cbbctx,
                   cn, -n.layer.X, -n.layer.Y,
                   cn.layer.Opacity / 255,
                   cn.layer.BlendMode
-                  ) || changed;
+                  );
             }
-            if (changed) {
-               this.draw(cbbctx, bb, 0, 0, 1, 'copy-alpha');
-            }
+            this.draw(cbbctx, bb, 0, 0, 1, 'copy-alpha');
             // swap buffer for next time
             n.clippingBuffer = bb;
             n.buffer = cbb;
