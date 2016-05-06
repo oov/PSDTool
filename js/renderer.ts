@@ -55,9 +55,18 @@ module Renderer {
    export class Renderer {
       private draw(ctx: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
          switch (blendMode) {
+            case 'clear':
+            case 'copy':
+            case 'destination':
             case 'source-over':
+            case 'destination-over':
+            case 'source-in':
             case 'destination-in':
+            case 'source-out':
             case 'destination-out':
+            case 'source-atop':
+            case 'destination-atop':
+            case 'xor':
                ctx.globalAlpha = opacity;
                ctx.globalCompositeOperation = blendMode;
                ctx.drawImage(src, x, y);
@@ -306,7 +315,7 @@ module Renderer {
                   ) || changed;
             }
             if (changed) {
-               this.draw(cbbctx, bb, 0, 0, 1, 'destination-in');
+               this.draw(cbbctx, bb, 0, 0, 1, 'copy-alpha');
             }
             // swap buffer for next time
             n.clippingBuffer = bb;

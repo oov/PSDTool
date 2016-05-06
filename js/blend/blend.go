@@ -407,8 +407,17 @@ var blend = (function() {
       return 0;
    }
 
+   function copyAlpha(d, s, w, h, alpha) {
+      var sa, da;
+      for (var i = 0, len = w * h << 2; i < len; i += 4) {
+         d[i + 3] = s[i + 3] * alpha;
+      }
+   }
+
 {{range .}}{{template "blendBase" .}}{{end}}
    var blendModes = {
+      'copy-alpha': copyAlpha,
+
       // 'pass-through': blendPassThrough,
       'source-over': blendNormal,
       // 'dissolve': blendDissolve,
