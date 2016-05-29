@@ -136,7 +136,7 @@ module Renderer {
 
          this.root.nextState = '';
          for (let cn of this.root.children) {
-            if (!cn.layer.Clipping) {
+            if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
                if (this.calculateNextState(cn, cn.layer.Opacity / 255, cn.layer.BlendMode)) {
                   this.root.nextState += cn.nextStateHash + '+';
                }
@@ -148,7 +148,7 @@ module Renderer {
             let bbctx = bb.getContext('2d');
             this.clear(bbctx);
             for (let cn of this.root.children) {
-               if (!cn.layer.Clipping) {
+               if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
                   this.drawLayer(bbctx, cn, -this.psd.X, -this.psd.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
                }
             }
@@ -213,7 +213,7 @@ module Renderer {
             }
             for (let i = 0, child: psd.Layer; i < n.layer.Children.length; ++i) {
                child = n.layer.Children[i];
-               if (!child.Clipping) {
+               if (!child.Clipping || child.BlendMode === 'pass-through') {
                   if (this.calculateNextState(n.children[i], child.Opacity / 255, child.BlendMode)) {
                      n.nextState += n.children[i].nextStateHash + '+';
                   }
@@ -227,7 +227,7 @@ module Renderer {
             n.nextState += '|lm';
          }
 
-         if (!n.clip) {
+         if (!n.clip || blendMode === 'pass-through') {
             return true;
          }
 
@@ -260,9 +260,13 @@ module Renderer {
          let bb = n.buffer;
          if (n.state === n.nextState) {
             if (blendMode === 'pass-through') {
-               blendMode = 'source-over';
+               // ctx.globalAlpha = 1;
+               // ctx.globalCompositeOperation = 'source-over';
+               // ctx.clearRect(x + n.layer.X, y + n.layer.Y, bb.width, bb.height);
+               this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, 1, 'source-over');
+            } else {
+               this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
             }
-            this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
             return true;
          }
 
@@ -271,11 +275,16 @@ module Renderer {
          if (n.children.length) {
             if (blendMode === 'pass-through') {
                this.draw(bbctx, n.parent.buffer, -x - n.layer.X, -y - n.layer.Y, 1, 'source-over');
-               blendMode = 'source-over';
-            }
-            for (let cn of n.children) {
-               if (!cn.layer.Clipping) {
-                  this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
+               for (let cn of n.children) {
+                  if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
+                     this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity * opacity / 255, cn.layer.BlendMode);
+                  }
+               }
+            } else {
+               for (let cn of n.children) {
+                  if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
+                     this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
+                  }
                }
             }
          } else if (n.layer.Canvas) {
@@ -293,8 +302,15 @@ module Renderer {
                );
          }
 
-         if (!n.clip) {
-            this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+         if (!n.clip || blendMode === 'pass-through') {
+            if (blendMode === 'pass-through') {
+               // ctx.globalAlpha = 1;
+               // ctx.globalCompositeOperation = 'source-over';
+               // ctx.clearRect(x + n.layer.X, y + n.layer.Y, bb.width, bb.height);
+               this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, 1, 'source-over');
+            } else {
+               this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+            }
             n.state = n.nextState;
             return true;
          }
@@ -305,24 +321,36 @@ module Renderer {
          if (n.layer.BlendClippedElements) {
             this.draw(cbbctx, bb, 0, 0, 1, 'copy-opaque');
             for (let cn of n.clip) {
-               this.drawLayer(
-                  cbbctx,
-                  cn, -n.layer.X, -n.layer.Y,
-                  cn.layer.Opacity / 255,
-                  cn.layer.BlendMode
-                  );
+               if (cn.layer.Clipping && cn.layer.BlendMode !== 'pass-through') {
+                  this.drawLayer(
+                     cbbctx,
+                     cn, -n.layer.X, -n.layer.Y,
+                     cn.layer.Opacity / 255,
+                     cn.layer.BlendMode
+                     );
+               }
             }
             this.draw(cbbctx, bb, 0, 0, 1, 'copy-alpha');
             // swap buffer for next time
             n.clippingBuffer = bb;
             n.buffer = cbb;
-            this.draw(ctx, cbb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+
+            if (blendMode === 'pass-through') {
+               // ctx.globalAlpha = 1;
+               // ctx.globalCompositeOperation = 'source-over';
+               // ctx.clearRect(x + n.layer.X, y + n.layer.Y, cbb.width, cbb.height);
+               this.draw(ctx, cbb, x + n.layer.X, y + n.layer.Y, 1, 'source-over');
+            } else {
+               this.draw(ctx, cbb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+            }
+
             n.state = n.nextState;
             return true;
          }
 
          // this is minor code path.
          // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
+         // TODO: pass-through support
          this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
          this.clear(cbbctx);
          for (let cn of n.clip) {
