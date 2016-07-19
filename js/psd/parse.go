@@ -220,6 +220,10 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 				psdf = f
 				continue
 			}
+			if psdf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".psb" {
+				psdf = f
+				continue
+			}
 			if pfvf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".pfv" {
 				pfvf = f
 				continue

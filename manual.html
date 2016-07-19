@@ -54,7 +54,7 @@
 		<h2 id="about">PSDTool とは？</h2>
 		<p><img src="img/about.png" width="346" height="265" class=" psdtool-thumb" alt="PSDTool のスクリーンショット"></p>
 		<p>
-			PSDTool は Photoshop 形式(*.psd) のファイルをブラウザで読み込んでレイヤーの表示／非表示を切り替えたり、合成された画像に名前を付けて保存したりできるツールです。
+			PSDTool は Photoshop 形式(*.psd または *.psb) のファイルをブラウザで読み込んでレイヤーの表示／非表示を切り替えたり、合成された画像に名前を付けて保存したりできるツールです。
 			<br><strong>読み込む PSD ファイルはサーバーには一切送信されず完全にブラウザだけで処理される</strong>ため、プライベートな用途にも使用できます。
 		</p>
 		<p>
@@ -433,6 +433,7 @@
 		<h2 id="supported-filetype">読み込める PSD ファイル</h2>
 		<p>PSDTool は「最大公約数的な PSD ファイル読み込みツール」というのを目標に開発しているため、Photoshop 以外のソフトでも頻繁に使われるであろう機能を優先的に実装しています。</p>
 		<ul>
+			<li>PSB ファイルにも対応しています。</li>
 			<li>カラーモードは「RGB カラー（8bit/チャンネル）」にのみ対応しています。</li>
 			<li>グループレイヤー（フォルダーレイヤー）に対応しています。</li>
 			<li>クリッピングマスク、レイヤーマスクに対応しています。</li>
@@ -611,6 +612,8 @@ root-name/お気に入り
 
 		<h2 id="changes">変更履歴</h2>
 		<dl>
+			<dt>2016-07-19</dt>
+			<dd>PSD ファイルのつもりで PSB ファイルを公開する人をしばしば見かけるので PSB ファイルに対応</dd>
 			<dt>2016-05-29</dt>
 			<dd>フォルダーの合成モードが省略された時に正しく「通過」が選ばれなかったのを修正（thanks to <a href="https://twitter.com/zephid_phantasm" target="_blank">@zephid_phantasm</a>）</dd>
 			<dd>合成モード「通過」の時はクリッピングマスクにしないように改善</dd>
