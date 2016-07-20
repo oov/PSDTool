@@ -366,7 +366,7 @@ module psdtool {
 
       private parse(progress: (progress: number) => void, obj: { buffer: ArrayBuffer | Blob, name: string }) {
          let deferred = m.deferred();
-         PSD.parse(
+         PSD.parseWorker(
             obj.buffer,
             progress,
             psd => {

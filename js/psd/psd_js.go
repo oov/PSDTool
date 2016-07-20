@@ -102,6 +102,7 @@ func parsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, f
 		panic("id=psdgo not found")
 	}
 	worker := js.Global.Get("Worker").New(script.Get("src"))
+	script.Set("psdgo", worker)
 	canvasMap := map[int][2]*js.Object{}
 	worker.Set("onmessage", func(e *js.Object) {
 		data := e.Get("data")
