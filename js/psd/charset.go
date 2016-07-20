@@ -107,14 +107,14 @@ func identifyCharset(bs []byte) string {
 			}
 
 			suspiciousBytes++
-			if i >= 32 && (suspiciousBytes*100)/length > 10 {
+			if suspiciousBytes*2 > length {
 				return charsetBINARY
 			}
 
 		}
 	}
 
-	if (suspiciousBytes*100)/length > 10 {
+	if suspiciousBytes*2 > length {
 		return charsetBINARY
 	}
 
