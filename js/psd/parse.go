@@ -291,6 +291,8 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 	psdImg, _, err := psd.Decode(psdReader, &psd.DecodeOptions{
 		LayerImageLoaded: func(layer *psd.Layer, index int, total int) {
 			makeCanvas(index, layer)
+			layer.Picker = nil
+			layer.Channel = nil
 		},
 	})
 	if err != nil {
