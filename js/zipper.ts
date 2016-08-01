@@ -7,9 +7,9 @@ module Zipper {
       private db: IDBDatabase;
       private fileInfos: FileInfo[] = [];
       public init(success: () => void, error: (err: any) => void) {
-         let req = indexedDB.open(databaseName, 2);
+         const req = indexedDB.open(databaseName, 2);
          req.onupgradeneeded = e => {
-            let db: IDBDatabase = req.result;
+            const db: IDBDatabase = req.result;
             if (db instanceof IDBDatabase) {
                try {
                   db.deleteObjectStore(fileStoreName);
@@ -23,7 +23,7 @@ module Zipper {
          };
          req.onerror = e => error(e);
          req.onsuccess = e => {
-            let db: IDBDatabase = req.result;
+            const db: IDBDatabase = req.result;
             if (db instanceof IDBDatabase) {
                this.db = db;
                this.gc((err: any): void => undefined);
@@ -36,9 +36,9 @@ module Zipper {
 
       public dispose(error: (err: any) => void): void {
          this.db.onerror = error;
-         let tx = this.db.transaction(fileStoreName, 'readwrite');
+         const tx = this.db.transaction(fileStoreName, 'readwrite');
          tx.onerror = error;
-         let os = tx.objectStore(fileStoreName);
+         const os = tx.objectStore(fileStoreName);
          this.remove(os, this.id, error);
          this.gc((err: any): void => undefined);
       }
@@ -48,11 +48,11 @@ module Zipper {
             return;
          }
          this.db.onerror = error;
-         let tx = this.db.transaction(fileStoreName, 'readwrite');
+         const tx = this.db.transaction(fileStoreName, 'readwrite');
          tx.onerror = error;
-         let os = tx.objectStore(fileStoreName);
-         let req = os.openCursor(IDBKeyRange.bound('meta_', 'meta`', false, true));
-         let d = new Date().getTime() - 60 * 1000;
+         const os = tx.objectStore(fileStoreName);
+         const req = os.openCursor(IDBKeyRange.bound('meta_', 'meta`', false, true));
+         const d = new Date().getTime() - 60 * 1000;
          req.onsuccess = e => {
             let cursor: IDBCursorWithValue = req.result;
             if (!cursor) {
@@ -60,7 +60,7 @@ module Zipper {
             }
             if (cursor instanceof IDBCursorWithValue) {
                if (cursor.value.lastMod.getTime() < d) {
-                  let key = cursor.key;
+                  const key = cursor.key;
                   if (typeof key === 'string') {
                      this.remove(os, key.split('_')[1], error);
                   }
@@ -80,7 +80,7 @@ module Zipper {
          if (!this.db) {
             return;
          }
-         let req = os.delete(IDBKeyRange.bound('body_' + id + '_', 'body_' + id + '`', false, true));
+         const req = os.delete(IDBKeyRange.bound('body_' + id + '_', 'body_' + id + '`', false, true));
          req.onsuccess = e => {
             os.delete('meta_' + id);
          };
@@ -92,11 +92,11 @@ module Zipper {
          }
          let reqs = 2;
          this.db.onerror = error;
-         let tx = this.db.transaction(fileStoreName, 'readwrite');
+         const tx = this.db.transaction(fileStoreName, 'readwrite');
          tx.onerror = error;
-         let os = tx.objectStore(fileStoreName);
+         const os = tx.objectStore(fileStoreName);
          os.put({ lastMod: new Date() }, 'meta_' + this.id);
-         let req = os.put(blob, 'body_' + this.id + '_' + this.fileInfos.length);
+         const req = os.put(blob, 'body_' + this.id + '_' + this.fileInfos.length);
          req.onsuccess = e => {
             if (!--reqs) {
                complete();
@@ -115,9 +115,9 @@ module Zipper {
             throw new Error('Zipper is already disposed');
          }
          this.db.onerror = error;
-         let tx = this.db.transaction(fileStoreName, 'readwrite');
+         const tx = this.db.transaction(fileStoreName, 'readwrite');
          tx.onerror = error;
-         let os = tx.objectStore(fileStoreName);
+         const os = tx.objectStore(fileStoreName);
          os.put({ lastMod: new Date() }, 'meta_' + this.id);
          this.receiveFiles((blobs: Blob[]): void => {
             let size = Zip.endOfCentralDirectorySize;
@@ -134,15 +134,15 @@ module Zipper {
 
       private receiveFiles(success: (blobs: Blob[]) => void, error: (err: any) => void): void {
          let reqs = this.fileInfos.length;
-         let blobs: Blob[] = new Array<Blob>(this.fileInfos.length);
+         const blobs: Blob[] = new Array<Blob>(this.fileInfos.length);
          this.db.onerror = error;
-         let tx = this.db.transaction(fileStoreName, 'readonly');
+         const tx = this.db.transaction(fileStoreName, 'readonly');
          tx.onerror = error;
-         let os = tx.objectStore(fileStoreName);
+         const os = tx.objectStore(fileStoreName);
          this.fileInfos.forEach((fi, i): void => {
-            let req = os.get('body_' + this.id + '_' + i);
+            const req = os.get('body_' + this.id + '_' + i);
             req.onsuccess = e => {
-               let result: Blob = req.result;
+               const result: Blob = req.result;
                if (result instanceof Blob) {
                   blobs[i] = result;
                   if (!--reqs) {
@@ -155,7 +155,7 @@ module Zipper {
       }
 
       private makeZIP(fileBodies: Blob[]): Blob {
-         let zip: Blob[] = [];
+         const zip: Blob[] = [];
          this.fileInfos.forEach((fi, i): void => {
             zip.push(fi.toLocalFileHeader(), fileBodies[i]);
          });
@@ -170,7 +170,7 @@ module Zipper {
       }
 
       private makeZIP64(fileBodies: Blob[]): Blob {
-         let zip: Blob[] = [];
+         const zip: Blob[] = [];
          let pos = 0;
          this.fileInfos.forEach((fi, i): void => {
             zip.push(fi.toLocalFileHeader64(pos), fileBodies[i]);
@@ -197,9 +197,9 @@ module Zipper {
          this.size = data.size;
          let reqs = 2;
 
-         let fr = new FileReader();
+         const fr = new FileReader();
          fr.onload = e => {
-            let result = fr.result;
+            const result = fr.result;
             if (result instanceof ArrayBuffer) {
                this.crc = CRC32.crc32(result);
                if (!--reqs) {
@@ -210,9 +210,9 @@ module Zipper {
          fr.onerror = e => error(fr.error);
          fr.readAsArrayBuffer(data);
 
-         let nr = new FileReader();
+         const nr = new FileReader();
          nr.onload = e => {
-            let result = nr.result;
+            const result = nr.result;
             if (result instanceof ArrayBuffer) {
                this.name = result;
                if (!--reqs) {
@@ -268,8 +268,8 @@ module Zipper {
       }
 
       public static buildLocalFileHeader(name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number): Blob {
-         let d = Zip.formatDate(lastMod);
-         let lfh = new ArrayBuffer(30), extraField = new ArrayBuffer(9);
+         const d = Zip.formatDate(lastMod);
+         const lfh = new ArrayBuffer(30), extraField = new ArrayBuffer(9);
          let v = new DataView(lfh);
          // Local file header signature
          v.setUint32(0, 0x04034b50, true);
@@ -324,8 +324,8 @@ module Zipper {
 
       public static buildCentralDirectoryRecord(
          name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
-         let d = Zip.formatDate(lastMod);
-         let cdr = new ArrayBuffer(46), extraField = new ArrayBuffer(9);
+         const d = Zip.formatDate(lastMod);
+         const cdr = new ArrayBuffer(46), extraField = new ArrayBuffer(9);
          let v = new DataView(cdr);
          // Central file header signature
          v.setUint32(0, 0x02014b50, true);
@@ -381,8 +381,8 @@ module Zipper {
          if (!d) {
             d = new Date();
          }
-         let date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-         let time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
+         const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+         const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
          return (date << 16) | time; // YYYYYYYm mmmddddd HHHHHMMM MMMSSSSS
       }
 
@@ -391,8 +391,8 @@ module Zipper {
       }
 
       public static buildEndOfCentralDirectory(files: number, cdrSize: number, cdrOffset: number): Blob {
-         let eoc = new ArrayBuffer(22);
-         let v = new DataView(eoc);
+         const eoc = new ArrayBuffer(22);
+         const v = new DataView(eoc);
          // End of central dir signature
          v.setUint32(0, 0x06054b50, true);
          // Number of this disk
@@ -419,8 +419,8 @@ module Zipper {
       }
 
       public static buildLocalFileHeader(name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
-         let d = Zip64.formatDate(lastMod);
-         let lfh = new ArrayBuffer(30), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
+         const d = Zip64.formatDate(lastMod);
+         const lfh = new ArrayBuffer(30), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
          let v = new DataView(lfh);
          // Local file header signature
          v.setUint32(0, 0x04034b50, true);
@@ -504,8 +504,8 @@ module Zipper {
 
       public static buildCentralDirectoryRecord(
          name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
-         let d = Zip64.formatDate(lastMod);
-         let cdr = new ArrayBuffer(46), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
+         const d = Zip64.formatDate(lastMod);
+         const cdr = new ArrayBuffer(46), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
          let v = new DataView(cdr);
          // Central file header signature
          v.setUint32(0, 0x02014b50, true);
@@ -575,8 +575,8 @@ module Zipper {
          if (!d) {
             d = new Date();
          }
-         let date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-         let time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
+         const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+         const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
          return (date << 16) | time; // YYYYYYYm mmmddddd HHHHHMMM MMMSSSSS
       }
 
@@ -585,7 +585,7 @@ module Zipper {
       }
 
       public static buildEndOfCentralDirectory(files: number, cdrSize: number, cdrOffset: number): Blob {
-         let eoc = new ArrayBuffer(22), eoc64 = new ArrayBuffer(56), eocl64 = new ArrayBuffer(20);
+         const eoc = new ArrayBuffer(22), eoc64 = new ArrayBuffer(56), eocl64 = new ArrayBuffer(20);
          let v = new DataView(eoc64);
          // zip64 end of central dir signature
          v.setUint32(0, 0x06064b50, true);
@@ -661,7 +661,7 @@ module Zipper {
       private static crcTable = CRC32.makeCRCTable();
       public static crc32(src: ArrayBuffer): number {
          const crcTable = CRC32.crcTable;
-         let u8a = new Uint8Array(src);
+         const u8a = new Uint8Array(src);
          let crc = 0 ^ (-1);
          for (let i = 0; i < u8a.length; i++) {
             crc = (crc >>> 8) ^ crcTable[(crc ^ u8a[i]) & 0xFF];

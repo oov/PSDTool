@@ -13,7 +13,10 @@ class DownScaler {
 
    public fast(): HTMLCanvasElement {
       this.adjustSize();
-      let ctx = this.dest.getContext('2d');
+      const ctx = this.dest.getContext('2d');
+      if (!ctx) {
+         throw new Error('cannot get CanvasRenderingContext2D from dest');
+      }
       ctx.drawImage(
          this.src,
          0, 0, this.src.width, this.src.height,
@@ -34,29 +37,43 @@ class DownScaler {
    }
 
    public beautiful(): HTMLCanvasElement {
-      let srcImageData = this.src.getContext('2d').getImageData(0, 0, this.src.width, this.src.height);
-      let tmp = new Float32Array(this.destWidth * this.destHeight << 2);
+      const srcCtx = this.src.getContext('2d');
+      if (!srcCtx) {
+         throw new Error('cannot get CanvasRenderingContext2D from src');
+      }
+      const srcImageData = srcCtx.getImageData(0, 0, this.src.width, this.src.height);
+      const tmp = new Float32Array(this.destWidth * this.destHeight << 2);
       DownScaler.calculate(tmp, srcImageData.data, this.scale, this.src.width, this.src.height);
       this.adjustSize();
-      let ctx = this.dest.getContext('2d');
-      let imgData = ctx.createImageData(this.destWidth, this.destHeight);
+      const ctx = this.dest.getContext('2d');
+      if (!ctx) {
+         throw new Error('cannot get CanvasRenderingContext2D from dest');
+      }
+      const imgData = ctx.createImageData(this.destWidth, this.destHeight);
       DownScaler.float32ToUint8ClampedArray(imgData.data, tmp, this.destWidth, this.destHeight, imgData.width);
       ctx.putImageData(imgData, 0, 0);
       return this.dest;
    }
 
    public beautifulWorker(callback: (dest: HTMLCanvasElement) => void): void {
-      let w = new Worker(DownScaler.createWorkerURL());
+      const w = new Worker(DownScaler.createWorkerURL());
       DownScaler.activeWorker = w;
       w.onmessage = e => {
          this.adjustSize();
-         let ctx = this.dest.getContext('2d');
-         let imgData = ctx.createImageData(this.destWidth, this.destHeight);
+         const ctx = this.dest.getContext('2d');
+         if (!ctx) {
+            throw new Error('cannot get CanvasRenderingContext2D from dest');
+         }
+         const imgData = ctx.createImageData(this.destWidth, this.destHeight);
          DownScaler.copyBuffer(imgData.data, new Uint8Array(e.data.buffer), this.destWidth, this.destHeight, imgData.width);
          ctx.putImageData(imgData, 0, 0);
          callback(this.dest);
       };
-      let srcImageData = this.src.getContext('2d').getImageData(0, 0, this.src.width, this.src.height);
+      const srcCtx = this.src.getContext('2d');
+      if (!srcCtx) {
+         throw new Error('cannot get CanvasRenderingContext2D from src');
+      }
+      const srcImageData = srcCtx.getImageData(0, 0, this.src.width, this.src.height);
       w.postMessage({
          src: srcImageData.data.buffer,
          srcWidth: this.src.width,
@@ -89,7 +106,7 @@ class DownScaler {
       if (DownScaler.workerURL) {
          return DownScaler.workerURL;
       }
-      let sourceCode: string[] = [];
+      const sourceCode: string[] = [];
       sourceCode.push('\'use strict\';\n');
       sourceCode.push('var calculate = ');
       sourceCode.push(DownScaler.calculate.toString());

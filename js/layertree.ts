@@ -70,8 +70,8 @@ module LayerTree {
       public nodes: { [seqId: number]: Node } = {};
 
       get text(): string {
-         let text: string[] = [];
-         let tab: string[] = [];
+         const text: string[] = [];
+         const tab: string[] = [];
          let r = (n: Node): void => {
             for (let cn of n.children) {
                text.push(tab.join('') + cn.name);
@@ -130,7 +130,7 @@ module LayerTree {
                r(cn, cdn);
             }
          };
-         let result: DeserializeNode = {
+         const result: DeserializeNode = {
             checked: root.checked,
             children: {},
          };
@@ -156,12 +156,12 @@ module LayerTree {
       private doFlip(flipSet: FlipSet[], flip: boolean): void {
          for (let fs of flipSet) {
             if (flip && fs.normal.checked) {
-               let state = this.flipSerialize(fs.normal);
+               const state = this.flipSerialize(fs.normal);
                this.flipDeserialize(fs.flipped, state);
                fs.flipped.checked = true;
                fs.normal.checked = false;
             } else if (!flip && fs.flipped.checked) {
-               let state = this.flipSerialize(fs.flipped);
+               const state = this.flipSerialize(fs.flipped);
                this.flipDeserialize(fs.normal, state);
                fs.normal.checked = true;
                fs.flipped.checked = false;
@@ -170,10 +170,10 @@ module LayerTree {
       }
 
       constructor(private disableExtendedFeature: boolean, private treeRoot: HTMLUListElement, psdRoot: psd.Root) {
-         let path: string[] = [];
+         const path: string[] = [];
          let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[], parentSeqID: number): void => {
-            let indexes: { [SeqID: number]: number } = {};
-            let founds: { [name: string]: number } = {};
+            const indexes: { [SeqID: number]: number } = {};
+            const founds: { [name: string]: number } = {};
             for (let ll of l) {
                if (ll.Name in founds) {
                   indexes[ll.SeqID] = ++founds[ll.Name];
@@ -183,10 +183,10 @@ module LayerTree {
             }
             for (let i = l.length - 1; i >= 0; --i) {
                var elems = this.createElements(l[i], parentSeqID);
-               let cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
+               const cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
                n.children.push(cn);
                this.nodes[l[i].SeqID] = cn;
-               let cul = document.createElement('ul');
+               const cul = document.createElement('ul');
                path.push(cn.internalName);
                r(cul, cn, l[i].Children, l[i].SeqID);
                path.pop();
@@ -213,8 +213,8 @@ module LayerTree {
          div: HTMLDivElement;
          input: HTMLInputElement;
       } {
-         let name = document.createElement('label');
-         let input = document.createElement('input');
+         const name = document.createElement('label');
+         const input = document.createElement('input');
          let layerName = l.Name;
          if (!this.disableExtendedFeature && layerName.length > 1) {
             switch (layerName.charAt(0)) {
@@ -252,7 +252,7 @@ module LayerTree {
          name.appendChild(input);
 
          if (l.Clipping) {
-            let clip = document.createElement('img');
+            const clip = document.createElement('img');
             clip.className = 'psdtool-clipped-mark';
             clip.src = 'img/clipped.svg';
             clip.alt = 'clipped mark';
@@ -260,12 +260,12 @@ module LayerTree {
          }
 
          if (l.Folder) {
-            let icon = document.createElement('span');
+            const icon = document.createElement('span');
             icon.className = 'psdtool-icon glyphicon glyphicon-folder-open';
             icon.setAttribute('aria-hidden', 'true');
             name.appendChild(icon);
          } else {
-            let thumb = document.createElement('canvas');
+            const thumb = document.createElement('canvas');
             thumb.className = 'psdtool-thumbnail';
             thumb.width = 96;
             thumb.height = 96;
@@ -279,16 +279,19 @@ module LayerTree {
                   h = thumb.height;
                   w = thumb.height / l.Height * w;
                }
-               let ctx = thumb.getContext('2d');
+               const ctx = thumb.getContext('2d');
+               if (!ctx) {
+                  throw new Error('cannot get CanvasRenderingContext2D for make thumbnail');
+               }
                ctx.drawImage(
                   l.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
             }
             name.appendChild(thumb);
          }
-         let text = document.createTextNode(layerName);
+         const text = document.createTextNode(layerName);
          name.appendChild(text);
 
-         let div = document.createElement('div');
+         const div = document.createElement('div');
          div.className = 'psdtool-layer-name';
          div.appendChild(name);
          return {
@@ -345,8 +348,8 @@ module LayerTree {
       }
 
       private parseToken(name: string): { tokens: string[], name: string } {
-         let token: string[] = [];
-         let p = name.split(':');
+         const token: string[] = [];
+         const p = name.split(':');
          for (let i = p.length - 1; i >= 0; --i) {
             switch (p[i]) {
                case 'flipx':
@@ -358,6 +361,7 @@ module LayerTree {
                   return { tokens: token, name: p.join(':') };
             }
          }
+         throw new Error('cannot parse token from name: ' + name);
       }
 
       private registerFlippingGroup(): void {
@@ -365,8 +369,8 @@ module LayerTree {
             for (let cn of n.children) {
                r(cn);
 
-               let tokens = this.parseToken(cn.name);
-               let flips: FlipType[] = [];
+               const tokens = this.parseToken(cn.name);
+               const flips: FlipType[] = [];
                for (let tk of tokens.tokens) {
                   switch (tk) {
                      case 'flipx':
@@ -420,7 +424,7 @@ module LayerTree {
       }
 
       private getAllNode(): Node[] {
-         let r: Node[] = [];
+         const r: Node[] = [];
          let node: Node;
          for (let key in this.nodes) {
             if (!this.nodes.hasOwnProperty(key)) {
@@ -435,18 +439,19 @@ module LayerTree {
       }
 
       public serialize(allLayer: boolean): string {
-         let nodes = this.getAllNode();
+         const nodes = this.getAllNode();
          if (!nodes.length) {
             return '';
          }
          if (allLayer) {
-            let r: string[] = [];
+            const r: string[] = [];
             for (let node of nodes) {
                r.push('/' + node.fullPath);
             }
             return r.join('\n');
          }
-         let i: number, items: SerializeItem[] = [], pathMap: StringSet = {};
+         let i: number;
+         const items: SerializeItem[] = [], pathMap: StringSet = {};
          for (i = 0; i < nodes.length; ++i) {
             items.push({
                node: nodes[i],
@@ -486,14 +491,14 @@ module LayerTree {
       }
 
       private buildDeserializeTree(state: string): DeserializeNodeRoot {
-         let allLayer = state.charAt(0) === '/';
-         let root: DeserializeNodeRoot = {
+         const allLayer = state.charAt(0) === '/';
+         const root: DeserializeNodeRoot = {
             children: {},
             checked: true,
             allLayer: allLayer
          };
          let j: number, node: DeserializeNode, parts: string[];
-         let lines = state.replace(/\r/g, '').split('\n');
+         const lines = state.replace(/\r/g, '').split('\n');
          for (let line of lines) {
             parts = line.split('/');
             for (j = allLayer ? 1 : 0, node = root; j < parts.length; ++j) {
@@ -512,8 +517,8 @@ module LayerTree {
          return root;
       }
 
-      private apply(dnode: DeserializeNode, fnode: Node, allLayer: boolean): void {
-         let founds: StringSet = {};
+      private apply(dnode: DeserializeNode |null, fnode: Node, allLayer: boolean): void {
+         const founds: StringSet = {};
          let cfnode: Node, cdnode: DeserializeNode;
          for (cfnode of fnode.children) {
             founds[cfnode.internalName] = true;
@@ -538,7 +543,7 @@ module LayerTree {
       }
 
       public deserialize(state: string) {
-         let old = this.serialize(true);
+         const old = this.serialize(true);
          try {
             let t = this.buildDeserializeTree(state);
             if (t.allLayer) {
@@ -555,7 +560,7 @@ module LayerTree {
       }
 
       private buildFilterTree(filter: string): FilterNode {
-         let root: FilterNode = {
+         const root: FilterNode = {
             children: {}
          };
          let node: FilterNode, parts: string[];
@@ -575,7 +580,7 @@ module LayerTree {
       }
 
       private applyWithFilter(dnode: DeserializeNode, filter: FilterNode, fnode: Node): void {
-         let founds: StringSet = {};
+         const founds: StringSet = {};
          let cfnode: Node, cfilter: FilterNode, cdnode: DeserializeNode;
          for (cfnode of fnode.children) {
             founds[cfnode.internalName] = true;
@@ -603,7 +608,7 @@ module LayerTree {
       }
 
       public deserializePartial(baseState: string, overlayState: string, filter: string) {
-         let old = this.serialize(true);
+         const old = this.serialize(true);
          try {
             if (baseState !== undefined) {
                if (baseState === '') {
@@ -641,22 +646,29 @@ module LayerTree {
 
       private normalize(): void {
          // TODO: re-implement
-         let ul = document.getElementById('layer-tree');
-         let elems = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-force-visible');
+         const ul = document.getElementById('layer-tree');
+         if (!ul) {
+            throw new Error('#layer-tree not found');
+         }
+         const elems = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-force-visible');
          for (let i = 0; i < elems.length; ++i) {
             elems[i].checked = true;
          }
 
-         let set: { [name: string]: boolean; } = {};
-         let radios = <NodeListOf<HTMLInputElement>>ul.querySelectorAll('.psdtool-layer-radio');
+         const set: { [name: string]: boolean; } = {};
+         const radios = ul.querySelectorAll('.psdtool-layer-radio');
          for (let i = 0; i < radios.length; ++i) {
-            if (radios[i].name in set) {
+            const radio = radios[i];
+            if (!(radio instanceof HTMLInputElement)) {
+               throw new Error('found .psdtool-layer-radio that are not HTMLInputElement');
+            }
+            if (radio.name in set) {
                continue;
             }
-            set[radios[i].name] = true;
-            let rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name="' + radios[i].name + '"]:checked');
+            set[radio.name] = true;
+            let rinShibuyas = ul.querySelectorAll('.psdtool-layer-radio[name="' + radio.name + '"]:checked');
             if (!rinShibuyas.length) {
-               radios[i].checked = true;
+               radio.checked = true;
                continue;
             }
          }
@@ -667,10 +679,10 @@ module LayerTree {
       private root: Node = new Node(null, null, '', [], 0, null);
       private nodes: { [seqId: number]: Node } = {};
       constructor(treeRoot: HTMLUListElement, psdRoot: psd.Root) {
-         let path: string[] = [];
+         const path: string[] = [];
          let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[]): void => {
-            let indexes: { [SeqID: number]: number } = {};
-            let founds: { [name: string]: number } = {};
+            const indexes: { [SeqID: number]: number } = {};
+            const founds: { [name: string]: number } = {};
             for (let ll of l) {
                if (ll.Name in founds) {
                   indexes[ll.SeqID] = ++founds[ll.Name];
@@ -679,12 +691,12 @@ module LayerTree {
                }
             }
             for (let i = l.length - 1; i >= 0; --i) {
-               let elems = this.createElements(l[i]);
-               let cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
+               const elems = this.createElements(l[i]);
+               const cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
                n.children.push(cn);
                this.nodes[l[i].SeqID] = cn;
                cn.li = document.createElement('li');
-               let cul = document.createElement('ul');
+               const cul = document.createElement('ul');
                path.push(cn.internalName);
                r(cul, cn, l[i].Children);
                path.pop();
@@ -701,13 +713,13 @@ module LayerTree {
          label: HTMLLabelElement;
          input: HTMLInputElement;
       } {
-         let input = document.createElement('input');
+         const input = document.createElement('input');
          input.type = 'checkbox';
          input.checked = true;
          input.setAttribute('data-seq', l.SeqID.toString());
 
-         let text = document.createTextNode(l.Name);
-         let label = document.createElement('label');
+         const text = document.createTextNode(l.Name);
+         const label = document.createElement('label');
          label.appendChild(input);
          label.appendChild(text);
          return {
@@ -718,7 +730,7 @@ module LayerTree {
       }
 
       private getAllNode(): Node[] {
-         let r: Node[] = [];
+         const r: Node[] = [];
          let enableNodes = 0;
          let node: Node;
          for (let key in this.nodes) {
@@ -740,11 +752,12 @@ module LayerTree {
       }
 
       public serialize(): string {
-         let nodes = this.getAllNode();
+         const nodes = this.getAllNode();
          if (!nodes.length) {
             return '';
          }
-         let i: number, path: SerializeItem[] = [], pathMap: StringSet = {};
+         let i: number;
+         const path: SerializeItem[] = [], pathMap: StringSet = {};
          for (i = 0; i < nodes.length; ++i) {
             path.push({
                node: nodes[i],
@@ -784,12 +797,12 @@ module LayerTree {
       }
 
       private buildDeserializeTree(state: string): DeserializeNode {
-         let root: DeserializeNode = {
+         const root: DeserializeNode = {
             children: {},
             checked: true
          };
          let node: DeserializeNode, parts: string[];
-         let lines = state.replace(/\r/g, '').split('\n');
+         const lines = state.replace(/\r/g, '').split('\n');
          for (let line of lines) {
             parts = line.split('/');
             node = root;
@@ -806,8 +819,8 @@ module LayerTree {
          return root;
       }
 
-      private apply(dnode: DeserializeNode, fnode: Node, useDisable: boolean): void {
-         let founds: StringSet = {};
+      private apply(dnode: DeserializeNode |null, fnode: Node, useDisable: boolean): void {
+         const founds: StringSet = {};
          let cdnode: DeserializeNode;
          for (let cfnode of fnode.children) {
             if (cfnode.disabled) {
@@ -835,7 +848,7 @@ module LayerTree {
       }
 
       public deserialize(state: string, parents: string[]) {
-         let old = this.serialize();
+         const old = this.serialize();
          try {
             for (let key in this.nodes) {
                if (!this.nodes.hasOwnProperty(key)) {
