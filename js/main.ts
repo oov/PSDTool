@@ -9,19 +9,27 @@ interface MousetrapStatic {
    init(): void;
 }
 module psdtool {
+   function getElementById(doc: Document, id: string): HTMLElement {
+      const elem = doc.getElementById(id);
+      if (!elem) {
+         throw new Error('#' + id + ' not found');
+      }
+      return elem;
+   }
+
    class ProgressDialog {
       private dialog: JQuery;
       private bar: HTMLElement;
       private text: Text;
       constructor(title: string, text: string) {
-         this.bar = document.getElementById('progress-dialog-progress-bar');
+         this.bar = getElementById(document, 'progress-dialog-progress-bar');
          this.text = document.createTextNode('');
 
-         let label = document.getElementById('progress-dialog-label');
+         const label = getElementById(document, 'progress-dialog-label');
          label.innerHTML = '';
          label.appendChild(document.createTextNode(title));
 
-         let caption = document.getElementById('progress-dialog-progress-caption');
+         const caption = getElementById(document, 'progress-dialog-progress-caption');
          caption.innerHTML = '';
          caption.appendChild(this.text);
 
@@ -37,7 +45,7 @@ module psdtool {
          this.dialog.modal('hide');
       }
       public update(progress: number, text: string): void {
-         let p = Math.min(100, Math.max(0, progress * 100));
+         const p = Math.min(100, Math.max(0, progress * 100));
          this.bar.style.width = p + '%';
          this.bar.setAttribute('aria-valuenow', p.toFixed(0) + '%');
          this.text.data = p.toFixed(0) + '% ' + text;
@@ -56,7 +64,7 @@ module psdtool {
 
       private init(): void {
          {
-            let filterTree = document.getElementById('filter-tree');
+            const filterTree = getElementById(document, 'filter-tree');
             if (filterTree instanceof HTMLUListElement) {
                this.treeRoot = filterTree;
             } else {
@@ -65,16 +73,16 @@ module psdtool {
          }
          this.treeRoot.innerHTML = '';
          this.treeRoot.addEventListener('click', e => {
-            let inp = e.target;
+            const inp = e.target;
             if (inp instanceof HTMLInputElement) {
                let li = inp.parentElement;
                while (!(li instanceof HTMLLIElement)) {
                   li = li.parentElement;
                }
-               let checked = inp.checked;
-               let inputs = li.querySelectorAll('input');
+               const checked = inp.checked;
+               const inputs = li.querySelectorAll('input');
                for (let i = 0; i < inputs.length; ++i) {
-                  let inp = inputs[i];
+                  const inp = inputs[i];
                   if (inp instanceof HTMLInputElement) {
                      inp.checked = checked;
                   }
@@ -82,7 +90,7 @@ module psdtool {
                if (checked) {
                   for (let parent = li.parentElement; parent !== this.treeRoot; parent = parent.parentElement) {
                      if (parent instanceof HTMLLIElement) {
-                        let inp = parent.querySelector('input');
+                        const inp = parent.querySelector('input');
                         if (inp instanceof HTMLInputElement) {
                            inp.checked = true;
                         }
@@ -94,7 +102,7 @@ module psdtool {
             }
          }, false);
          {
-            let useFilter = document.getElementById('use-filter');
+            const useFilter = getElementById(document, 'use-filter');
             if (useFilter instanceof HTMLInputElement) {
                this.useFilter = useFilter;
             } else {
@@ -107,7 +115,7 @@ module psdtool {
          }, false);
 
          {
-            let dialog = document.getElementById('filter-dialog');
+            const dialog = getElementById(document, 'filter-dialog');
             if (dialog instanceof HTMLDivElement) {
                this.dialog = dialog;
             } else {
@@ -115,10 +123,10 @@ module psdtool {
             }
          }
          jQuery(this.dialog).on('shown.bs.modal', e => {
-            let filters = this.favorite.getAncestorFilters(this.node);
+            const filters = this.favorite.getAncestorFilters(this.node);
             if (this.node.type === 'filter') {
                this.useFilter.checked = true;
-               this.root.deserialize(this.node.data.value, filters);
+               this.root.deserialize(this.node.data ? this.node.data.value : '', filters);
             } else {
                this.useFilter.checked = false;
                this.root.deserialize('', filters);
@@ -141,7 +149,7 @@ module psdtool {
             this.treeRoot.classList.add('disabled');
          }
 
-         let inputs = this.treeRoot.querySelectorAll('input');
+         const inputs = this.treeRoot.querySelectorAll('input');
          for (let i = 0, elem: Element, li: HTMLElement; i < inputs.length; ++i) {
             elem = inputs[i];
             if (elem instanceof HTMLInputElement) {
@@ -165,16 +173,16 @@ module psdtool {
 
       private update(): void {
          if (this.useFilter.checked) {
-            let s = this.root.serialize();
+            const s = this.root.serialize();
             if (s) {
                if (this.onUpdate) {
-                  this.onUpdate(this.node.id, 'filter', s);
+                  this.onUpdate(this.node.id || '', 'filter', s);
                }
                return;
             }
          }
          if (this.onUpdate) {
-            this.onUpdate(this.node.id, 'folder', null);
+            this.onUpdate(this.node.id || '', 'folder', '');
          }
       }
 
@@ -195,7 +203,7 @@ module psdtool {
 
       constructor(private favorite: Favorite.Favorite) {
          {
-            let faviewMode = document.getElementById('faview-mode');
+            const faviewMode = getElementById(document, 'faview-mode');
             if (faviewMode instanceof HTMLSelectElement) {
                this.faviewMode = faviewMode;
             } else {
@@ -205,7 +213,7 @@ module psdtool {
          this.faviewMode.addEventListener('change', e => this.update());
 
          {
-            let dialog = document.getElementById('faview-setting-dialog');
+            const dialog = getElementById(document, 'faview-setting-dialog');
             if (dialog instanceof HTMLDivElement) {
                this.dialog = dialog;
             } else {
@@ -271,13 +279,13 @@ module psdtool {
             }
          });
          this.initUI();
-         document.getElementById('samplefile').addEventListener('click', e =>
-            this.loadAndParse(document.getElementById('samplefile').getAttribute('data-filename')), false);
+         getElementById(document, 'samplefile').addEventListener('click', e =>
+            this.loadAndParse(getElementById(document, 'samplefile').getAttribute('data-filename')), false);
          window.addEventListener('resize', e => this.resized(), false);
          window.addEventListener('hashchange', e => this.hashchanged(), false);
          this.hashchanged();
 
-         let elems = document.querySelectorAll('.psdtool-loading');
+         const elems = document.querySelectorAll('.psdtool-loading');
          for (let i = 0; i < elems.length; ++i) {
             elems[i].classList.add('psdtool-loaded');
             elems[i].classList.remove('psdtool-loading');
@@ -285,34 +293,34 @@ module psdtool {
       }
 
       private hashchanged() {
-         let hashData = decodeURIComponent(location.hash.substring(1));
+         const hashData = decodeURIComponent(location.hash.substring(1));
          if (hashData.substring(0, 5) === 'load:') {
             this.loadAndParse(hashData.substring(5));
          }
       }
 
       private resized() {
-         let mainContainer = document.getElementById('main-container');
-         let miscUi = document.getElementById('misc-ui');
-         let previewContainer = document.getElementById('preview-container');
+         const mainContainer = getElementById(document, 'main-container');
+         const miscUi = getElementById(document, 'misc-ui');
+         const previewContainer = getElementById(document, 'preview-container');
          let old = previewContainer.style.display;
          previewContainer.style.display = 'none';
          previewContainer.style.width = mainContainer.clientWidth + 'px';
          previewContainer.style.height = (mainContainer.clientHeight - miscUi.offsetHeight) + 'px';
          previewContainer.style.display = old;
 
-         let sideContainer = document.getElementById('side-container');
-         let sideHead = document.getElementById('side-head');
-         let sideBody = document.getElementById('side-body');
+         const sideContainer = getElementById(document, 'side-container');
+         const sideHead = getElementById(document, 'side-head');
+         const sideBody = getElementById(document, 'side-body');
          old = sideBody.style.display;
          sideBody.style.display = 'none';
          sideBody.style.width = sideContainer.clientWidth + 'px';
          sideBody.style.height = (sideContainer.clientHeight - sideHead.offsetHeight) + 'px';
          sideBody.style.display = old;
 
-         let toolbars = document.querySelectorAll('.psdtool-tab-toolbar');
+         const toolbars = document.querySelectorAll('.psdtool-tab-toolbar');
          for (let i = 0; i < toolbars.length; ++i) {
-            let elem = toolbars[i];
+            const elem = toolbars[i];
             if (elem instanceof HTMLElement) {
                let p = elem.parentElement;
                while (!p.classList.contains('psdtool-tab-pane') && p) {
@@ -326,22 +334,22 @@ module psdtool {
       }
 
       private loadAndParse(input: File | string) {
-         let fileOpenUi = document.getElementById('file-open-ui');
-         let errorReportUi = document.getElementById('error-report-ui');
-         let main = document.getElementById('main');
+         const fileOpenUi = getElementById(document, 'file-open-ui');
+         const errorReportUi = getElementById(document, 'error-report-ui');
+         const main = getElementById(document, 'main');
 
          fileOpenUi.style.display = 'block';
          errorReportUi.style.display = 'none';
          main.style.display = 'none';
          Mousetrap.pause();
 
-         let errorMessageContainer = document.getElementById('error-message');
-         let errorMessage = document.createTextNode('');
+         const errorMessageContainer = getElementById(document, 'error-message');
+         const errorMessage = document.createTextNode('');
 
          errorMessageContainer.innerHTML = '';
          errorMessageContainer.appendChild(errorMessage);
 
-         let prog = new ProgressDialog('Loading...', 'Getting ready...');
+         const prog = new ProgressDialog('Loading...', 'Getting ready...');
          Main.loadAsBlob(p => prog.update(p, 'Receiving file...'), input)
             .then(
             (o: { buffer: ArrayBuffer | Blob, name: string; }) =>
@@ -365,7 +373,7 @@ module psdtool {
       }
 
       private parse(progress: (progress: number) => void, obj: { buffer: ArrayBuffer | Blob, name: string }) {
-         let deferred = m.deferred();
+         const deferred = m.deferred();
          PSD.parseWorker(
             obj.buffer,
             progress,
@@ -380,7 +388,7 @@ module psdtool {
                   this.seqDlPrefix.value = obj.name;
                   this.seqDlNum.value = '0';
 
-                  let readmeButtons = document.querySelectorAll('.psdtool-show-readme');
+                  const readmeButtons = document.querySelectorAll('.psdtool-show-readme');
                   for (let i = 0, elem: Element; i < readmeButtons.length; ++i) {
                      elem = readmeButtons[i];
                      if (elem instanceof HTMLElement) {
@@ -391,18 +399,18 @@ module psdtool {
                         }
                      }
                   }
-                  document.getElementById('readme').textContent = psd.Readme;
+                  getElementById(document, 'readme').textContent = psd.Readme;
 
                   //  TODO: error handling
                   this.favorite.psdHash = psd.Hash;
                   if (this.droppedPFV) {
-                     let fr = new FileReader();
+                     const fr = new FileReader();
                      fr.onload = () => {
                         this.favorite.loadFromArrayBuffer(fr.result);
                      };
                      fr.readAsArrayBuffer(this.droppedPFV);
                   } else {
-                     let pfvData = this.favorite.getPFVFromLocalStorage(psd.Hash);
+                     const pfvData = this.favorite.getPFVFromLocalStorage(psd.Hash);
                      if (pfvData && pfvData.time / 1000 > psd.PFVModDate) {
                         this.favorite.loadFromString(pfvData.data, pfvData.id);
                      } else if (psd.PFV) {
@@ -427,7 +435,7 @@ module psdtool {
             ext = files[i].name.substring(files[i].name.length - 4).toLowerCase();
             if (ext === '.pfv') {
                // TODO: error handling
-               let fr = new FileReader();
+               const fr = new FileReader();
                fr.onload = e => {
                   if (this.favorite.loadFromArrayBuffer(fr.result)) {
                      jQuery('#import-dialog').modal('hide');
@@ -441,8 +449,8 @@ module psdtool {
 
       private initFavoriteUI(): void {
          this.favorite = new Favorite.Favorite(
-            document.getElementById('favorite-tree'),
-            document.getElementById('favorite-tree').getAttribute('data-root-name'));
+            getElementById(document, 'favorite-tree'),
+            getElementById(document, 'favorite-tree').getAttribute('data-root-name'));
          this.favorite.onModified = () => {
             this.needRefreshFaview = true;
          };
@@ -544,17 +552,17 @@ module psdtool {
          jQuery('button[data-psdtool-tree-remove]').on('click', e => this.favorite.remove());
 
          Mousetrap.bind('shift+mod+g', e => {
-            let target = e.target;
+            const target = e.target;
             if (target instanceof HTMLElement && target.classList.contains('psdtool-layer-visible')) {
                e.preventDefault();
                if (!target.classList.contains('psdtool-layer-radio')) {
                   return;
                }
                if (target instanceof HTMLInputElement) {
-                  let old = this.layerRoot.serialize(true);
-                  let created: string[] = [];
+                  const old = this.layerRoot.serialize(true);
+                  const created: string[] = [];
                   let n: LayerTree.Node;
-                  let elems = document.querySelectorAll('input[name="' + target.name + '"].psdtool-layer-radio');
+                  const elems = document.querySelectorAll('input[name="' + target.name + '"].psdtool-layer-radio');
                   for (let i = 0; i < elems.length; ++i) {
                      n = this.layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq'), 10)];
                      if (n.li.classList.contains('psdtool-item-flip-x') ||
@@ -577,10 +585,10 @@ module psdtool {
          Main.initDropZone('pfv-dropzone2', files => this.pfvOnDrop(files));
          jQuery('#import-dialog').on('shown.bs.modal', e => {
             // build the recent list
-            let recents = document.getElementById('pfv-recents');
+            const recents = getElementById(document, 'pfv-recents');
             recents.innerHTML = '';
             let btn: HTMLButtonElement;
-            let pfvs = this.favorite.getPFVListFromLocalStorage();
+            const pfvs = this.favorite.getPFVListFromLocalStorage();
             for (let i = pfvs.length - 1; i >= 0; --i) {
                btn = document.createElement('button');
                btn.type = 'button';
@@ -606,14 +614,14 @@ module psdtool {
          });
 
          jQuery('#bulk-create-folder-dialog').on('shown.bs.modal', e => this.bulkCreateFolderTextarea.focus());
-         let e = document.getElementById('bulk-create-folder-textarea');
+         const e = getElementById(document, 'bulk-create-folder-textarea');
          if (e instanceof HTMLTextAreaElement) {
             this.bulkCreateFolderTextarea = e;
          } else {
             throw new Error('element not found: #bulk-create-folder-textarea');
          }
-         document.getElementById('bulk-create-folder').addEventListener('click', e => {
-            let folders: string[] = [];
+         getElementById(document, 'bulk-create-folder').addEventListener('click', e => {
+            const folders: string[] = [];
             for (let line of this.bulkCreateFolderTextarea.value.replace(/\r/g, '').split('\n')) {
                line = line.trim();
                if (line === '') {
@@ -645,30 +653,30 @@ module psdtool {
                   ul.appendChild(li);
                }
             };
-            let elem = document.getElementById('bulk-rename-tree');
+            const elem = getElementById(document, 'bulk-rename-tree');
             this.bulkRenameData = this.favorite.renameNodes;
             elem.innerHTML = '';
             r(elem, this.bulkRenameData);
          });
-         document.getElementById('bulk-rename').addEventListener('click', e => {
+         getElementById(document, 'bulk-rename').addEventListener('click', e => {
             // auto numbering
             let digits = 1;
             {
-               let elem = document.getElementById('rename-digits');
+               const elem = getElementById(document, 'rename-digits');
                if (elem instanceof HTMLSelectElement) {
                   digits = parseInt(elem.value, 10);
                }
             }
             let n = 0;
             {
-               let elem = document.getElementById('rename-start-number');
+               const elem = getElementById(document, 'rename-start-number');
                if (elem instanceof HTMLInputElement) {
                   n = parseInt(elem.value, 10);
                }
             }
-            let elems = document.getElementById('bulk-rename-tree').querySelectorAll('input');
+            const elems = getElementById(document, 'bulk-rename-tree').querySelectorAll('input');
             for (let i = 0; i < elems.length; ++i) {
-               let elem = elems[i];
+               const elem = elems[i];
                if (elem instanceof HTMLInputElement && elem.value === '') {
                   elem.value = ('0000' + n.toString()).slice(-digits);
                   elem.onblur(null);
@@ -678,18 +686,18 @@ module psdtool {
             this.favorite.bulkRename(this.bulkRenameData);
          }, false);
 
-         document.getElementById('export-favorites-pfv').addEventListener('click', e => {
+         getElementById(document, 'export-favorites-pfv').addEventListener('click', e => {
             saveAs(new Blob([this.favorite.pfv], {
                type: 'text/plain'
             }), Main.cleanForFilename(this.favorite.rootName) + '.pfv');
          }, false);
-         document.getElementById('export-favorites-zip').addEventListener('click', e => {
+         getElementById(document, 'export-favorites-zip').addEventListener('click', e => {
             this.exportZIP(false);
          }, false);
-         document.getElementById('export-favorites-zip-filter-solo').addEventListener('click', e => {
+         getElementById(document, 'export-favorites-zip-filter-solo').addEventListener('click', e => {
             this.exportZIP(true);
          }, false);
-         let faviewExports = document.querySelectorAll('[data-export-faview]');
+         const faviewExports = document.querySelectorAll('[data-export-faview]');
          for (let i = 0; i < faviewExports.length; ++i) {
             ((elem: Element): void => {
                elem.addEventListener('click', e => {
@@ -700,13 +708,13 @@ module psdtool {
                });
             })(faviewExports[i]);
          }
-         document.getElementById('export-layer-structure').addEventListener('click', e => {
+         getElementById(document, 'export-layer-structure').addEventListener('click', e => {
             saveAs(new Blob([this.layerRoot.text], {
                type: 'text/plain'
             }), 'layer.txt');
          }, false);
 
-         let faviewToggleButtons = document.querySelectorAll('.psdtool-toggle-tree-faview');
+         const faviewToggleButtons = document.querySelectorAll('.psdtool-toggle-tree-faview');
          for (let i = 0; i < faviewToggleButtons.length; ++i) {
             faviewToggleButtons[i].addEventListener('click', e => this.toggleTreeFaview(), false);
          }
@@ -716,7 +724,7 @@ module psdtool {
       }
 
       private toggleTreeFaview(forceActiveFaview?: boolean): void {
-         let pane = document.getElementById('layer-tree-pane');
+         const pane = getElementById(document, 'layer-tree-pane');
          if (forceActiveFaview === undefined) {
             forceActiveFaview = !pane.classList.contains('faview-active');
          }
@@ -736,13 +744,13 @@ module psdtool {
          if (!this.faview) {
             let rootSel: HTMLSelectElement;
             let root: HTMLUListElement;
-            let elem = document.getElementById('faview-root-node');
+            const elem = getElementById(document, 'faview-root-node');
             if (elem instanceof HTMLSelectElement) {
                rootSel = elem;
             } else {
                throw new Error('element not found: #faview-root-node');
             }
-            elem = document.getElementById('faview-tree');
+            elem = getElementById(document, 'faview-tree');
             if (elem instanceof HTMLUListElement) {
                root = elem;
             } else {
@@ -752,7 +760,7 @@ module psdtool {
             this.faview.onRootChanged = () => this.faviewOnRootChanged();
             this.faview.onChange = node => this.faviewOnChange(node);
          }
-         document.getElementById('layer-tree-toolbar').classList.remove('hidden');
+         getElementById(document, 'layer-tree-toolbar').classList.remove('hidden');
          this.faview.start();
          this.needRefreshFaview = false;
          if (this.faview.roots === 0) {
@@ -790,15 +798,15 @@ module psdtool {
       }
 
       private endFaview() {
-         document.getElementById('layer-tree-toolbar').classList.add('hidden');
+         getElementById(document, 'layer-tree-toolbar').classList.add('hidden');
          this.toggleTreeFaview(false);
          this.resized();
          this.faview.close();
       }
 
       private exportZIP(filterSolo: boolean): void {
-         let parents: Favorite.Node[] = [];
-         let path: string[] = [],
+         const parents: Favorite.Node[] = [];
+         const path: string[] = [],
             files: { name: string; value: string; filter?: string }[] = [];
          let r = (children: Favorite.Node[]) => {
             for (let item of children) {
@@ -846,16 +854,16 @@ module psdtool {
                path.pop();
             }
          };
-         let json = this.favorite.json;
+         const json = this.favorite.json;
          r(json);
 
-         let backup = this.layerRoot.serialize(true);
-         let z = new Zipper.Zipper();
+         const backup = this.layerRoot.serialize(true);
+         const z = new Zipper.Zipper();
 
-         let prog = new ProgressDialog('Exporting...', '');
+         const prog = new ProgressDialog('Exporting...', '');
 
          let aborted = false;
-         let errorHandler = (readableMessage: string, err: any) => {
+         const errorHandler = (readableMessage: string, err: any) => {
             z.dispose(err => undefined);
             console.error(err);
             if (!aborted) {
@@ -867,7 +875,7 @@ module psdtool {
          window.addEventListener('unload', () => { aborted = true; }, false);
 
          let added = 0;
-         let addedHandler = () => {
+         const addedHandler = () => {
             if (++added < files.length + 1) {
                prog.update(
                   added / (files.length + 1),
@@ -891,7 +899,7 @@ module psdtool {
                e => errorHandler('cannot write pfv to a zip archive', e));
 
             let i = 0;
-            let process = () => {
+            const process = () => {
                if ('filter' in files[i]) {
                   this.layerRoot.deserializePartial(filterSolo ? '' : backup, files[i].value, files[i].filter);
                } else {
@@ -917,7 +925,7 @@ module psdtool {
 
       private exportFaview(includeItemCaption: boolean, flatten: boolean): void {
          this.refreshFaview();
-         let items = this.faview.items;
+         const items = this.faview.items;
          let total = 0;
          for (let item of items) {
             if (!item.selects.length) {
@@ -934,12 +942,12 @@ module psdtool {
             return;
          }
 
-         let backup = this.layerRoot.serialize(true);
-         let z = new Zipper.Zipper();
-         let prog = new ProgressDialog('Exporting...', '');
+         const backup = this.layerRoot.serialize(true);
+         const z = new Zipper.Zipper();
+         const prog = new ProgressDialog('Exporting...', '');
 
          let aborted = false;
-         let errorHandler = (readableMessage: string, err: any) => {
+         const errorHandler = (readableMessage: string, err: any) => {
             z.dispose(err => undefined);
             console.error(err);
             if (!aborted) {
@@ -951,7 +959,7 @@ module psdtool {
          window.addEventListener('unload', () => { aborted = true; }, false);
 
          let added = 0;
-         let addedHandler = (name: string) => {
+         const addedHandler = (name: string) => {
             if (++added < total) {
                prog.update(
                   added / total,
@@ -968,15 +976,15 @@ module psdtool {
          };
 
          let sels: Favorite.FaviewSelect[];
-         let path: string[] = [];
+         const path: string[] = [];
          let nextRoot: (index: number, complete: () => void) => void;
          let nextItem = (depth: number, index: number, complete: () => void): void => {
-            let sel = sels[depth];
-            let item = sel.items[index];
+            const sel = sels[depth];
+            const item = sel.items[index];
             path.push(Main.cleanForFilename((includeItemCaption ? sel.caption + '-' : '') + item.name));
-            let fav = this.favorite.get(item.value);
+            const fav = this.favorite.get(item.value);
             this.layerRoot.deserializePartial(undefined, fav.data.value, this.favorite.getFirstFilter(fav));
-            let next = (): void => {
+            const next = (): void => {
                path.pop();
                if (index < sel.items.length - 1) {
                   nextItem(depth, index + 1, complete);
@@ -995,7 +1003,7 @@ module psdtool {
                   if (progress !== 1) {
                      return;
                   }
-                  let name = path.join(flatten ? '_' : '\\') + '.png';
+                  const name = path.join(flatten ? '_' : '\\') + '.png';
                   z.add(
                      name,
                      new Blob([Main.dataSchemeURIToArrayBuffer(canvas.toDataURL())], { type: 'image/png' }),
@@ -1008,10 +1016,10 @@ module psdtool {
             }
          };
          nextRoot = (index: number, complete: () => void): void => {
-            let item = items[index];
+            const item = items[index];
             path.push(Main.cleanForFilename(item.name));
             sels = item.selects;
-            let next = (): void => {
+            const next = (): void => {
                path.pop();
                if (++index >= items.length) {
                   complete();
@@ -1035,12 +1043,12 @@ module psdtool {
          this.optionSafeMode = Main.getInputElement('#option-safe-mode');
 
          // save and restore scroll position of side-body on each tab.
-         let toolbars = document.querySelectorAll('.psdtool-tab-toolbar');
-         this.sideBody = document.getElementById('side-body');
+         const toolbars = document.querySelectorAll('.psdtool-tab-toolbar');
+         this.sideBody = getElementById(document, 'side-body');
          this.sideBody.addEventListener('scroll', e => {
-            let pos = this.sideBody.scrollTop + 'px';
+            const pos = this.sideBody.scrollTop + 'px';
             for (let i = 0; i < toolbars.length; ++i) {
-               let elem = toolbars[i];
+               const elem = toolbars[i];
                if (elem instanceof HTMLElement) {
                   elem.style.top = pos;
                }
@@ -1048,13 +1056,13 @@ module psdtool {
          }, false);
          this.sideBodyScrollPos = {};
          jQuery('a[data-toggle="tab"]').on('hide.bs.tab', e => {
-            let tab = e.target.getAttribute('href');
+            const tab = e.target.getAttribute('href');
             this.sideBodyScrollPos[tab] = {
                left: this.sideBody.scrollLeft,
                top: this.sideBody.scrollTop
             };
          }).on('shown.bs.tab', e => {
-            let tab = e.target.getAttribute('href');
+            const tab = e.target.getAttribute('href');
             if (tab in this.sideBodyScrollPos) {
                this.sideBody.scrollLeft = this.sideBodyScrollPos[tab].left;
                this.sideBody.scrollTop = this.sideBodyScrollPos[tab].top;
@@ -1068,8 +1076,8 @@ module psdtool {
 
          this.initFavoriteUI();
 
-         this.previewBackground = document.getElementById('preview-background');
-         let elem = document.getElementById('preview');
+         this.previewBackground = getElementById(document, 'preview-background');
+         const elem = getElementById(document, 'preview');
          if (elem instanceof HTMLCanvasElement) {
             this.previewCanvas = elem;
          } else {
@@ -1077,9 +1085,9 @@ module psdtool {
          }
          this.previewCanvas.addEventListener('dragstart', e => {
             let s = this.previewCanvas.toDataURL();
-            let name = this.previewCanvas.getAttribute('data-filename');
+            const name = this.previewCanvas.getAttribute('data-filename');
             if (name) {
-               let p = s.indexOf(';');
+               const p = s.indexOf(';');
                s = s.substring(0, p) + ';filename=' + encodeURIComponent(name) + s.substring(p);
             }
             e.dataTransfer.setData('text/uri-list', s);
@@ -1088,19 +1096,19 @@ module psdtool {
 
          jQuery('#main').on('splitpaneresize', e => this.resized()).splitPane();
 
-         elem = document.getElementById('flip-x');
+         elem = getElementById(document, 'flip-x');
          if (elem instanceof HTMLInputElement) {
             this.flipX = elem;
          }
          jQuery(this.flipX).on('change', e => this.redraw());
 
-         elem = document.getElementById('flip-y');
+         elem = getElementById(document, 'flip-y');
          if (elem instanceof HTMLInputElement) {
             this.flipY = elem;
          }
          jQuery(this.flipY).on('change', e => this.redraw());
 
-         elem = document.getElementById('fixed-side');
+         elem = getElementById(document, 'fixed-side');
          if (elem instanceof HTMLSelectElement) {
             this.fixedSide = elem;
          } else {
@@ -1111,7 +1119,7 @@ module psdtool {
          let lastPx: string;
          this.maxPixels = Main.getInputElement('#max-pixels');
          this.maxPixels.addEventListener('blur', e => {
-            let v = Main.normalizeNumber(this.maxPixels.value);
+            const v = Main.normalizeNumber(this.maxPixels.value);
             if (v === lastPx) {
                return;
             }
@@ -1122,14 +1130,14 @@ module psdtool {
 
          this.seqDlPrefix = Main.getInputElement('#seq-dl-prefix');
          this.seqDlNum = Main.getInputElement('#seq-dl-num');
-         elem = document.getElementById('seq-dl');
+         elem = getElementById(document, 'seq-dl');
          if (elem instanceof HTMLButtonElement) {
             this.seqDl = elem;
          } else {
             throw new Error('element not found: #seq-dl');
          }
          this.seqDl.addEventListener('click', e => {
-            let prefix = this.seqDlPrefix.value;
+            const prefix = this.seqDlPrefix.value;
             if (this.seqDlNum.value === '') {
                this.save(prefix + '.png');
                return;
@@ -1173,8 +1181,8 @@ module psdtool {
       private renderer: Renderer.Renderer;
       private loadRenderer(psd: psd.Root): void {
          this.renderer = new Renderer.Renderer(psd);
-         let lNodes = this.layerRoot.nodes;
-         let rNodes = this.renderer.nodes;
+         const lNodes = this.layerRoot.nodes;
+         const rNodes = this.renderer.nodes;
          for (let key in rNodes) {
             if (!rNodes.hasOwnProperty(key)) {
                continue;
@@ -1241,7 +1249,7 @@ module psdtool {
       private layerTree: HTMLUListElement;
       private initLayerTree(): void {
          {
-            let layerTree = document.getElementById('layer-tree');
+            const layerTree = getElementById(document, 'layer-tree');
             if (layerTree instanceof HTMLUListElement) {
                this.layerTree = layerTree;
             } else {
@@ -1250,9 +1258,9 @@ module psdtool {
          }
          this.layerTree.innerHTML = '';
          this.layerTree.addEventListener('click', e => {
-            let target = e.target;
+            const target = e.target;
             if (target instanceof HTMLInputElement && target.classList.contains('psdtool-layer-visible')) {
-               let n = this.layerRoot.nodes[parseInt(target.getAttribute('data-seq'), 10)];
+               const n = this.layerRoot.nodes[parseInt(target.getAttribute('data-seq') || '0', 10)];
                if (target.checked) {
                   this.lastCheckedNode = n;
                }
@@ -1321,7 +1329,7 @@ module psdtool {
       // static --------------------------------
 
       private static getInputElement(query: string): HTMLInputElement {
-         let elem = document.querySelector(query);
+         const elem = document.querySelector(query);
          if (elem instanceof HTMLInputElement) {
             return elem;
          }
@@ -1351,7 +1359,7 @@ module psdtool {
       }
 
       private static initDropZone(dropZoneId: string, loader: (files: FileList) => void): void {
-         let dz = document.getElementById(dropZoneId);
+         const dz = getElementById(document, dropZoneId);
          dz.addEventListener('dragenter', e => {
             dz.classList.add('psdtool-drop-active');
             e.preventDefault();
@@ -1379,9 +1387,9 @@ module psdtool {
             e.stopPropagation();
             return false;
          }, false);
-         let f = dz.querySelector('input[type=file]');
+         const f = dz.querySelector('input[type=file]');
          if (f instanceof HTMLInputElement) {
-            let file = f;
+            const file = f;
             f.addEventListener('change', e => {
                loader(file.files);
                file.value = null;
@@ -1390,8 +1398,8 @@ module psdtool {
       }
 
       private static dataSchemeURIToArrayBuffer(str: string): ArrayBuffer {
-         let bin = atob(str.substring(str.indexOf(',') + 1));
-         let buf = new Uint8Array(bin.length);
+         const bin = atob(str.substring(str.indexOf(',') + 1));
+         const buf = new Uint8Array(bin.length);
          for (let i = 0; i < bin.length; ++i) {
             buf[i] = bin.charCodeAt(i);
          }
@@ -1405,12 +1413,12 @@ module psdtool {
       }
 
       private static loadAsBlobCrossDomain(progress: (progress: number) => void, url: string) {
-         let deferred = m.deferred();
+         const deferred = m.deferred();
          if (location.protocol === 'https:' && url.substring(0, 5) === 'http:') {
             setTimeout((): void => deferred.reject(new Error('cannot access to the insecure content from HTTPS.')), 0);
             return deferred.promise;
          }
-         let ifr = document.createElement('iframe');
+         const ifr = document.createElement('iframe');
          let port: MessagePort;
          let timer = setTimeout(() => {
             port.onmessage = null;
@@ -1419,12 +1427,12 @@ module psdtool {
          }, 20000);
          ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin');
          ifr.onload = e => {
-            let msgCh = new MessageChannel();
+            const msgCh = new MessageChannel();
             port = msgCh.port1;
             port.onmessage = e => {
                if (timer) {
                   clearTimeout(timer);
-                  timer = null;
+                  timer = 0;
                }
                if (!e.data || !e.data.type) {
                   return;
@@ -1467,8 +1475,8 @@ module psdtool {
          if (url.substring(0, 3) === 'xd:') {
             return this.loadAsBlobCrossDomain(progress, url.substring(3));
          }
-         let deferred = m.deferred();
-         let xhr = new XMLHttpRequest();
+         const deferred = m.deferred();
+         const xhr = new XMLHttpRequest();
          xhr.open('GET', url);
          xhr.responseType = 'blob';
          xhr.onload = e => {
@@ -1493,8 +1501,8 @@ module psdtool {
 
       private static loadAsBlob(progress: (progress: number) => void, file_or_url: File | string) {
          if (file_or_url instanceof File) {
-            let file = file_or_url;
-            let deferred = m.deferred();
+            const file = file_or_url;
+            const deferred = m.deferred();
             setTimeout(() => {
                deferred.resolve({
                   buffer: file,
@@ -1510,7 +1518,7 @@ module psdtool {
 }
 
 (() => {
-   let originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;
+   const originalStopCallback: (e: KeyboardEvent, element: HTMLElement, combo?: string) => boolean = Mousetrap.prototype.stopCallback;
    Mousetrap.prototype.stopCallback = function(e: KeyboardEvent, element: HTMLElement, combo?: string): boolean {
       if (!this.paused) {
          if (element.classList.contains('psdtool-layer-visible') || element.classList.contains('psdtool-faview-select')) {
@@ -1522,6 +1530,6 @@ module psdtool {
    Mousetrap.init();
 })();
 (() => {
-   let main = new psdtool.Main();
+   const main = new psdtool.Main();
    document.addEventListener('DOMContentLoaded', e => main.init(), false);
 })();
