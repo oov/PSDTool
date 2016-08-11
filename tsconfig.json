@@ -39,6 +39,7 @@
     "./js/main.ts",
     "./js/psd/psd.d.ts",
     "./js/renderer.ts",
+    "./js/tileder.ts",
     "./js/zipper.ts"
   ],
   "atom": {

@@ -701,10 +701,17 @@ module psdtool {
          for (let i = 0; i < faviewExports.length; ++i) {
             ((elem: Element): void => {
                elem.addEventListener('click', e => {
-                  this.exportFaview(
-                     elem.getAttribute('data-export-faview') === 'standard',
-                     elem.getAttribute('data-structure') === 'flat'
-                  );
+                  if (elem.getAttribute('data-format') === 'zip') {
+                     this.exportFaview(
+                        elem.getAttribute('data-export-faview') === 'standard',
+                        elem.getAttribute('data-structure') === 'flat'
+                     );
+                  } else {
+                     this.exportFaviewTiled(
+                        elem.getAttribute('data-export-faview') === 'standard',
+                        elem.getAttribute('data-structure') === 'flat'
+                     );
+                  }
                });
             })(faviewExports[i]);
          }
@@ -924,6 +931,88 @@ module psdtool {
       }
 
       private exportFaview(includeItemCaption: boolean, flatten: boolean): void {
+         const z = new Zipper.Zipper();
+         const prog = new ProgressDialog('Exporting...', '');
+
+         let aborted = false;
+         const errorHandler = (readableMessage: string, err: any) => {
+            z.dispose(err => undefined);
+            prog.close();
+            console.error(err);
+            if (!aborted) {
+               alert(readableMessage + ': ' + err);
+            }
+         };
+         // it is needed to avoid alert storm when reload during exporting.
+         window.addEventListener('unload', () => { aborted = true; }, false);
+         z.init(() => {
+            this.enumerateFaview(
+               (path: { caption: string, name: string }[], image: HTMLCanvasElement, progress: number, next: () => void) => {
+                  const name = path.map((e, i) => {
+                     return Main.cleanForFilename((i && includeItemCaption ? e.caption + '-' : '') + e.name);
+                  }).join(flatten ? '_' : '\\') + '.png';
+                  z.add(
+                     name,
+                     new Blob([Main.dataSchemeURIToArrayBuffer(image.toDataURL())], { type: 'image/png' }),
+                     next,
+                     e => errorHandler('cannot write png to a zip archive', e)
+                  );
+                  prog.update(progress, name);
+               },
+               () => {
+                  prog.update(1, 'building a zip...');
+                  z.generate(blob => {
+                     saveAs(blob, 'simple-view.zip');
+                     z.dispose(err => undefined);
+                     prog.close();
+                  }, e => errorHandler('cannot create a zip archive', e));
+               }
+            );
+         }, e => errorHandler('cannot create a zip archive', e));
+      }
+
+      private exportFaviewTiled(includeItemCaption: boolean, flatten: boolean): void {
+         const z = new tileder.Tileder();
+         const prog = new ProgressDialog('Exporting...', '');
+
+         let aborted = false;
+         // const errorHandler = (readableMessage: string, err: any) => {
+         //    z.dispose(err => undefined);
+         //    prog.close();
+         //    console.error(err);
+         //    if (!aborted) {
+         //       alert(readableMessage + ': ' + err);
+         //    }
+         // };
+         // it is needed to avoid alert storm when reload during exporting.
+         window.addEventListener('unload', () => { aborted = true; }, false);
+         // z.init(() => {
+            this.enumerateFaview(
+               (path: { caption: string, name: string }[], image: HTMLCanvasElement, progress: number, next: () => void) => {
+                  const name = path.map((e, i) => {
+                     return Main.cleanForFilename((i && includeItemCaption ? e.caption + '-' : '') + e.name);
+                  }).join(flatten ? '_' : '\\') + '.png';
+                  z.add(name, image);
+                  prog.update(progress, name);
+                  next();
+               },
+               () => {
+                  z.finish();
+                  // prog.update(1, 'building a zip...');
+                  // z.generate(blob => {
+                  //    saveAs(blob, 'simple-view.zip');
+                  //    z.dispose(err => undefined);
+                  //    prog.close();
+                  // }, e => errorHandler('cannot create a zip archive', e));
+               }
+            );
+         // }, e => errorHandler('cannot create a zip archive', e));
+      }
+
+      private enumerateFaview(
+         item: (path: { caption: string, name: string }[], image: HTMLCanvasElement, progress: number, next: () => void) => void,
+         complete: () => void
+      ): void {
          this.refreshFaview();
          const items = this.faview.items;
          let total = 0;
@@ -938,88 +1027,47 @@ module psdtool {
             total += n;
          }
          if (!total) {
-            alert('You need at least one simple-view item to export.');
             return;
          }
 
          const backup = this.layerRoot.serialize(true);
-         const z = new Zipper.Zipper();
-         const prog = new ProgressDialog('Exporting...', '');
-
-         let aborted = false;
-         const errorHandler = (readableMessage: string, err: any) => {
-            z.dispose(err => undefined);
-            console.error(err);
-            if (!aborted) {
-               alert(readableMessage + ': ' + err);
-            }
-            prog.close();
-         };
-         // it is needed to avoid alert storm when reload during exporting.
-         window.addEventListener('unload', () => { aborted = true; }, false);
-
          let added = 0;
-         const addedHandler = (name: string) => {
-            if (++added < total) {
-               prog.update(
-                  added / total,
-                  added === 1 ? 'drawing...' : '(' + added + '/' + total + ') ' + name);
-               return;
-            }
-            this.layerRoot.deserialize(backup);
-            prog.update(1, 'building a zip...');
-            z.generate(blob => {
-               prog.close();
-               saveAs(blob, 'simple-view.zip');
-               z.dispose(err => undefined);
-            }, e => errorHandler('cannot create a zip archive', e));
-         };
-
          let sels: Favorite.FaviewSelect[];
-         const path: string[] = [];
-         let nextRoot: (index: number, complete: () => void) => void;
-         let nextItem = (depth: number, index: number, complete: () => void): void => {
+         const path: { caption: string, name: string }[] = [];
+         let nextItemSet = (depth: number, index: number, complete: () => void): void => {
             const sel = sels[depth];
-            const item = sel.items[index];
-            path.push(Main.cleanForFilename((includeItemCaption ? sel.caption + '-' : '') + item.name));
-            const fav = this.favorite.get(item.value);
-            this.layerRoot.deserializePartial(undefined, fav.data.value, this.favorite.getFirstFilter(fav));
-            const next = (): void => {
+            const selItem = sel.items[index];
+            path.push({ caption: sel.caption, name: selItem.name });
+            const fav = this.favorite.get(selItem.value);
+            this.layerRoot.deserializePartial(undefined, fav.data ? fav.data.value : '', this.favorite.getFirstFilter(fav));
+            const nextItem = (): void => {
                path.pop();
                if (index < sel.items.length - 1) {
-                  nextItem(depth, index + 1, complete);
+                  nextItemSet(depth, index + 1, complete);
                } else {
                   complete();
                }
             };
             if (depth < sels.length - 1) {
                if (sels[depth + 1].items.length) {
-                  nextItem(depth + 1, 0, next);
+                  nextItemSet(depth + 1, 0, nextItem);
                } else {
-                  next();
+                  nextItem();
                }
             } else {
                this.render((progress, canvas) => {
                   if (progress !== 1) {
                      return;
                   }
-                  const name = path.join(flatten ? '_' : '\\') + '.png';
-                  z.add(
-                     name,
-                     new Blob([Main.dataSchemeURIToArrayBuffer(canvas.toDataURL())], { type: 'image/png' }),
-                     (): void => {
-                        addedHandler(name);
-                        next();
-                     },
-                     e => errorHandler('cannot write png to a zip archive', e));
+                  item(path, canvas, (++added) / total, nextItem);
                });
             }
          };
-         nextRoot = (index: number, complete: () => void): void => {
-            const item = items[index];
-            path.push(Main.cleanForFilename(item.name));
-            sels = item.selects;
-            const next = (): void => {
+         let nextRoot = (index: number, complete: () => void): void => {
+            const selItem = items[index];
+            path.push({ caption: 'root', name: selItem.name });
+            sels = selItem.selects;
+            const nextRootItem = (): void => {
                path.pop();
                if (++index >= items.length) {
                   complete();
@@ -1028,14 +1076,15 @@ module psdtool {
                }
             };
             if (sels.length && sels[0].items.length) {
-               nextItem(0, 0, next);
+               nextItemSet(0, 0, nextRootItem);
             } else {
-               next();
+               nextRootItem();
             }
          };
-         z.init(() => {
-            nextRoot(0, (): void => undefined);
-         }, e => errorHandler('cannot create a zip archive', e));
+         nextRoot(0, (): void => {
+            this.layerRoot.deserialize(backup);
+            complete();
+         });
       }
 
       private initUI() {
