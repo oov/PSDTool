@@ -237,11 +237,11 @@ module Zipper {
       }
 
       public toLocalFileHeader(): Blob {
-         return Zip.buildLocalFileHeader(this.name, this.crc, this.date, this.size);
+         return Zip.buildLocalFileHeader(this.name, this.crc, this.date, this.size, this.size);
       }
 
       public toLocalFileHeader64(lfhOffset: number): Blob {
-         return Zip64.buildLocalFileHeader(this.name, this.crc, this.date, this.size, lfhOffset);
+         return Zip64.buildLocalFileHeader(this.name, this.crc, this.date, this.size, this.size, lfhOffset);
       }
 
       get centralDirectoryRecordSize(): number {
@@ -253,11 +253,11 @@ module Zipper {
       }
 
       public toCentralDirectoryRecord(lfhOffset: number): Blob {
-         return Zip.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, lfhOffset);
+         return Zip.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, this.size, lfhOffset);
       }
 
       public toCentralDirectoryRecord64(lfhOffset: number): Blob {
-         return Zip64.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, lfhOffset);
+         return Zip64.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, this.size, lfhOffset);
       }
    }
 
@@ -267,7 +267,7 @@ module Zipper {
          return 30 + name.byteLength + 9 + name.byteLength;
       }
 
-      public static buildLocalFileHeader(name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number): Blob {
+      public static buildLocalFileHeader(name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number): Blob {
          const d = Zip.formatDate(lastMod);
          const lfh = new ArrayBuffer(30), extraField = new ArrayBuffer(9);
          let v = new DataView(lfh);
@@ -288,7 +288,7 @@ module Zipper {
          // CRC-32
          v.setUint32(14, crc, true);
          // Compressed size
-         v.setUint32(18, fileSize, true);
+         v.setUint32(18, compressedSize, true);
          // Uncompressed size
          v.setUint32(22, fileSize, true);
          // Filename length
@@ -323,7 +323,7 @@ module Zipper {
       }
 
       public static buildCentralDirectoryRecord(
-         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
+         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number, lfhOffset: number): Blob {
          const d = Zip.formatDate(lastMod);
          const cdr = new ArrayBuffer(46), extraField = new ArrayBuffer(9);
          let v = new DataView(cdr);
@@ -346,7 +346,7 @@ module Zipper {
          // CRC-32
          v.setUint32(16, crc, true);
          // Compressed size
-         v.setUint32(20, fileSize, true);
+         v.setUint32(20, compressedSize, true);
          // Uncompressed size
          v.setUint32(24, fileSize, true);
          // Filename length
@@ -418,7 +418,8 @@ module Zipper {
          return 30 + name.byteLength + 32 + 9 + name.byteLength;
       }
 
-      public static buildLocalFileHeader(name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
+      public static buildLocalFileHeader(
+         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number, lfhOffset: number): Blob {
          const d = Zip64.formatDate(lastMod);
          const lfh = new ArrayBuffer(30), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
          let v = new DataView(lfh);
@@ -471,7 +472,7 @@ module Zipper {
          // Original Size
          Zip64.setUint64(v, 4, fileSize);
          // Compressed Size
-         Zip64.setUint64(v, 12, fileSize);
+         Zip64.setUint64(v, 12, compressedSize);
          // Relative Header Offset
          Zip64.setUint64(v, 20, lfhOffset);
          // Disk Start Number
@@ -503,7 +504,7 @@ module Zipper {
       }
 
       public static buildCentralDirectoryRecord(
-         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, lfhOffset: number): Blob {
+         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number, lfhOffset: number): Blob {
          const d = Zip64.formatDate(lastMod);
          const cdr = new ArrayBuffer(46), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
          let v = new DataView(cdr);
@@ -552,7 +553,7 @@ module Zipper {
          // Original Size
          Zip64.setUint64(v, 4, fileSize);
          // Compressed Size
-         Zip64.setUint64(v, 12, fileSize);
+         Zip64.setUint64(v, 12, compressedSize);
          // Relative Header Offset
          Zip64.setUint64(v, 20, lfhOffset);
          // Disk Start Number
