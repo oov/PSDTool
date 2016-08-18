@@ -87,27 +87,32 @@ module Zipper {
       }
 
       public add(name: string, blob: Blob, complete: () => void, error: (err: any) => void): void {
+         this.addCore(name, blob, false, complete, error);
+      }
+
+      public addCompress(name: string, blob: Blob, complete: () => void, error: (err: any) => void): void {
+         this.addCore(name, blob, true, complete, error);
+      }
+
+      private addCore(name: string, blob: Blob, compress: boolean, complete: () => void, error: (err: any) => void): void {
          if (!this.db) {
             return;
          }
-         let reqs = 2;
-         this.db.onerror = error;
-         const tx = this.db.transaction(fileStoreName, 'readwrite');
-         tx.onerror = error;
-         const os = tx.objectStore(fileStoreName);
-         os.put({ lastMod: new Date() }, 'meta_' + this.id);
-         const req = os.put(blob, 'body_' + this.id + '_' + this.fileInfos.length);
-         req.onsuccess = e => {
-            if (!--reqs) {
-               complete();
-            }
-         };
-         req.onerror = error;
-         this.fileInfos.push(new FileInfo(name, blob, (): void => {
-            if (!--reqs) {
-               complete();
-            }
-         }, error));
+         const index = this.fileInfos.length;
+         let fi = new FileInfo(name, blob, compress, compressed => {
+            this.db.onerror = error;
+            const tx = this.db.transaction(fileStoreName, 'readwrite');
+            tx.onerror = error;
+            const os = tx.objectStore(fileStoreName);
+            os.put({ lastMod: new Date() }, 'meta_' + this.id);
+            const req = os.put(
+               new Blob([compressed], { type: 'application/octet-binary' }),
+               'body_' + this.id + '_' + index
+            );
+            req.onsuccess = e => complete();
+            req.onerror = error;
+         }, error);
+         this.fileInfos.push(fi);
       }
 
       public generate(complete: (blob: Blob) => void, error: (err: any) => void): void {
@@ -122,7 +127,7 @@ module Zipper {
          this.receiveFiles((blobs: Blob[]): void => {
             let size = Zip.endOfCentralDirectorySize;
             this.fileInfos.forEach((fi): void => {
-               size += fi.localFileHeaderSize + fi.fileSize + fi.centralDirectoryRecordSize;
+               size += fi.localFileHeaderSize + fi.compressedFileSize + fi.centralDirectoryRecordSize;
             });
             if (size > 0xffffffff || this.fileInfos.length > 0xffff) {
                complete(this.makeZIP64(blobs));
@@ -162,7 +167,7 @@ module Zipper {
          let pos = 0, cdrSize = 0;
          this.fileInfos.forEach((fi): void => {
             zip.push(fi.toCentralDirectoryRecord(pos));
-            pos += fi.fileSize + fi.localFileHeaderSize;
+            pos += fi.compressedFileSize + fi.localFileHeaderSize;
             cdrSize += fi.centralDirectoryRecordSize;
          });
          zip.push(Zip.buildEndOfCentralDirectory(this.fileInfos.length, cdrSize, pos));
@@ -174,13 +179,13 @@ module Zipper {
          let pos = 0;
          this.fileInfos.forEach((fi, i): void => {
             zip.push(fi.toLocalFileHeader64(pos), fileBodies[i]);
-            pos += fi.fileSize + fi.localFileHeaderSize64;
+            pos += fi.compressedFileSize + fi.localFileHeaderSize64;
          });
          pos = 0;
          let cdrSize = 0;
          this.fileInfos.forEach((fi): void => {
             zip.push(fi.toCentralDirectoryRecord64(pos));
-            pos += fi.fileSize + fi.localFileHeaderSize64;
+            pos += fi.compressedFileSize + fi.localFileHeaderSize64;
             cdrSize += fi.centralDirectoryRecordSize64;
          });
          zip.push(Zip64.buildEndOfCentralDirectory(this.fileInfos.length, cdrSize, pos));
@@ -190,20 +195,44 @@ module Zipper {
 
    class FileInfo {
       public date = new Date();
+      private compressionMethod: number;
       private size: number;
+      private compressedSize: number;
       private crc: number;
       private name: ArrayBuffer;
-      constructor(name: string, data: Blob, complete: () => void, error: (err: any) => void) {
-         this.size = data.size;
+      constructor(name: string, data: Blob, compress: boolean, complete: (b: ArrayBuffer) => void, error: (err: any) => void) {
          let reqs = 2;
+
+         this.size = data.size;
+         this.compressedSize = data.size;
+         if (compress) {
+            this.compressionMethod = 8; // deflate
+            ++reqs;
+         } else {
+            this.compressionMethod = 0; // stored
+         }
+
+         let ab: ArrayBuffer;
 
          const fr = new FileReader();
          fr.onload = e => {
             const result = fr.result;
             if (result instanceof ArrayBuffer) {
+               ab = result;
                this.crc = CRC32.crc32(result);
                if (!--reqs) {
-                  complete();
+                  complete(ab);
+                  return;
+               }
+
+               if (compress) {
+                  Zip.deflate(result, compressed => {
+                     ab = compressed;
+                     this.compressedSize = compressed.byteLength;
+                     if (!--reqs) {
+                        complete(ab);
+                     }
+                  });
                }
             }
          };
@@ -216,7 +245,7 @@ module Zipper {
             if (result instanceof ArrayBuffer) {
                this.name = result;
                if (!--reqs) {
-                  complete();
+                  complete(ab);
                }
             }
          };
@@ -228,6 +257,10 @@ module Zipper {
          return this.size;
       }
 
+      get compressedFileSize(): number {
+         return this.compressedSize;
+      }
+
       get localFileHeaderSize(): number {
          return Zip.calcLocalFileHeaderSize(this.name);
       }
@@ -237,11 +270,13 @@ module Zipper {
       }
 
       public toLocalFileHeader(): Blob {
-         return Zip.buildLocalFileHeader(this.name, this.crc, this.date, this.size, this.size);
+         return Zip.buildLocalFileHeader(
+            this.name, this.crc, this.date, this.compressionMethod, this.size, this.compressedSize);
       }
 
       public toLocalFileHeader64(lfhOffset: number): Blob {
-         return Zip64.buildLocalFileHeader(this.name, this.crc, this.date, this.size, this.size, lfhOffset);
+         return Zip64.buildLocalFileHeader(
+            this.name, this.crc, this.date, this.compressionMethod, this.size, this.compressedSize, lfhOffset);
       }
 
       get centralDirectoryRecordSize(): number {
@@ -253,11 +288,13 @@ module Zipper {
       }
 
       public toCentralDirectoryRecord(lfhOffset: number): Blob {
-         return Zip.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, this.size, lfhOffset);
+         return Zip.buildCentralDirectoryRecord(
+            this.name, this.crc, this.date, this.compressionMethod, this.size, this.compressedSize, lfhOffset);
       }
 
       public toCentralDirectoryRecord64(lfhOffset: number): Blob {
-         return Zip64.buildCentralDirectoryRecord(this.name, this.crc, this.date, this.size, this.size, lfhOffset);
+         return Zip64.buildCentralDirectoryRecord(
+            this.name, this.crc, this.date, this.compressionMethod, this.size, this.compressedSize, lfhOffset);
       }
    }
 
@@ -267,7 +304,9 @@ module Zipper {
          return 30 + name.byteLength + 9 + name.byteLength;
       }
 
-      public static buildLocalFileHeader(name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number): Blob {
+      public static buildLocalFileHeader(
+         name: ArrayBuffer, crc: number, lastMod: Date,
+         compressionMethod: number, fileSize: number, compressedSize: number): Blob {
          const d = Zip.formatDate(lastMod);
          const lfh = new ArrayBuffer(30), extraField = new ArrayBuffer(9);
          let v = new DataView(lfh);
@@ -280,7 +319,7 @@ module Zipper {
          v.setUint16(6, 0x0800, true);
          // Compression method
          // 0 = stored (no compression)
-         v.setUint16(8, 0x0000, true);
+         v.setUint16(8, compressionMethod, true);
          // Last mod file time
          v.setUint16(10, d & 0xffff, true);
          // Last mod file date
@@ -323,7 +362,9 @@ module Zipper {
       }
 
       public static buildCentralDirectoryRecord(
-         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number, lfhOffset: number): Blob {
+         name: ArrayBuffer, crc: number, lastMod: Date,
+         compressionMethod: number, fileSize: number, compressedSize: number,
+         lfhOffset: number): Blob {
          const d = Zip.formatDate(lastMod);
          const cdr = new ArrayBuffer(46), extraField = new ArrayBuffer(9);
          let v = new DataView(cdr);
@@ -338,7 +379,7 @@ module Zipper {
          v.setUint16(8, 0x0800, true);
          // Compression method
          // 0 = stored (no compression)
-         v.setUint16(10, 0x0000, true);
+         v.setUint16(10, compressionMethod, true);
          // Last mod file time
          v.setUint16(12, d & 0xffff, true);
          // Last mod file date
@@ -411,6 +452,38 @@ module Zipper {
          v.setUint16(20, 0, true);
          return new Blob([eoc]);
       }
+
+      public static deflate(b: ArrayBuffer, callback: (b: ArrayBuffer) => void): void {
+         if (!Zip.worker) {
+            Zip.worker = new Worker(Zip.createWorkerURL());
+            Zip.worker.onmessage = e => {
+               const f = Zip.compressQueue.shift();
+               if (f) {
+                  f(e.data);
+               }
+            };
+         }
+         Zip.compressQueue.push(callback);
+         Zip.worker.postMessage(b, [b]);
+      }
+
+      private static workerURL: string;
+      private static worker: Worker;
+      private static compressQueue: ((b: ArrayBuffer) => void)[] = [];
+      private static createWorkerURL(): string {
+         if (Zip.workerURL) {
+            return Zip.workerURL;
+         }
+         Zip.workerURL = URL.createObjectURL(new Blob([`
+'use strict';
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.3/pako_deflate.min.js');
+onmessage = function(e){
+   var b = pako.deflateRaw(e.data).buffer;
+   postMessage(b, [b]);
+}
+`], { type: 'text/javascript' }));
+         return Zip.workerURL;
+      }
    }
 
    class Zip64 {
@@ -419,7 +492,9 @@ module Zipper {
       }
 
       public static buildLocalFileHeader(
-         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number, lfhOffset: number): Blob {
+         name: ArrayBuffer, crc: number, lastMod: Date,
+         compressionMethod: number, fileSize: number, compressedSize: number,
+         lfhOffset: number): Blob {
          const d = Zip64.formatDate(lastMod);
          const lfh = new ArrayBuffer(30), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
          let v = new DataView(lfh);
@@ -432,7 +507,7 @@ module Zipper {
          v.setUint16(6, 0x0800, true);
          // Compression method
          // 0 = stored (no compression)
-         v.setUint16(8, 0x0000, true);
+         v.setUint16(8, compressionMethod, true);
          // Last mod file time
          v.setUint16(10, d & 0xffff, true);
          // Last mod file date
@@ -504,7 +579,9 @@ module Zipper {
       }
 
       public static buildCentralDirectoryRecord(
-         name: ArrayBuffer, crc: number, lastMod: Date, fileSize: number, compressedSize: number, lfhOffset: number): Blob {
+         name: ArrayBuffer, crc: number, lastMod: Date,
+         compressionMethod: number, fileSize: number, compressedSize: number,
+         lfhOffset: number): Blob {
          const d = Zip64.formatDate(lastMod);
          const cdr = new ArrayBuffer(46), extraFieldZip64 = new ArrayBuffer(32), extraFieldName = new ArrayBuffer(9);
          let v = new DataView(cdr);
@@ -519,7 +596,7 @@ module Zipper {
          v.setUint16(8, 0x0800, true);
          // Compression method
          // 0 = stored (no compression)
-         v.setUint16(10, 0x0000, true);
+         v.setUint16(10, compressionMethod, true);
          // Last mod file time
          v.setUint16(12, d & 0xffff, true);
          // Last mod file date
