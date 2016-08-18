@@ -899,7 +899,7 @@ module psdtool {
          };
 
          z.init(() => {
-            z.add(
+            z.addCompress(
                'favorites.pfv',
                new Blob([this.favorite.pfv], { type: 'text/plain; charset=utf-8' }),
                addedHandler,
