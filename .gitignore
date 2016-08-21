@@ -5,6 +5,7 @@ js/main.js
 js/downscaler.js
 js/layertree.js
 js/renderer.js
+js/tileder.js
 js/zipper.js
 js/psd/psd.js
 js/psd/psd.js.map

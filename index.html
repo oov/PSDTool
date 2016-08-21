@@ -324,15 +324,13 @@
 								シンプルビューの全パターンをエクスポート <span class="caret"></span>
 							</button>
 							<ul class="dropdown-menu">
-								<li><a href="#" data-dismiss="modal" data-format="zip" data-export-faview="standard" data-structure="tree"><span class="psdtool-export-faview-type-caption">zip / パーツ名あり / 入れ子</span><small class="text-muted">例: キャラ名\眉-困り\目-にっこり\口-笑い.png</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-format="zip" data-export-faview="standard" data-structure="flat"><span class="psdtool-export-faview-type-caption">zip / パーツ名あり / フラット</span><small class="text-muted">例: キャラ名_眉-困り_目-にっこり_口-笑い.png</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-format="zip" data-export-faview="compact" data-structure="tree"><span class="psdtool-export-faview-type-caption">zip / パーツ名なし / 入れ子</span><small class="text-muted">例: キャラ名\困り\にっこり\笑い.png</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-format="zip" data-export-faview="compact" data-structure="flat"><span class="psdtool-export-faview-type-caption">zip / パーツ名なし / フラット</span><small class="text-muted">例: キャラ名_困り_にっこり_笑い.png</small></a></li>
+								<li class="dropdown-header">PNG 詰め合わせ ZIP</li>
+								<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名あり / 入れ子</span><small class="text-muted">例: キャラ名\眉-困り\目-にっこり\口-笑い.png</small></a></li>
+								<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名あり / フラット</span><small class="text-muted">例: キャラ名_眉-困り_目-にっこり_口-笑い.png</small></a></li>
+								<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名なし / 入れ子</span><small class="text-muted">例: キャラ名\困り\にっこり\笑い.png</small></a></li>
+								<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名なし / フラット</span><small class="text-muted">例: キャラ名_困り_にっこり_笑い.png</small></a></li>
 								<li role="separator" class="divider"></li>
-								<li><a href="#" data-dismiss="modal" data-format="tiled" data-export-faview="standard" data-structure="tree"><span class="psdtool-export-faview-type-caption">Tiled / パーツ名あり / 入れ子</span><small class="text-muted">例: キャラ名\眉-困り\目-にっこり\口-笑い.tmx</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-format="tiled" data-export-faview="standard" data-structure="flat"><span class="psdtool-export-faview-type-caption">Tiled / パーツ名あり / フラット</span><small class="text-muted">例: キャラ名_眉-困り_目-にっこり_口-笑い.tmx</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-format="tiled" data-export-faview="compact" data-structure="tree"><span class="psdtool-export-faview-type-caption">Tiled / パーツ名なし / 入れ子</span><small class="text-muted">例: キャラ名\困り\にっこり\笑い.tmx</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-format="tiled" data-export-faview="compact" data-structure="flat"><span class="psdtool-export-faview-type-caption">Tiled / パーツ名なし / フラット</span><small class="text-muted">例: キャラ名_困り_にっこり_笑い.tmx</small></a></li>
+								<li><a href="#" data-dismiss="modal" data-toggle="modal" data-target="#tiled-export-dialog">Tiled Map Editor 用にエクスポート...</a></li>
 							</ul>
 						</div>
 					</p>
@@ -454,6 +452,69 @@
 			</div>
 		</div>
 	</div>
+
+	<div class="modal" id="tiled-export-dialog" tabindex="-1" role="dialog" aria-labelledby="tiled-export-dialog-label">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<h4 class="modal-title" id="tiled-export-dialog-label">Tiled Map Editor 用にエクスポート</h4>
+				</div>
+				<div class="modal-body">
+					<dl>
+						<dt>フォルダー構造</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-naming-rule" class="form-control">
+									<option value="standard,tree">パーツ名あり / 入れ子　 例: キャラ名\眉-困り\目-にっこり\口-笑い</option>
+									<option value="standard,flat">パーツ名あり / フラット 例: キャラ名_眉-困り_目-にっこり_口-笑い</option>
+									<option value="compact,tree">パーツ名なし / 入れ子　 例: キャラ名\困り\にっこり\笑い</option>
+									<option value="compact,flat">パーツ名なし / フラット 例: キャラ名_困り_にっこり_笑い</option>
+								</select>
+							</p>
+						</dd>
+						<dt>ファイル形式</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-format" class="form-control">
+									<option value="tmx,csv">TMX / タイルデータ: CSV</option>
+									<option value="tmx,xml">TMX / タイルデータ: XML</option>
+									<option value="tmx,bin">TMX / タイルデータ: Base64</option>
+									<option value="tmx,binz">TMX / タイルデータ: Base64(zlib)</option>
+									<option value="json,csv">JSON / タイルデータ: 配列</option>
+									<option value="json,bin">JSON / タイルデータ: Base64</option>
+									<option value="json,binz">JSON / タイルデータ: Base64(zlib)</option>
+									<option value="raw,csv">CSV</option>
+									<option value="raw,bin">Binary</option>
+								</select>
+							</p>
+						</dd>
+						<dt>TSX ファイルの使用</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-usetsx" class="form-control">
+									<option value="no">使わない</option>
+									<option value="yes">使う</option>
+								</select>
+							</p>
+						</dd>
+						<dt>ZIP 格納方法</dt>
+						<dd>
+							<p>
+								<select id="tiled-export-compress" class="form-control">
+									<option value="deflate">画像以外を圧縮</option>
+									<option value="store">無圧縮</option>
+								</select>
+							</p>
+						</dd>
+					</dl>
+
+					<button type="button" class="btn btn-primary" data-dismiss="modal" id="export-tiled">エクスポート</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha256-KXn5puMvxCw+dAYznun+drMdG1IFl3agK0p/pqT9KAo= sha512-2e8qq0ETcfWRI4HJBzQiA3UoyFk6tbNyG+qSaIBZLyW9Xf3sWZHN/lxe9fTh1U45DpPf07yj94KsUHHWe4Yk1A==" crossorigin="anonymous"></script>

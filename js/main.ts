@@ -701,20 +701,40 @@ module psdtool {
          for (let i = 0; i < faviewExports.length; ++i) {
             ((elem: Element): void => {
                elem.addEventListener('click', e => {
-                  if (elem.getAttribute('data-format') === 'zip') {
-                     this.exportFaview(
-                        elem.getAttribute('data-export-faview') === 'standard',
-                        elem.getAttribute('data-structure') === 'flat'
-                     );
-                  } else {
-                     this.exportFaviewTiled(
-                        elem.getAttribute('data-export-faview') === 'standard',
-                        elem.getAttribute('data-structure') === 'flat'
-                     );
-                  }
+                  this.exportFaview(
+                     elem.getAttribute('data-export-faview') === 'standard',
+                     elem.getAttribute('data-structure') === 'flat'
+                  );
                });
             })(faviewExports[i]);
          }
+         getElementById(document, 'export-tiled').addEventListener('click', e => {
+            const namingRule = getElementById(document, 'tiled-export-naming-rule');
+            if (!(namingRule instanceof HTMLSelectElement)) {
+               throw new Error('#tiled-export-naming-rule is not SELECT');
+            }
+            const format = getElementById(document, 'tiled-export-format');
+            if (!(format instanceof HTMLSelectElement)) {
+               throw new Error('#tiled-export-format is not SELECT');
+            }
+            const usetsx = getElementById(document, 'tiled-export-usetsx');
+            if (!(usetsx instanceof HTMLSelectElement)) {
+               throw new Error('#tiled-export-usetsx is not SELECT');
+            }
+            const compress = getElementById(document, 'tiled-export-compress');
+            if (!(compress instanceof HTMLSelectElement)) {
+               throw new Error('#tiled-export-compress is not SELECT');
+            }
+            const nr = namingRule.value.split(',');
+            const fmt = format.value.split(',');
+            const tsx = usetsx.value === 'yes';
+            const cmp = compress.value === 'deflate';
+            if (nr.length !== 2 || fmt.length !== 2) {
+               throw new Error('tiled export form data is invalid');
+            }
+            this.exportFaviewTiled(nr[0] === 'standard', nr[1] === 'flat', fmt[0], fmt[1], cmp, tsx);
+         }, false);
+
          getElementById(document, 'export-layer-structure').addEventListener('click', e => {
             saveAs(new Blob([this.layerRoot.text], {
                type: 'text/plain'
@@ -971,42 +991,110 @@ module psdtool {
          }, e => errorHandler('cannot create a zip archive', e));
       }
 
-      private exportFaviewTiled(includeItemCaption: boolean, flatten: boolean): void {
-         const z = new tileder.Tileder();
+      private exportFaviewTiled(includeItemCaption: boolean, flatten: boolean,
+         fileFormat: string, tileFormat: string,
+         compress: boolean, useTSX: boolean): void {
+         let ext: string;
+         switch (fileFormat) {
+            case 'tmx':
+               ext = 'tmx';
+               break;
+            case 'json':
+               ext = 'json';
+               break;
+            case 'raw':
+               switch (tileFormat) {
+                  case 'csv':
+                     ext = 'csv';
+                     break;
+                  case 'bin':
+                     ext = 'bin';
+                     break;
+               }
+               break;
+         }
+
+         const z = new Zipper.Zipper(), td = new tileder.Tileder();
          const prog = new ProgressDialog('Exporting...', '');
 
          let aborted = false;
-         // const errorHandler = (readableMessage: string, err: any) => {
-         //    z.dispose(err => undefined);
-         //    prog.close();
-         //    console.error(err);
-         //    if (!aborted) {
-         //       alert(readableMessage + ': ' + err);
-         //    }
-         // };
+         const errorHandler = (readableMessage: string, err: any) => {
+            z.dispose(err => undefined);
+            prog.close();
+            console.error(err);
+            if (!aborted) {
+               alert(readableMessage + ': ' + err);
+            }
+         };
          // it is needed to avoid alert storm when reload during exporting.
          window.addEventListener('unload', () => { aborted = true; }, false);
-         // z.init(() => {
+         let queue = 0, finished = 0, completed = false;
+         const processed = (): void => {
+            ++finished;
+            if (!completed || finished !== queue) {
+               return;
+            }
+            prog.update(1, 'building a zip...');
+            z.generate(blob => {
+               saveAs(blob, 'tiled.zip');
+               z.dispose(err => undefined);
+               prog.close();
+            }, e => errorHandler('cannot create a zip archive', e));
+         };
+         z.init(() => {
             this.enumerateFaview(
                (path: { caption: string, name: string }[], image: HTMLCanvasElement, progress: number, next: () => void) => {
                   const name = path.map((e, i) => {
                      return Main.cleanForFilename((i && includeItemCaption ? e.caption + '-' : '') + e.name);
-                  }).join(flatten ? '_' : '\\') + '.png';
-                  z.add(name, image);
-                  prog.update(progress, name);
-                  next();
+                  }).join(flatten ? '_' : '\\');
+                  prog.update(progress / 2, name);
+                  td.add(name, image, next);
                },
                () => {
-                  z.finish();
-                  // prog.update(1, 'building a zip...');
-                  // z.generate(blob => {
-                  //    saveAs(blob, 'simple-view.zip');
-                  //    z.dispose(err => undefined);
-                  //    prog.close();
-                  // }, e => errorHandler('cannot create a zip archive', e));
+                  td.finish(tileFormat === 'binz', (tsx: tileder.Tsx, progress: number) => {
+                     z.add(
+                        `${tsx.filename}.png`,
+                        new Blob([Main.dataSchemeURIToArrayBuffer(tsx.getImage(document).toDataURL())], { type: 'image/png' }),
+                        () => {
+                           prog.update(1 / 2, `${tsx.filename}.png`);
+                           processed();
+                           if (useTSX) {
+                              z.addCompress(
+                                 `${tsx.filename}.tsx`,
+                                 new Blob([tsx.export()], { type: 'text/xml; charset=utf-8' }),
+                                 () => {
+                                    prog.update(1 / 2, `${tsx.filename}.tsx`);
+                                    processed();
+                                 },
+                                 e => errorHandler('cannot write tsx to a zip archive', e)
+                              );
+                              ++queue;
+                           }
+                        },
+                        e => errorHandler('cannot write png to a zip archive', e)
+                     );
+                     ++queue;
+                  }, (image: tileder.Image, progress: number) => {
+                     let f = compress ? z.addCompress : z.add;
+                     f = f.bind(z);
+                     f(
+                        `${image.name}.${ext}`,
+                        image.export(fileFormat, tileFormat, useTSX),
+                        () => {
+                           prog.update(progress / 2 + 1 / 2, `${image.name}.${ext}`);
+                           processed();
+                        },
+                        e => errorHandler('cannot write file to a zip archive', e)
+                     );
+                     ++queue;
+                  }, () => {
+                     ++queue;
+                     completed = true;
+                     processed();
+                  });
                }
             );
-         // }, e => errorHandler('cannot create a zip archive', e));
+         }, e => errorHandler('cannot create a zip archive', e));
       }
 
       private enumerateFaview(
