@@ -732,7 +732,7 @@ module psdtool {
             if (nr.length !== 2 || fmt.length !== 2) {
                throw new Error('tiled export form data is invalid');
             }
-            this.exportFaviewTiled(nr[0] === 'standard', nr[1] === 'flat', fmt[0], fmt[1], cmp, tsx);
+            this.exportFaviewTiled(nr[0], nr[1] === 'flat', fmt[0], fmt[1], cmp, tsx);
          }, false);
 
          getElementById(document, 'export-layer-structure').addEventListener('click', e => {
@@ -991,7 +991,7 @@ module psdtool {
          }, e => errorHandler('cannot create a zip archive', e));
       }
 
-      private exportFaviewTiled(includeItemCaption: boolean, flatten: boolean,
+      private exportFaviewTiled(namingStyle: string, flatten: boolean,
          fileFormat: string, tileFormat: string,
          compress: boolean, useTSX: boolean): void {
          let ext: string;
@@ -1001,6 +1001,9 @@ module psdtool {
                break;
             case 'json':
                ext = 'json';
+               break;
+            case 'js':
+               ext = 'js';
                break;
             case 'raw':
                switch (tileFormat) {
@@ -1043,15 +1046,23 @@ module psdtool {
          };
          z.init(() => {
             this.enumerateFaview(
-               (path: { caption: string, name: string }[], image: HTMLCanvasElement, progress: number, next: () => void) => {
-                  const name = path.map((e, i) => {
-                     return Main.cleanForFilename((i && includeItemCaption ? e.caption + '-' : '') + e.name);
+               (path: { caption: string, name: string, index: number }[], image: HTMLCanvasElement, progress: number, next: () => void) => {
+                  const name = path.map((e, depth) => {
+                     switch (namingStyle) {
+                        case 'standard':
+                           return Main.cleanForFilename((depth ? e.caption + '-' : '') + e.name);
+                        case 'compact':
+                           return Main.cleanForFilename(e.name);
+                        case 'index':
+                           return e.index;
+                     }
                   }).join(flatten ? '_' : '\\');
                   prog.update(progress / 2, name);
                   td.add(name, image, next);
                },
                () => {
                   td.finish(tileFormat === 'binz', (tsx: tileder.Tsx, progress: number) => {
+                     ++queue;
                      z.add(
                         `${tsx.filename}.png`,
                         new Blob([Main.dataSchemeURIToArrayBuffer(tsx.getImage(document).toDataURL())], { type: 'image/png' }),
@@ -1059,6 +1070,7 @@ module psdtool {
                            prog.update(1 / 2, `${tsx.filename}.png`);
                            processed();
                            if (useTSX) {
+                              ++queue;
                               z.addCompress(
                                  `${tsx.filename}.tsx`,
                                  new Blob([tsx.export()], { type: 'text/xml; charset=utf-8' }),
@@ -1068,15 +1080,14 @@ module psdtool {
                                  },
                                  e => errorHandler('cannot write tsx to a zip archive', e)
                               );
-                              ++queue;
                            }
                         },
                         e => errorHandler('cannot write png to a zip archive', e)
                      );
-                     ++queue;
                   }, (image: tileder.Image, progress: number) => {
                      let f = compress ? z.addCompress : z.add;
                      f = f.bind(z);
+                     ++queue;
                      f(
                         `${image.name}.${ext}`,
                         image.export(fileFormat, tileFormat, useTSX),
@@ -1086,7 +1097,6 @@ module psdtool {
                         },
                         e => errorHandler('cannot write file to a zip archive', e)
                      );
-                     ++queue;
                   }, () => {
                      ++queue;
                      completed = true;
@@ -1094,11 +1104,54 @@ module psdtool {
                   });
                }
             );
+
+            // make faview.json / faview.js
+            const faviewData = {
+               format: ext,
+               flatten: flatten,
+               namingStyle: namingStyle,
+               roots: this.faview.items.map(root => {
+                  return {
+                     name: root.name,
+                     captions: root.selects.map(sel => Main.cleanForFilename(sel.caption)),
+                     selects: root.selects.map(sel => sel.items.map(item => Main.cleanForFilename(item.name)))
+                  };
+               })
+            };
+            if (fileFormat === 'js') {
+               ++queue;
+               z.addCompress(
+                  'faview.js',
+                  new Blob([`onFaviewLoaded(`, JSON.stringify(faviewData), ');'], { type: 'text/javascript; charset=utf-8' }),
+                  () => processed(),
+                  e => errorHandler(`cannot write faview.js to a zip archive`, e)
+               );
+
+               ++queue;
+               z.addCompress(
+                  'viewer.html',
+                  new Blob([tileder.getViewer()], { type: 'text/html; charset=utf-8' }),
+                  () => processed(),
+                  e => errorHandler(`cannot write viewer.html to a zip archive`, e)
+               );
+            } else {
+               ++queue;
+               z.addCompress(
+                  'faview.json',
+                  new Blob([JSON.stringify(faviewData)], { type: 'application/json; charset=utf-8' }),
+                  () => processed(),
+                  e => errorHandler(`cannot write faview.json to a zip archive`, e)
+               );
+            }
          }, e => errorHandler('cannot create a zip archive', e));
       }
 
       private enumerateFaview(
-         item: (path: { caption: string, name: string }[], image: HTMLCanvasElement, progress: number, next: () => void) => void,
+         item: (
+            path: { caption: string, name: string; index: number }[],
+            image: HTMLCanvasElement, progress: number,
+            next: () => void
+         ) => void,
          complete: () => void
       ): void {
          this.refreshFaview();
@@ -1121,11 +1174,11 @@ module psdtool {
          const backup = this.layerRoot.serialize(true);
          let added = 0;
          let sels: Favorite.FaviewSelect[];
-         const path: { caption: string, name: string }[] = [];
+         const path: { caption: string, name: string; index: number }[] = [];
          let nextItemSet = (depth: number, index: number, complete: () => void): void => {
             const sel = sels[depth];
             const selItem = sel.items[index];
-            path.push({ caption: sel.caption, name: selItem.name });
+            path.push({ caption: sel.caption, name: selItem.name, index: index });
             const fav = this.favorite.get(selItem.value);
             this.layerRoot.deserializePartial(undefined, fav.data ? fav.data.value : '', this.favorite.getFirstFilter(fav));
             const nextItem = (): void => {
@@ -1153,7 +1206,7 @@ module psdtool {
          };
          let nextRoot = (index: number, complete: () => void): void => {
             const selItem = items[index];
-            path.push({ caption: 'root', name: selItem.name });
+            path.push({ caption: 'root', name: selItem.name, index: index });
             sels = selItem.selects;
             const nextRootItem = (): void => {
                path.pop();
