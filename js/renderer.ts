@@ -8,18 +8,10 @@ module Renderer {
    }
    export class Node {
       get visible(): boolean { return this.getVisibleState(); }
-      private layer_: psd.Layer;
-      get layer(): psd.Layer {
-         return this.layer_;
-      }
-      private parent_: Node;
-      get parent(): Node {
-         return this.parent_;
-      }
 
       public buffer: HTMLCanvasElement;
 
-      public getVisibleState = (): boolean => { return (!!this.layer) && this.layer.Visible; };
+      public getVisibleState = (): boolean => { return this.layer.Visible; };
       public id: number;
       public state: string = '';
       get stateHash(): string { return Node.calcHash(this.state).toString(16); }
@@ -29,7 +21,7 @@ module Renderer {
       public clip: Node[];
       public clippedBy: Node;
       public clippingBuffer: HTMLCanvasElement;
-      constructor(layer: psd.Layer | undefined, parent: Node | undefined) {
+      constructor(public layer: psd.Layer, public parent: Node) {
          if (!layer) {
             this.id = -1;
             return;
@@ -43,11 +35,6 @@ module Renderer {
          this.buffer = document.createElement('canvas');
          this.buffer.width = w;
          this.buffer.height = h;
-
-         this.layer_ = layer;
-         if (parent) {
-            this.parent_ = parent;
-         }
       }
 
       // http://stackoverflow.com/a/7616484
