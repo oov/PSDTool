@@ -1,4 +1,3 @@
-//go:generate gopherjs build -m
 // +build js
 
 package main
