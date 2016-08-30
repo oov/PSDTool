@@ -264,7 +264,7 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 			}
 		}
 
-		rc, err := psdf.Open()
+		rc, err := zipFileOpenFast(rd, psdf, 1024*1024*100)
 		if err != nil {
 			return nil, err
 		}
@@ -294,6 +294,7 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 			layer.Picker = nil
 			layer.Channel = nil
 		},
+		SkipMergedImage: true,
 	})
 	if err != nil {
 		return nil, err
