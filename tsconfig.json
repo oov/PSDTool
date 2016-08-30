@@ -7,7 +7,6 @@
     "removeComments": false,
     "noLib": false,
     "preserveConstEnums": true,
-    "strictNullChecks": true,
     "suppressImplicitAnyIndexErrors": false
   },
   "formatCodeOptions": {

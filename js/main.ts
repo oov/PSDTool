@@ -771,17 +771,21 @@ module psdtool {
          if (!this.faview) {
             let rootSel: HTMLSelectElement;
             let root: HTMLUListElement;
-            const elem = getElementById(document, 'faview-root-node');
-            if (elem instanceof HTMLSelectElement) {
-               rootSel = elem;
-            } else {
-               throw new Error('element not found: #faview-root-node');
+            {
+               const elem = getElementById(document, 'faview-root-node');
+               if (elem instanceof HTMLSelectElement) {
+                  rootSel = elem;
+               } else {
+                  throw new Error('element not found: #faview-root-node');
+               }
             }
-            elem = getElementById(document, 'faview-tree');
-            if (elem instanceof HTMLUListElement) {
-               root = elem;
-            } else {
-               throw new Error('element not found: #faview-tree');
+            {
+               const elem = getElementById(document, 'faview-tree');
+               if (elem instanceof HTMLUListElement) {
+                  root = elem;
+               } else {
+                  throw new Error('element not found: #faview-tree');
+               }
             }
             this.faview = new Favorite.Faview(this.favorite, rootSel, root);
             this.faview.onRootChanged = () => this.faviewOnRootChanged();
@@ -1286,25 +1290,31 @@ module psdtool {
 
          jQuery('#main').on('splitpaneresize', e => this.resized()).splitPane();
 
-         elem = getElementById(document, 'flip-x');
-         if (elem instanceof HTMLInputElement) {
-            this.flipX = elem;
+         {
+            const elem = getElementById(document, 'flip-x');
+            if (elem instanceof HTMLInputElement) {
+               this.flipX = elem;
+            }
+            jQuery(this.flipX).on('change', e => this.redraw());
          }
-         jQuery(this.flipX).on('change', e => this.redraw());
 
-         elem = getElementById(document, 'flip-y');
-         if (elem instanceof HTMLInputElement) {
-            this.flipY = elem;
+         {
+            const elem = getElementById(document, 'flip-y');
+            if (elem instanceof HTMLInputElement) {
+               this.flipY = elem;
+            }
+            jQuery(this.flipY).on('change', e => this.redraw());
          }
-         jQuery(this.flipY).on('change', e => this.redraw());
 
-         elem = getElementById(document, 'fixed-side');
-         if (elem instanceof HTMLSelectElement) {
-            this.fixedSide = elem;
-         } else {
-            throw new Error('element not found: #fixed-side');
+         {
+            const elem = getElementById(document, 'fixed-side');
+            if (elem instanceof HTMLSelectElement) {
+               this.fixedSide = elem;
+            } else {
+               throw new Error('element not found: #fixed-side');
+            }
+            this.fixedSide.addEventListener('change', e => this.redraw(), false);
          }
-         this.fixedSide.addEventListener('change', e => this.redraw(), false);
 
          let lastPx: string;
          this.maxPixels = Main.getInputElement('#max-pixels');
@@ -1318,28 +1328,30 @@ module psdtool {
             this.redraw();
          }, false);
 
-         this.seqDlPrefix = Main.getInputElement('#seq-dl-prefix');
-         this.seqDlNum = Main.getInputElement('#seq-dl-num');
-         elem = getElementById(document, 'seq-dl');
-         if (elem instanceof HTMLButtonElement) {
-            this.seqDl = elem;
-         } else {
-            throw new Error('element not found: #seq-dl');
-         }
-         this.seqDl.addEventListener('click', e => {
-            const prefix = this.seqDlPrefix.value;
-            if (this.seqDlNum.value === '') {
-               this.save(prefix + '.png');
-               return;
+         {
+            this.seqDlPrefix = Main.getInputElement('#seq-dl-prefix');
+            this.seqDlNum = Main.getInputElement('#seq-dl-num');
+            const elem = getElementById(document, 'seq-dl');
+            if (elem instanceof HTMLButtonElement) {
+               this.seqDl = elem;
+            } else {
+               throw new Error('element not found: #seq-dl');
             }
+            this.seqDl.addEventListener('click', e => {
+               const prefix = this.seqDlPrefix.value;
+               if (this.seqDlNum.value === '') {
+                  this.save(prefix + '.png');
+                  return;
+               }
 
-            let num = parseInt(Main.normalizeNumber(this.seqDlNum.value), 10);
-            if (num < 0) {
-               num = 0;
-            }
-            this.save(prefix + ('0000' + num).slice(-4) + '.png');
-            this.seqDlNum.value = (num + 1).toString();
-         }, false);
+               let num = parseInt(Main.normalizeNumber(this.seqDlNum.value), 10);
+               if (num < 0) {
+                  num = 0;
+               }
+               this.save(prefix + ('0000' + num).slice(-4) + '.png');
+               this.seqDlNum.value = (num + 1).toString();
+            }, false);
+         }
 
          Mousetrap.pause();
       }
