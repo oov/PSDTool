@@ -3,11 +3,13 @@
         "target": "es5",
         "module": "commonjs",
         "declaration": false,
+        "strictNullChecks": false,
         "noImplicitAny": true,
         "removeComments": false,
         "noLib": false,
         "preserveConstEnums": true,
-        "suppressImplicitAnyIndexErrors": false
+        "suppressImplicitAnyIndexErrors": false,
+        "lib": ["dom", "es5", "es2015.promise"]
     },
     "formatCodeOptions": {
         "indentSize": 4,
@@ -24,24 +26,9 @@
         "placeOpenBraceOnNewLineForControlBlocks": true
     },
     "compileOnSave": true,
-    "filesGlob": [
-        "./**/*.ts",
-        "!./node_modules/**/*.ts",
-        "!./bower_components/**/*.ts",
-        "!./typings/**/*.ts"
+    "include": [
+        "./src/**/*.ts",
+        "node_modules/@types/**/*.ts"
     ],
-    "files": [
-        "./js/blend/blend.d.ts",
-        "./js/downscaler.ts",
-        "./js/favorite.ts",
-        "./js/layertree.ts",
-        "./js/main.ts",
-        "./js/psd/psd.d.ts",
-        "./js/renderer.ts",
-        "./js/tileder.ts",
-        "./js/zipper.ts"
-    ],
-    "atom": {
-        "rewriteTsconfig": true
-    }
+    "exclude": []
 }

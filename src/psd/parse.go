@@ -1,4 +1,4 @@
-//go:generate gopherjs build -m
+//go:generate gopherjs build -m -o ../../js/psd.min.js
 
 package main
 

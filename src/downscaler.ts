@@ -1,11 +1,10 @@
-'use strict';
 // this code is based on http://jsfiddle.net/gamealchemist/kpQyE/14/
 // changes are:
 //   added alpha-channel support
 //   avoid "optimized too many times" in chrome
 //   use web worker
 //   convert to type script
-class DownScaler {
+export class DownScaler {
     get destWidth(): number { return 0 | Math.max(1, this.src.width * this.scale); }
     get destHeight(): number { return 0 | Math.max(1, this.src.height * this.scale); }
     private dest: HTMLCanvasElement = document.createElement('canvas');
@@ -107,13 +106,9 @@ class DownScaler {
             return DownScaler.workerURL;
         }
         const sourceCode: string[] = [];
-        sourceCode.push('\'use strict\';\n');
-        sourceCode.push('var calculate = ');
-        sourceCode.push(DownScaler.calculate.toString());
-        sourceCode.push(';\n');
-        sourceCode.push('var float32ToUint8ClampedArray = ');
-        sourceCode.push(DownScaler.float32ToUint8ClampedArray.toString());
-        sourceCode.push(';\n');
+        sourceCode.push(`'use strict';\n`);
+        sourceCode.push(`var calculate = ${DownScaler.calculate.toString()};\n`);
+        sourceCode.push(`var float32ToUint8ClampedArray = ${DownScaler.float32ToUint8ClampedArray.toString()};\n`);
         sourceCode.push(`onmessage = function(e) {
     var d = e.data;
     var tmp = new Float32Array(d.destWidth * d.destHeight << 2);
