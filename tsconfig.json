@@ -1,47 +1,47 @@
 {
-  "compilerOptions": {
-    "target": "es5",
-    "module": "commonjs",
-    "declaration": false,
-    "noImplicitAny": true,
-    "removeComments": false,
-    "noLib": false,
-    "preserveConstEnums": true,
-    "suppressImplicitAnyIndexErrors": false
-  },
-  "formatCodeOptions": {
-    "indentSize": 3,
-    "tabSize": 3,
-    "newLineCharacter": "\n",
-    "convertTabsToSpaces": true,
-    "insertSpaceAfterCommaDelimiter": true,
-    "insertSpaceAfterSemicolonInForStatements": true,
-    "insertSpaceBeforeAndAfterBinaryOperators": true,
-    "insertSpaceAfterKeywordsInControlFlowStatements": true,
-    "insertSpaceAfterFunctionKeywordForAnonymousFunctions": true,
-    "insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis": false,
-    "placeOpenBraceOnNewLineForFunctions": true,
-    "placeOpenBraceOnNewLineForControlBlocks": true
-  },
-  "compileOnSave": true,
-  "filesGlob": [
-    "./**/*.ts",
-    "!./node_modules/**/*.ts",
-    "!./bower_components/**/*.ts",
-    "!./typings/**/*.ts"
-  ],
-  "files": [
-    "./js/blend/blend.d.ts",
-    "./js/downscaler.ts",
-    "./js/favorite.ts",
-    "./js/layertree.ts",
-    "./js/main.ts",
-    "./js/psd/psd.d.ts",
-    "./js/renderer.ts",
-    "./js/tileder.ts",
-    "./js/zipper.ts"
-  ],
-  "atom": {
-    "rewriteTsconfig": true
-  }
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "declaration": false,
+        "noImplicitAny": true,
+        "removeComments": false,
+        "noLib": false,
+        "preserveConstEnums": true,
+        "suppressImplicitAnyIndexErrors": false
+    },
+    "formatCodeOptions": {
+        "indentSize": 4,
+        "tabSize": 4,
+        "newLineCharacter": "\n",
+        "convertTabsToSpaces": true,
+        "insertSpaceAfterCommaDelimiter": true,
+        "insertSpaceAfterSemicolonInForStatements": true,
+        "insertSpaceBeforeAndAfterBinaryOperators": true,
+        "insertSpaceAfterKeywordsInControlFlowStatements": true,
+        "insertSpaceAfterFunctionKeywordForAnonymousFunctions": true,
+        "insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis": false,
+        "placeOpenBraceOnNewLineForFunctions": true,
+        "placeOpenBraceOnNewLineForControlBlocks": true
+    },
+    "compileOnSave": true,
+    "filesGlob": [
+        "./**/*.ts",
+        "!./node_modules/**/*.ts",
+        "!./bower_components/**/*.ts",
+        "!./typings/**/*.ts"
+    ],
+    "files": [
+        "./js/blend/blend.d.ts",
+        "./js/downscaler.ts",
+        "./js/favorite.ts",
+        "./js/layertree.ts",
+        "./js/main.ts",
+        "./js/psd/psd.d.ts",
+        "./js/renderer.ts",
+        "./js/tileder.ts",
+        "./js/zipper.ts"
+    ],
+    "atom": {
+        "rewriteTsconfig": true
+    }
 }

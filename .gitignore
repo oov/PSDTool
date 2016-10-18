@@ -11,3 +11,4 @@ js/psd/psd.js
 js/psd/psd.js.map
 css/3rd.min.css
 typings/*
+node_modules
