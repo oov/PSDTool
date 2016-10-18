@@ -2,14 +2,16 @@
   "name": "psdtool",
   "version": "1.0.0",
   "description": "",
-  "main": "serv.js",
+  "main": "index.js",
   "dependencies": {
   },
   "devDependencies": {
-    "typescript": "^2.0.3"
+    "typescript": "^2.0.3",
+    "superstatic": "^4.0.3"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "superstatic --port 10080 --debug true"
   },
   "repository": {
     "type": "git",
