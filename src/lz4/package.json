@@ -1,0 +1,23 @@
+{
+  "name": "lz4",
+  "version": "1.0.0",
+  "description": "",
+  "main": "lz4.js",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "typescript": "^2.0.3",
+    "webpack": "^1.13.2",
+    "ts-loader": "^0.8.2",
+    "superstatic": "^4.0.3"
+  },
+  "scripts": {
+    "build": "webpack --optimize-minimize",
+    "watch": "webpack --progress --colors --watch",
+    "start": "superstatic --port 10080 --debug true"
+  },
+  "repository": {},
+  "author": "oov",
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/oov/lz4-ts/"
+}
