@@ -1,8 +1,9 @@
 import * as renderer from './renderer';
-import * as zipper from './zipper';
 import * as favorite from './favorite';
 import * as layertree from './layertree';
 import * as tileder from './tileder';
+import * as zipper from './zipper';
+import * as primar from './primar';
 
 function getElementById(doc: Document, id: string): HTMLElement {
     const elem = doc.getElementById(id);
@@ -729,7 +730,11 @@ export class Main {
             if (nr.length !== 2 || fmt.length !== 2) {
                 throw new Error('tiled export form data is invalid');
             }
-            this.exportFaviewTiled(nr[0], nr[1] === 'flat', fmt[0], fmt[1], cmp, tsx);
+            if (fmt[0] === 'prima') {
+                this.exportFaviewPRIMA(nr[0]);
+            } else {
+                this.exportFaviewTiled(nr[0], nr[1] === 'flat', fmt[0], fmt[1], cmp, tsx);
+            }
         }, false);
 
         getElementById(document, 'export-layer-structure').addEventListener('click', e => {
@@ -1150,6 +1155,72 @@ export class Main {
                 );
             }
         }, e => errorHandler('cannot create a zip archive', e));
+    }
+
+    private exportFaviewPRIMA(namingStyle: string): void {
+        const z = new primar.Primar(), td = new tileder.Tileder();
+        const prog = new ProgressDialog('Exporting...', '');
+
+        // make faview.json
+        const faviewData = {
+            namingStyle: namingStyle,
+            width: 0,
+            height: 0,
+            tileSize: 16,
+            roots: this.faview.items.map(root => {
+                return {
+                    name: root.name,
+                    captions: root.selects.map(sel => Main.cleanForFilename(sel.caption)),
+                    selects: root.selects.map(sel => sel.items.map(item => Main.cleanForFilename(item.name)))
+                };
+            })
+        };
+
+        let first = true;
+        this.enumerateFaview(
+            (
+                path: { caption: string, name: string, index: number }[],
+                image: HTMLCanvasElement,
+                progress: number,
+                next: () => void
+            ) => {
+                const name = path.map((e, depth) => {
+                    switch (namingStyle) {
+                        case 'standard':
+                            return Main.cleanForFilename((depth ? e.caption + '-' : '') + e.name);
+                        case 'compact':
+                            return Main.cleanForFilename(e.name);
+                        case 'index':
+                            return e.index;
+                    }
+                }).join('\\');
+                if (first) {
+                    faviewData.width = image.width;
+                    faviewData.height = image.height;
+                    first = false;
+                }
+                prog.update(progress / 2, name);
+                td.add(name, image, next);
+            },
+            () => {
+                td.finish(false, (tsx: tileder.Tsx, progress: number) => {
+                    z.addImage(
+                        new Blob([
+                            Main.dataSchemeURIToArrayBuffer(
+                                tsx.getImage(document).toDataURL()
+                            )
+                        ], { type: 'image/png' })
+                    );
+                }, (image: tileder.Image, progress: number) => {
+                    z.addMap(image.data);
+                }, () => {
+                    prog.update(1, 'building a zip...');
+                    const blob = z.generate(faviewData);
+                    saveAs(blob, 'tiled.prima');
+                    prog.close();
+                });
+            }
+        );
     }
 
     private enumerateFaview(

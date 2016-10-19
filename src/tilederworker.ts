@@ -5,11 +5,9 @@ import * as crc32 from './crc32';
 declare function postMessage(data: any, transfer?: any): void;
 
 interface Tile {
-    [hash: string]: {
-        h: number; // hash
-        p: number; // block position index
-        b: Uint8Array; // image data
-    };
+    h: number; // hash
+    p: number; // block position index
+    b: Uint8Array; // image data
 }
 
 interface TsxImageFunc {
@@ -18,7 +16,7 @@ interface TsxImageFunc {
 
 class TilederWorker {
     private tileSize = 16;
-    private tile: Tile = {};
+    private tile = new Map<number, Tile>();
 
     private images: tileder.ImageData[] = [];
 
@@ -47,7 +45,9 @@ class TilederWorker {
         [hash: number]: number
     } {
         const tile = this.tile, tileSize = this.tileSize;
-        const a = Object.keys(tile).map(key => tile[key]), aLen = a.length;
+        const a: Tile[] = [];
+        tile.forEach(v => a.push(v));
+        const aLen = a.length;
 
         a.sort((a, b) => {
             return a.p === b.p ? 0 : a.p < b.p ? -1 : 1;
@@ -74,13 +74,13 @@ class TilederWorker {
                         throw new Error('unexpected undefined buffer');
                     }
                     for (let y = 0; y < tileSize; ++y) {
-                        const dx = ((dy + y) * size + bx * tileSize) * 4;
-                        const sx = y * tileSize * 4;
-                        for (let x = 0; x < tileSize * 4; x += 4) {
-                            image[dx + x + 0] = srcBuf[sx + x + 0];
-                            image[dx + x + 1] = srcBuf[sx + x + 1];
-                            image[dx + x + 2] = srcBuf[sx + x + 2];
-                            image[dx + x + 3] = srcBuf[sx + x + 3];
+                        let dx = ((dy + y) * size + bx * tileSize) * 4;
+                        let sx = y * tileSize * 4;
+                        for (let x = 0; x < tileSize; ++x) {
+                            image[dx++] = srcBuf[sx++];
+                            image[dx++] = srcBuf[sx++];
+                            image[dx++] = srcBuf[sx++];
+                            image[dx++] = srcBuf[sx++];
                         }
                     }
                     map[src.h] = aPos++;
@@ -96,7 +96,7 @@ class TilederWorker {
                 data: image.buffer
             }, i, numTsxes);
         }
-        this.tile = {};
+        this.tile.clear();
         return map;
     }
 
@@ -138,18 +138,18 @@ class TilederWorker {
             const sy = by * tileSize;
             for (let bx = 0; bx < bwf; ++bx) {
                 for (let y = 0; y < tileSize; ++y) {
-                    const sx = ((sy + y) * w + bx * tileSize) * 4;
-                    const dx = y * tileSize * 4;
-                    for (let x = 0; x < tileSize * 4; x += 4) {
-                        buf[dx + x + 0] = ab[sx + x + 0];
-                        buf[dx + x + 1] = ab[sx + x + 1];
-                        buf[dx + x + 2] = ab[sx + x + 2];
-                        buf[dx + x + 3] = ab[sx + x + 3];
+                    let sx = ((sy + y) * w + bx * tileSize) * 4;
+                    let dx = y * tileSize * 4;
+                    for (let x = 0; x < tileSize; ++x) {
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
                     }
                 }
                 const hash = crc32.crc32(buf.buffer);
-                if (!(hash in tile)) {
-                    tile[hash] = { h: hash, p: by * 1000000 + bx, b: new Uint8Array(buf) };
+                if (!tile.has(hash)) {
+                    tile.set(hash, { h: hash, p: by * 1000000 + bx, b: new Uint8Array(buf) });
                 }
                 imageHash[by * bwc + bx] = hash;
             }
@@ -159,18 +159,18 @@ class TilederWorker {
             for (let by = 0; by < bhf; ++by) {
                 const sy = by * tileSize;
                 for (let y = 0; y < tileSize; ++y) {
-                    const sx = ((sy + y) * w + bwf * tileSize) * 4;
-                    const dx = y * tileSize4;
-                    for (let x = 0; x < restw * 4; x += 4) {
-                        buf[dx + x + 0] = ab[sx + x + 0];
-                        buf[dx + x + 1] = ab[sx + x + 1];
-                        buf[dx + x + 2] = ab[sx + x + 2];
-                        buf[dx + x + 3] = ab[sx + x + 3];
+                    let sx = ((sy + y) * w + bwf * tileSize) * 4;
+                    let dx = y * tileSize4;
+                    for (let x = 0; x < restw; ++x) {
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
                     }
                 }
                 const hash = crc32.crc32(buf.buffer);
-                if (!(hash in tile)) {
-                    tile[hash] = { h: hash, p: by * 1000000 + bwf, b: new Uint8Array(buf) };
+                if (!tile.has(hash)) {
+                    tile.set(hash, { h: hash, p: by * 1000000 + bwf, b: new Uint8Array(buf) });
                 }
                 imageHash[by * bwc + bwf] = hash;
             }
@@ -180,18 +180,18 @@ class TilederWorker {
             const sy = bhf * tileSize;
             for (let bx = 0; bx < bwf; ++bx) {
                 for (let y = 0; y < resth; ++y) {
-                    const sx = ((sy + y) * w + bx * tileSize) * 4;
-                    const dx = y * tileSize4;
-                    for (let x = 0; x < tileSize4; x += 4) {
-                        buf[dx + x + 0] = ab[sx + x + 0];
-                        buf[dx + x + 1] = ab[sx + x + 1];
-                        buf[dx + x + 2] = ab[sx + x + 2];
-                        buf[dx + x + 3] = ab[sx + x + 3];
+                    let sx = ((sy + y) * w + bx * tileSize) * 4;
+                    let dx = y * tileSize4;
+                    for (let x = 0; x < tileSize; ++x) {
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
                     }
                 }
                 const hash = crc32.crc32(buf.buffer);
-                if (!(hash in tile)) {
-                    tile[hash] = { h: hash, p: bhf * 1000000 + bx, b: new Uint8Array(buf) };
+                if (!tile.has(hash)) {
+                    tile.set(hash, { h: hash, p: bhf * 1000000 + bx, b: new Uint8Array(buf) });
                 }
                 imageHash[bhf * bwc + bx] = hash;
             }
@@ -200,18 +200,18 @@ class TilederWorker {
             buf.fill(0);
             const sy = bhf * tileSize;
             for (let y = 0; y < resth; ++y) {
-                const sx = ((sy + y) * w + bwf * tileSize) * 4;
-                const dx = y * tileSize4;
-                for (let x = 0; x < restw * 4; x += 4) {
-                    buf[dx + x + 0] = ab[sx + x + 0];
-                    buf[dx + x + 1] = ab[sx + x + 1];
-                    buf[dx + x + 2] = ab[sx + x + 2];
-                    buf[dx + x + 3] = ab[sx + x + 3];
+                let sx = ((sy + y) * w + bwf * tileSize) * 4;
+                let dx = y * tileSize4;
+                for (let x = 0; x < restw; ++x) {
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
                 }
             }
             const hash = crc32.crc32(buf.buffer);
-            if (!(hash in tile)) {
-                tile[hash] = { h: hash, p: bhf * 1000000 + bwf, b: new Uint8Array(buf) };
+            if (!tile.has(hash)) {
+                tile.set(hash, { h: hash, p: bhf * 1000000 + bwf, b: new Uint8Array(buf) });
             }
             imageHash[bhf * bwc + bwf] = hash;
         }
