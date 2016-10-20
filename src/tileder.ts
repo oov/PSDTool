@@ -1,6 +1,8 @@
 'use strict';
+import * as crc32 from './crc32';
 
 export interface ImageData {
+    index: number;
     name: string;
     width: number;
     height: number;
@@ -13,6 +15,7 @@ export interface ImageData {
 }
 
 export class Image implements ImageData {
+    public index: number;
     public name: string;
     public width: number;
     public height: number;
@@ -26,6 +29,7 @@ export class Image implements ImageData {
     public tileSet: Tsx[];
 
     constructor(data: ImageData, tileSet: Tsx[]) {
+        this.index = data.index;
         this.name = data.name;
         this.width = data.width;
         this.height = data.height;
@@ -329,31 +333,53 @@ function int32ArrayToCSV(a: Int32Array, width: number, sep: string): string {
     return r.join(',');
 }
 
+
 export class Tileder {
-    private w: Worker;
-    constructor() {
-        this.w = new Worker('/js/tileder.js');
-        this.w.onmessage = e => this.onMessage(e);
+    private _tileSize = 16;
+
+    private _chopper: Chopper[] = [];
+    private _tile = new Map<number, Tile>();
+    private _images: ImageData[] = [];
+
+    private _waitReadyChopper(waits: number, found: (chopper: Chopper) => void): void {
+        let find = () => {
+            for (let i = 0; i < this._chopper.length; ++i) {
+                if (this._chopper[i].tasks <= waits) {
+                    found(this._chopper[i]);
+                    return;
+                }
+            }
+            setTimeout(() => find(), 100);
+        };
+        find();
     }
 
-    private onMessage(e: MessageEvent): void {
-        switch (e.data.type) {
-            case 'add':
-                this.onAdd();
-                break;
-            case 'tsx':
-                this.onTsx(e.data.t, e.data.i, e.data.n);
-                break;
-            case 'image':
-                this.onImage(e.data.img, e.data.i, e.data.n);
-                break;
-            default:
-                throw new Error('unknown message: ' + e.data.type);
+    private _add(index: number, name: string, buffer: ArrayBuffer, width: number, height: number): Promise<void> {
+        return new Promise(resolve => {
+            this._waitReadyChopper(this.queueMax, chopper => {
+                chopper.chop(index, name, buffer, width, height, this._tileSize, (data, tile) => {
+                    tile.forEach((v, hash) => {
+                        if (!this._tile.has(hash)) {
+                            this._tile.set(hash, v);
+                        }
+                    });
+                    this._images.push(data);
+                });
+                resolve();
+            });
+        });
+    }
+
+    private readonly numWorkers = 4;
+    private readonly queueMax = 3;
+
+    constructor() {
+        for (let i = 0; i < this.numWorkers; ++i) {
+            this._chopper.push(new Chopper());
         }
     }
 
-    private queue: ((() => void) | undefined)[] = [];
-    // private adding: () => void;
+    private index = 0;
     public add(name: string, image: HTMLCanvasElement | HTMLImageElement, next: () => void): void {
         let ctx: CanvasRenderingContext2D | null;
         if (image instanceof HTMLImageElement) {
@@ -371,67 +397,380 @@ export class Tileder {
             throw new Error('cannot get CanvasRenderingContext2D');
         }
         const imgData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-        // this.adding = next;
-        const q = this.queue.length > 5;
-        if (q) {
-            this.queue.push(next);
-        } else {
-            this.queue.push(undefined);
-            setTimeout(next, 0);
-        }
-        this.w.postMessage({
-            type: 'add',
-            n: name,
-            b: imgData.data.buffer,
-            w: ctx.canvas.width,
-            h: ctx.canvas.height
-        }, [imgData.data.buffer]);
+        this._add(this.index++, name, imgData.data.buffer, image.width, image.height).then(next);
     }
 
-    private onAdd(): void {
-        // this.adding();
-        const f = this.queue.shift();
-        if (f) {
-            setTimeout(f, 0);
-        }
-    }
-
-    private tsxHandler: (tsx: Tsx, progress: number) => void;
-    private imageHandler: (image: Image, progress: number) => void;
-    private completeHandler: () => void;
     public finish(
         compressMap: boolean,
-        tsx: (tsx: Tsx, progress: number) => void,
-        image: (image: ImageData, progress: number) => void,
+        tsxCallback: (tsx: Tsx, progress: number) => void,
+        imageCallback: (image: ImageData, progress: number) => void,
         complete: () => void
     ): void {
-        this.tsxHandler = tsx;
-        this.imageHandler = image;
-        this.completeHandler = complete;
-        this.w.postMessage({
-            type: 'finish',
-            c: compressMap,
+        const tileSet: Tsx[] = [];
+        let gid = 1;
+        Builder.build(
+            compressMap,
+            this._tile,
+            this._images,
+            this._tileSize,
+            (tsx, index, total) => {
+                const o = new Tsx(tsx, gid, index.toString());
+                tileSet.push(o);
+                gid += tsx.tileCount;
+                tsxCallback(o, index / total);
+            },
+            (image, index, total) => {
+                const o = new Image(image, tileSet);
+                imageCallback(o, index / total);
+            },
+            complete
+        );
+    }
+}
+
+interface Tile {
+    h: number; // hash
+    p: number; // block position index
+    b: ArrayBuffer; // image data
+}
+
+class Chopper {
+    private worker = new Worker(Chopper.createWorkerURL());
+    constructor() {
+        this.worker.onmessage = e => {
+            const callback = this._callbacks.shift();
+            if (callback) {
+                callback(e.data.data, e.data.tile);
+            }
+        };
+    }
+
+    private _callbacks: ((data: ImageData, tile: Map<number, Tile>) => void)[] = [];
+    public chop(
+        index: number,
+        name: string,
+        buffer: ArrayBuffer,
+        width: number,
+        height: number,
+        tileSize: number,
+        success: (data: ImageData, tile: Map<number, Tile>) => void
+    ): void {
+        this._callbacks.push(success);
+        this.worker.postMessage({
+            index, name, buffer, width, height, tileSize
+        }, [buffer]);
+    }
+    public get tasks(): number { return this._callbacks.length; }
+
+    private static _chop(
+        index: number,
+        name: string,
+        b: ArrayBuffer,
+        w: number,
+        h: number,
+        tileSize: number,
+        crc32: (b: ArrayBuffer) => number
+    ): [ImageData, Map<number, Tile>, ArrayBuffer[]] {
+        const buffers: ArrayBuffer[] = [];
+        const tile = new Map<number, Tile>();
+        const tileSize4 = tileSize << 2;
+        const ab = new Uint8ClampedArray(b);
+        const buf = new Uint8Array(4 * tileSize * tileSize);
+
+        const bwf = Math.floor(w / tileSize), bhf = Math.floor(h / tileSize);
+        const bwc = Math.ceil(w / tileSize), bhc = Math.ceil(h / tileSize);
+        const restw = w - bwf * tileSize, resth = h - bwf * tileSize;
+
+        const imageHash = new Uint32Array(bwc * bhc);
+        for (let by = 0; by < bhf; ++by) {
+            const sy = by * tileSize;
+            for (let bx = 0; bx < bwf; ++bx) {
+                for (let y = 0; y < tileSize; ++y) {
+                    let sx = ((sy + y) * w + bx * tileSize) * 4;
+                    let dx = y * tileSize * 4;
+                    for (let x = 0; x < tileSize; ++x) {
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                    }
+                }
+                const hash = crc32(buf.buffer);
+                if (!tile.has(hash)) {
+                    const bb = buf.slice().buffer;
+                    buffers.push(bb);
+                    tile.set(hash, { h: hash, p: by * 1000000 + bx, b: bb });
+                }
+                imageHash[by * bwc + bx] = hash;
+            }
+        }
+        if (restw) {
+            buf.fill(0);
+            for (let by = 0; by < bhf; ++by) {
+                const sy = by * tileSize;
+                for (let y = 0; y < tileSize; ++y) {
+                    let sx = ((sy + y) * w + bwf * tileSize) * 4;
+                    let dx = y * tileSize4;
+                    for (let x = 0; x < restw; ++x) {
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                    }
+                }
+                const hash = crc32(buf.buffer);
+                if (!tile.has(hash)) {
+                    const bb = buf.slice().buffer;
+                    buffers.push(bb);
+                    tile.set(hash, { h: hash, p: by * 1000000 + bwf, b: bb });
+                }
+                imageHash[by * bwc + bwf] = hash;
+            }
+        }
+        if (resth) {
+            buf.fill(0);
+            const sy = bhf * tileSize;
+            for (let bx = 0; bx < bwf; ++bx) {
+                for (let y = 0; y < resth; ++y) {
+                    let sx = ((sy + y) * w + bx * tileSize) * 4;
+                    let dx = y * tileSize4;
+                    for (let x = 0; x < tileSize; ++x) {
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                        buf[dx++] = ab[sx++];
+                    }
+                }
+                const hash = crc32(buf.buffer);
+                if (!tile.has(hash)) {
+                    const bb = buf.slice().buffer;
+                    buffers.push(bb);
+                    tile.set(hash, { h: hash, p: bhf * 1000000 + bx, b: bb });
+                }
+                imageHash[bhf * bwc + bx] = hash;
+            }
+        }
+        if (restw && resth) {
+            buf.fill(0);
+            const sy = bhf * tileSize;
+            for (let y = 0; y < resth; ++y) {
+                let sx = ((sy + y) * w + bwf * tileSize) * 4;
+                let dx = y * tileSize4;
+                for (let x = 0; x < restw; ++x) {
+                    buf[dx++] = ab[sx++];
+                    buf[dx++] = ab[sx++];
+                    buf[dx++] = ab[sx++];
+                    buf[dx++] = ab[sx++];
+                }
+            }
+            const hash = crc32(buf.buffer);
+            if (!tile.has(hash)) {
+                const bb = buf.slice().buffer;
+                buffers.push(bb);
+                tile.set(hash, { h: hash, p: bhf * 1000000 + bwf, b: bb });
+            }
+            imageHash[bhf * bwc + bwf] = hash;
+        }
+
+        buffers.push(imageHash.buffer);
+        return [{
+            index,
+            name,
+            width: bwc,
+            height: bhc,
+            originalWidth: w,
+            originalHeight: h,
+            tileWidth: tileSize,
+            tileHeight: tileSize,
+            data: imageHash.buffer,
+            deflated: false
+        }, tile, buffers];
+    }
+
+    private static workerURL: string;
+    private static createWorkerURL(): string {
+        if (Chopper.workerURL) {
+            return Chopper.workerURL;
+        }
+        Chopper.workerURL = URL.createObjectURL(new Blob([`
+'use strict';
+var crcTable = new Uint32Array(${JSON.stringify(Array.from(new Int32Array(crc32.getCRCTable().buffer)))});
+var crc32 = ${crc32.crc32.toString()};
+var chop = ${Chopper._chop.toString()};
+onmessage = function(e){
+    var d = e.data;
+    var ret = chop(d.index, d.name, d.buffer, d.width, d.height, d.tileSize, crc32);
+    postMessage({data: ret[0], tile: ret[1]}, ret[2]);
+};`], { type: 'text/javascript' }));
+        return Chopper.workerURL;
+    }
+}
+
+class Builder {
+    public static build(
+        compressMap: boolean,
+        tile: Map<number, Tile>,
+        images: ImageData[],
+        tileSize: number,
+        tsx: (tsx: TsxData, index: number, total: number) => void,
+        image: (tsx: ImageData, index: number, total: number) => void,
+        complete: () => void
+    ) {
+        const w = new Worker(Builder.createWorkerURL());
+        w.onmessage = e => {
+            const d = e.data;
+            if (d.image) {
+                image(d.image, d.index, d.total);
+                if (d.index === d.total - 1) {
+                    complete();
+                }
+            } else {
+                tsx(d.tsx, d.index, d.total);
+            }
+
+        };
+        const buffers: ArrayBuffer[] = [];
+        tile.forEach(v => {
+            buffers.push(v.b);
+        });
+        for (const image of images) {
+            buffers.push(image.data);
+        }
+        w.postMessage({ compressMap, tile, images, tileSize }, buffers);
+    }
+
+    private static _finish(
+        compressMap: boolean,
+        tile: Map<number, Tile>,
+        images: ImageData[],
+        tileSize: number,
+        buildTsx: (
+            tile: Map<number, Tile>,
+            tileSize: number,
+            tsxCallback: (tsx: TsxData, index: number, total: number) => void,
+            calcImageSize: (tileSize: number, n: number) => number,
+        ) => Map<number, number>,
+        calcImageSize: (tileSize: number, n: number) => number,
+        compress: (a: Uint8Array) => Uint8Array,
+        tsxCallback: (tsx: TsxData, index: number, total: number) => void,
+        imageCallback: (tsx: ImageData, index: number, total: number) => void,
+    ): void {
+        const map = buildTsx(tile, tileSize, tsxCallback, calcImageSize);
+        images.sort((a, b) => {
+            return a.index === b.index ? 0 : a.index < b.index ? -1 : 1;
+        });
+        for (let i = 0; i < images.length; ++i) {
+            const image = images[i];
+            const d = new Uint32Array(image.data);
+            for (let j = 0; j < d.length; ++j) {
+                d[j] = map.get(d[j]) + 1;
+            }
+            if (compressMap) {
+                image.data = compress(new Uint8Array(image.data)).buffer;
+                image.deflated = true;
+            }
+            imageCallback(image, i, images.length);
+        }
+    }
+
+    private static _calcImageSize(tileSize: number, n: number): number {
+        const x = n * tileSize * tileSize;
+        for (let p = 64; p <= 1024; p += p) {
+            if (x <= p * p) {
+                return p;
+            }
+        }
+        return 1024;
+    }
+
+    private static _buildTsx(
+        tile: Map<number, Tile>,
+        tileSize: number,
+        tsxCallback: (tsx: TsxData, index: number, total: number) => void,
+        calcImageSize: (tileSize: number, n: number) => number,
+    ): Map<number, number> {
+        const a: Tile[] = [];
+        tile.forEach(v => a.push(v));
+        const aLen = a.length;
+
+        a.sort((a, b) => {
+            return a.p === b.p ? 0 : a.p < b.p ? -1 : 1;
         });
 
-        this.tileSet = [];
-        this.gid = 1;
-    }
-
-    private tileSet: Tsx[] = [];
-    private gid = 1;
-    private onTsx(tsx: TsxData, index: number, total: number): void {
-        const t = new Tsx(tsx, this.gid, index.toString());
-        this.tileSet.push(t);
-        this.gid += tsx.tileCount;
-        this.tsxHandler(t, index / total);
-    }
-
-    private onImage(image: Image, index: number, total: number): void {
-        const i = new Image(image, this.tileSet);
-        this.imageHandler(i, index / total);
-        if (index === total - 1) {
-            this.completeHandler();
+        let aPos = 0, numTsxes = 0;
+        while (aPos < aLen) {
+            const bLen = calcImageSize(tileSize, aLen - aPos) >> 4;
+            aPos += bLen * bLen;
+            ++numTsxes;
         }
+
+        aPos = 0;
+        const map = new Map<number, number>();
+        for (let i = 0; i < numTsxes; ++i) {
+            const size = calcImageSize(tileSize, aLen - aPos), size4 = size * 4, columns = size / tileSize;
+            const image = new Uint8Array(size * size4);
+            const bLen = size >> 4;
+            for (let by = 0; by < bLen && aPos < aLen; ++by) {
+                const dy = by * tileSize;
+                for (let bx = 0; bx < bLen && aPos < aLen; ++bx) {
+                    const src = a[aPos], srcBuf = new Uint8Array(src.b);
+                    for (let y = 0; y < tileSize; ++y) {
+                        let dx = ((dy + y) * size + bx * tileSize) * 4;
+                        let sx = y * tileSize * 4;
+                        for (let x = 0; x < tileSize; ++x) {
+                            image[dx++] = srcBuf[sx++];
+                            image[dx++] = srcBuf[sx++];
+                            image[dx++] = srcBuf[sx++];
+                            image[dx++] = srcBuf[sx++];
+                        }
+                    }
+                    map.set(src.h, aPos++);
+                }
+            }
+            tsxCallback({
+                tileWidth: tileSize,
+                tileHeight: tileSize,
+                tileCount: columns * columns,
+                columns: columns,
+                width: size,
+                height: size,
+                data: image.buffer
+            }, i, numTsxes);
+        }
+        return map;
+    }
+
+    private static workerURL: string;
+    private static createWorkerURL(): string {
+        if (Builder.workerURL) {
+            return Builder.workerURL;
+        }
+        Builder.workerURL = URL.createObjectURL(new Blob([`
+'use strict';
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.3/pako_deflate.min.js');
+var calcImageSize = ${Builder._calcImageSize.toString()};
+var buildTsx = ${Builder._buildTsx.toString()};
+var compress = function(a){ return pako.deflate(a); };
+var finish = ${Builder._finish.toString()};
+onmessage = function(e){
+    var d = e.data;
+    var ret = finish(
+        d.compressMap,
+        d.tile,
+        d.images,
+        d.tileSize,
+        buildTsx,
+        calcImageSize,
+        compress,
+        function(tsx, index, total){
+            postMessage({tsx: tsx, index: index, total: total}, [tsx.data]);
+        },
+        function(image, index, total){
+            postMessage({image: image, index: index, total: total}, [image.data]);
+        }
+    );
+};`], { type: 'text/javascript' }));
+        return Builder.workerURL;
     }
 }
 

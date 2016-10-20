@@ -23,9 +23,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "superstatic --port 10080 --debug true",
     "watch": "watchify src/main.ts -p [ tsify ] -o js/index.js -v",
-    "build": "browserify src/main.ts -p [ tsify ] | uglifyjs -mc > js/index.js",
-    "watch-w": "watchify src/tilederworker.ts -p [ tsify ] -o js/tileder.js -v",
-    "build-w": "browserify src/tilederworker.ts -p [ tsify ] | uglifyjs -mc > js/tileder.js"
+    "build": "browserify src/main.ts -p [ tsify ] | uglifyjs -mc > js/index.js"
   },
   "repository": {
     "type": "git",
