@@ -942,14 +942,12 @@ export class Main {
                     if (progress !== 1) {
                         return;
                     }
-                    z.add(
-                        files[i].name,
-                        new Blob([Main.dataSchemeURIToArrayBuffer(canvas.toDataURL())], { type: 'image/png' }),
-                        addedHandler,
-                        e => errorHandler('cannot write png to a zip archive', e));
-                    if (++i < files.length) {
-                        setTimeout(process, 0);
-                    }
+                    Main.canvasToBlob(canvas).then(blob => {
+                        z.add(files[i].name, blob, addedHandler, e => errorHandler('cannot write png to a zip archive', e));
+                        if (++i < files.length) {
+                            setTimeout(process, 0);
+                        }
+                    });
                 });
             };
             process();
@@ -973,17 +971,19 @@ export class Main {
         window.addEventListener('unload', () => { aborted = true; }, false);
         z.init(() => {
             this.enumerateFaview(
-                (path: { caption: string, name: string }[], image: HTMLCanvasElement, progress: number, next: () => void) => {
+                (
+                    path: { caption: string, name: string }[],
+                    image: HTMLCanvasElement,
+                    index: number, total: number,
+                    next: () => void
+                ) => {
                     const name = path.map((e, i) => {
                         return Main.cleanForFilename((i && includeItemCaption ? e.caption + '-' : '') + e.name);
                     }).join(flatten ? '_' : '\\') + '.png';
-                    z.add(
-                        name,
-                        new Blob([Main.dataSchemeURIToArrayBuffer(image.toDataURL())], { type: 'image/png' }),
-                        next,
-                        e => errorHandler('cannot write png to a zip archive', e)
-                    );
-                    prog.update(progress, name);
+                    Main.canvasToBlob(image).then(blob => {
+                        z.add(name, blob, next, e => errorHandler('cannot write png to a zip archive', e));
+                    });
+                    prog.update(index / total, name);
                 },
                 () => {
                     prog.update(1, 'building a zip...');
@@ -1055,7 +1055,7 @@ export class Main {
                 (
                     path: { caption: string, name: string, index: number }[],
                     image: HTMLCanvasElement,
-                    progress: number,
+                    index: number, total: number,
                     next: () => void
                 ) => {
                     const name = path.map((e, depth) => {
@@ -1068,16 +1068,14 @@ export class Main {
                                 return e.index;
                         }
                     }).join(flatten ? '_' : '\\');
-                    prog.update(progress / 2, name);
+                    prog.update((index / total) / 2, name);
                     td.add(name, image, next);
                 },
                 () => {
                     td.finish(tileFormat === 'binz', (tsx: tileder.Tsx, progress: number) => {
                         ++queue;
-                        z.add(
-                            `${tsx.filename}.png`,
-                            new Blob([Main.dataSchemeURIToArrayBuffer(tsx.getImage(document).toDataURL())], { type: 'image/png' }),
-                            () => {
+                        Main.canvasToBlob(tsx.getImage(document)).then(blob => {
+                            z.add(`${tsx.filename}.png`, blob, () => {
                                 prog.update(1 / 2, `${tsx.filename}.png`);
                                 processed();
                                 if (useTSX) {
@@ -1092,9 +1090,8 @@ export class Main {
                                         e => errorHandler('cannot write tsx to a zip archive', e)
                                     );
                                 }
-                            },
-                            e => errorHandler('cannot write png to a zip archive', e)
-                        );
+                            }, e => errorHandler('cannot write png to a zip archive', e));
+                        });
                     }, (image: tileder.Image, progress: number) => {
                         let f = compress ? z.addCompress : z.add;
                         f = f.bind(z);
@@ -1157,13 +1154,12 @@ export class Main {
         }, e => errorHandler('cannot create a zip archive', e));
     }
 
-    private exportFaviewPRIMA(namingStyle: string): void {
+    private exportFaviewPRIMA(): void {
         const z = new primar.Primar(), td = new tileder.Tileder();
         const prog = new ProgressDialog('Exporting...', '');
 
         // make faview.json
         const faviewData = {
-            namingStyle: namingStyle,
             width: 0,
             height: 0,
             tileSize: 16,
@@ -1176,48 +1172,47 @@ export class Main {
             })
         };
 
+        let queue = 0, finished = 0, completed = false;
+        const processed = () => {
+            ++finished;
+            if (!completed || finished !== queue) {
+                return;
+            }
+            prog.update(1, 'building a file...');
+            const blob = z.generate(faviewData);
+            saveAs(blob, 'tiled.prima');
+            prog.close();
+        };
+
         let first = true;
         this.enumerateFaview(
             (
                 path: { caption: string, name: string, index: number }[],
                 image: HTMLCanvasElement,
-                progress: number,
+                index: number, total: number,
                 next: () => void
             ) => {
-                const name = path.map((e, depth) => {
-                    switch (namingStyle) {
-                        case 'standard':
-                            return Main.cleanForFilename((depth ? e.caption + '-' : '') + e.name);
-                        case 'compact':
-                            return Main.cleanForFilename(e.name);
-                        case 'index':
-                            return e.index;
-                    }
-                }).join('\\');
                 if (first) {
                     faviewData.width = image.width;
                     faviewData.height = image.height;
                     first = false;
                 }
-                prog.update(progress / 2, name);
-                td.add(name, image, next);
+                prog.update(index / total, `${index}/${total}`);
+                td.add('', image, next);
             },
             () => {
                 td.finish(false, (tsx: tileder.Tsx, progress: number) => {
-                    z.addImage(
-                        new Blob([
-                            Main.dataSchemeURIToArrayBuffer(
-                                tsx.getImage(document).toDataURL()
-                            )
-                        ], { type: 'image/png' })
-                    );
+                    ++queue;
+                    Main.canvasToBlob(tsx.getImage(document)).then(blob => {
+                        z.addImage(blob);
+                        processed();
+                    });
                 }, (image: tileder.Image, progress: number) => {
                     z.addMap(image.data);
                 }, () => {
-                    prog.update(1, 'building a zip...');
-                    const blob = z.generate(faviewData);
-                    saveAs(blob, 'tiled.prima');
-                    prog.close();
+                    ++queue;
+                    completed = true;
+                    processed();
                 });
             }
         );
@@ -1226,7 +1221,8 @@ export class Main {
     private enumerateFaview(
         item: (
             path: { caption: string, name: string; index: number }[],
-            image: HTMLCanvasElement, progress: number,
+            image: HTMLCanvasElement,
+            index: number, total: number,
             next: () => void
         ) => void,
         complete: () => void
@@ -1277,7 +1273,7 @@ export class Main {
                     if (progress !== 1) {
                         return;
                     }
-                    item(path, canvas, (++added) / total, nextItem);
+                    item(path, canvas, ++added, total, nextItem);
                 });
             }
         };
@@ -1446,9 +1442,9 @@ export class Main {
     }
 
     private save(filename: string): void {
-        saveAs(new Blob([
-            Main.dataSchemeURIToArrayBuffer(this.previewCanvas.toDataURL())
-        ], { type: 'image/png' }), filename);
+        Main.canvasToBlob(this.previewCanvas).then(blob => {
+            saveAs(blob, filename);
+        });
     }
 
     // renderer --------------------------------
@@ -1672,13 +1668,19 @@ export class Main {
         }
     }
 
-    private static dataSchemeURIToArrayBuffer(str: string): ArrayBuffer {
-        const bin = atob(str.substring(str.indexOf(',') + 1));
-        const buf = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; ++i) {
-            buf[i] = bin.charCodeAt(i);
-        }
-        return buf.buffer;
+    private static canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+        return new Promise(resolve => {
+            if (HTMLCanvasElement.prototype.toBlob) {
+                canvas.toBlob(blob => resolve(blob));
+                return;
+            }
+            const bin = atob(canvas.toDataURL().split(',')[1]);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0, len = bin.length; i < len; ++i) {
+                buf[i] = bin.charCodeAt(i);
+            }
+            resolve(new Blob([buf], { type: 'image/png' }));
+        });
     }
 
     private static normalizeNumber(s: string): string {
