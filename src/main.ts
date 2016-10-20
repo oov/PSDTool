@@ -699,6 +699,10 @@ export class Main {
         for (let i = 0; i < faviewExports.length; ++i) {
             ((elem: Element): void => {
                 elem.addEventListener('click', e => {
+                    if (elem.getAttribute('data-export-faview') === 'prima') {
+                        this.exportFaviewPRIMA();
+                        return;
+                    }
                     this.exportFaview(
                         elem.getAttribute('data-export-faview') === 'standard',
                         elem.getAttribute('data-structure') === 'flat'
@@ -730,11 +734,7 @@ export class Main {
             if (nr.length !== 2 || fmt.length !== 2) {
                 throw new Error('tiled export form data is invalid');
             }
-            if (fmt[0] === 'prima') {
-                this.exportFaviewPRIMA(nr[0]);
-            } else {
-                this.exportFaviewTiled(nr[0], nr[1] === 'flat', fmt[0], fmt[1], cmp, tsx);
-            }
+            this.exportFaviewTiled(nr[0], nr[1] === 'flat', fmt[0], fmt[1], cmp, tsx);
         }, false);
 
         getElementById(document, 'export-layer-structure').addEventListener('click', e => {
