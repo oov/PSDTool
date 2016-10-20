@@ -105,19 +105,19 @@ export class DownScaler {
         if (DownScaler.workerURL) {
             return DownScaler.workerURL;
         }
-        const sourceCode: string[] = [];
-        sourceCode.push(`'use strict';\n`);
-        sourceCode.push(`var calculate = ${DownScaler.calculate.toString()};\n`);
-        sourceCode.push(`var float32ToUint8ClampedArray = ${DownScaler.float32ToUint8ClampedArray.toString()};\n`);
-        sourceCode.push(`onmessage = function(e) {
+        const sourceCode = `
+'use strict';
+var calculate = ${DownScaler.calculate.toString()};
+var float32ToUint8ClampedArray = ${DownScaler.float32ToUint8ClampedArray.toString()};
+onmessage = function(e) {
     var d = e.data;
     var tmp = new Float32Array(d.destWidth * d.destHeight << 2);
     calculate(tmp, new Uint8Array(d.src), d.scale, d.srcWidth, d.srcHeight);
     var dest = new Uint8ClampedArray(d.destWidth * d.destHeight << 2);
     float32ToUint8ClampedArray(dest, tmp, d.destWidth, d.destHeight, d.destWidth);
     postMessage({buffer: dest.buffer}, [dest.buffer]);
-};`);
-        DownScaler.workerURL = URL.createObjectURL(new Blob([sourceCode.join('')], { type: 'text/javascript' }));
+};`;
+        DownScaler.workerURL = URL.createObjectURL(new Blob([sourceCode], { type: 'text/javascript' }));
         return DownScaler.workerURL;
     }
 
