@@ -42,13 +42,14 @@ export class Node {
     public clippedBy: Node;
     private fullPath_: string;
     private internalName_: string;
+
+    public parent = this;
     constructor(
         private input: HTMLInputElement,
         private displayName_: Text,
         private name_: string,
         currentPath: string[],
-        indexInSameName: number,
-        public parent: Node) {
+        indexInSameName: number) {
         this.internalName_ = Node.encodeLayerName(this.name, indexInSameName);
         if (currentPath.length) {
             this.fullPath_ = currentPath.join('/') + '/' + this.internalName_;
@@ -64,7 +65,7 @@ export class Node {
     }
 }
 export class LayerTree {
-    public root: Node = new Node(null, null, '', [], 0, null);
+    public root: Node = new Node(document.createElement('input'), document.createTextNode(''), '', [], 0);
     public nodes: { [seqId: number]: Node } = {};
 
     get text(): string {
@@ -181,7 +182,8 @@ export class LayerTree {
             }
             for (let i = l.length - 1; i >= 0; --i) {
                 var elems = this.createElements(l[i], parentSeqID);
-                const cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
+                const cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID]);
+                cn.parent = n;
                 n.children.push(cn);
                 this.nodes[l[i].SeqID] = cn;
                 const cul = document.createElement('ul');
@@ -353,7 +355,8 @@ export class LayerTree {
                 case 'flipx':
                 case 'flipy':
                 case 'flipxy':
-                    token.push(p.pop());
+                    token.push(p[i]);
+                    p.pop();
                     break;
                 default:
                     return { tokens: token, name: p.join(':') };
@@ -386,7 +389,7 @@ export class LayerTree {
                     continue;
                 }
 
-                let o: Node;
+                let o: Node | undefined;
                 for (let on of n.children) {
                     if (on.name === tokens.name) {
                         o = on;
@@ -517,10 +520,10 @@ export class LayerTree {
 
     private apply(dnode: DeserializeNode | null, fnode: Node, allLayer: boolean): void {
         const founds: StringSet = {};
-        let cfnode: Node, cdnode: DeserializeNode;
-        for (cfnode of fnode.children) {
+        for (const cfnode of fnode.children) {
             founds[cfnode.internalName] = true;
 
+            let cdnode: DeserializeNode | undefined;
             if (dnode) {
                 cdnode = dnode.children[cfnode.internalName];
             }
@@ -579,10 +582,10 @@ export class LayerTree {
 
     private applyWithFilter(dnode: DeserializeNode, filter: FilterNode, fnode: Node): void {
         const founds: StringSet = {};
-        let cfnode: Node, cfilter: FilterNode, cdnode: DeserializeNode;
-        for (cfnode of fnode.children) {
+        for (const cfnode of fnode.children) {
             founds[cfnode.internalName] = true;
 
+            let cfilter: FilterNode | undefined;
             if (filter) {
                 cfilter = filter.children[cfnode.internalName];
             }
@@ -590,6 +593,7 @@ export class LayerTree {
                 continue;
             }
 
+            let cdnode: DeserializeNode | undefined;
             if (dnode) {
                 cdnode = dnode.children[cfnode.internalName];
             }
@@ -674,7 +678,7 @@ export class LayerTree {
 }
 
 export class Filter {
-    private root: Node = new Node(null, null, '', [], 0, null);
+    private root: Node = new Node(document.createElement('input'), document.createTextNode(''), '', [], 0);
     private nodes: { [seqId: number]: Node } = {};
     constructor(treeRoot: HTMLUListElement, psdRoot: psd.Root) {
         const path: string[] = [];
@@ -690,7 +694,8 @@ export class Filter {
             }
             for (let i = l.length - 1; i >= 0; --i) {
                 const elems = this.createElements(l[i]);
-                const cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID], n);
+                const cn = new Node(elems.input, elems.text, l[i].Name, path, indexes[l[i].SeqID]);
+                cn.parent = n;
                 n.children.push(cn);
                 this.nodes[l[i].SeqID] = cn;
                 cn.li = document.createElement('li');
@@ -819,14 +824,14 @@ export class Filter {
 
     private apply(dnode: DeserializeNode | null, fnode: Node, useDisable: boolean): void {
         const founds: StringSet = {};
-        let cdnode: DeserializeNode;
-        for (let cfnode of fnode.children) {
+        for (const cfnode of fnode.children) {
             if (cfnode.disabled) {
                 continue;
             }
 
             founds[cfnode.internalName] = true;
 
+            let cdnode: DeserializeNode | undefined;
             if (dnode) {
                 cdnode = dnode.children[cfnode.internalName];
             }
