@@ -24,14 +24,14 @@ declare module psd {
         // Y: number;
         // Width: number;
         // Height: number;
-        Canvas: HTMLCanvasElement;
+        Canvas: CanvasRenderingContext2D | undefined;
 
         MaskX: number;
         MaskY: number;
         MaskWidth: number;
         MaskHeight: number;
         MaskDefaultColor: number;
-        Mask: HTMLCanvasElement;
+        Mask: CanvasRenderingContext2D | undefined;
     }
     interface Root extends LayerBase {
         CanvasWidth: number;

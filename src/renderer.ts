@@ -9,34 +9,77 @@ export const enum FlipType {
 }
 
 export class Node {
+    public buffer = document.createElement('canvas');
+
+    private _visible = false;
+    public getVisibleState = (): boolean => { return this._visible; };
     get visible(): boolean { return this.getVisibleState(); }
 
-    public buffer: HTMLCanvasElement;
+    public readonly id: number;
 
-    public getVisibleState = (): boolean => { return this.layer.Visible; };
-    public id: number;
     public state: string = '';
     get stateHash(): string { return Node.calcHash(this.state).toString(16); }
     public nextState: string = '';
     get nextStateHash(): string { return Node.calcHash(this.nextState).toString(16); }
-    public children: Node[] = [];
-    public clip: Node[];
+
+    public readonly children: Node[] = [];
+
+    public clipping: boolean = false;
+    public readonly clip: Node[] = [];
     public clippedBy: Node;
     public clippingBuffer: HTMLCanvasElement;
-    constructor(public layer: psd.Layer, public parent: Node) {
+
+    public readonly image: CanvasRenderingContext2D | undefined;
+    public x = 0;
+    public y = 0;
+    public width = 0;
+    public height = 0;
+
+    public readonly mask: CanvasRenderingContext2D | undefined;
+    public maskX = 0;
+    public maskY = 0;
+    public maskWidth = 0;
+    public maskHeight = 0;
+    public maskDefaultColor = 0; // 0 or 255
+
+    public readonly blendMode = 'normal';
+    public readonly opacity = 255; // 0 ~ 255
+    public readonly blendClippedElements = true;
+
+    public parent = this;
+    constructor(layer: psd.Layer | undefined) {
         if (!layer) {
             this.id = -1;
             return;
         }
         this.id = layer.SeqID;
-        let w = layer.Width, h = layer.Height;
-        if (w * h <= 0) {
+        let width = layer.Width, height = layer.Height;
+        if (width * height <= 0) {
             return;
         }
 
         this.buffer = document.createElement('canvas');
-        this.buffer.width = w;
-        this.buffer.height = h;
+        this.buffer.width = width;
+        this.buffer.height = height;
+
+        this.image = layer.Canvas;
+        this.x = layer.X;
+        this.y = layer.Y;
+        this.width = width;
+        this.height = height;
+
+        this.mask = layer.Mask;
+        this.maskX = layer.MaskX;
+        this.maskY = layer.MaskY;
+        this.maskWidth = layer.MaskWidth;
+        this.maskHeight = layer.MaskHeight;
+        this.maskDefaultColor = layer.MaskDefaultColor;
+
+        this.clipping = layer.Clipping;
+        this.blendMode = layer.BlendMode;
+        this.opacity = layer.Opacity;
+        this._visible = layer.Visible;
+        this.blendClippedElements = layer.BlendClippedElements;
     }
 
     // http://stackoverflow.com/a/7616484
@@ -55,7 +98,7 @@ export class Node {
 }
 
 export class Renderer {
-    private draw(ctx: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
+    private draw(dest: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
         switch (blendMode) {
             case 'clear':
             case 'copy':
@@ -69,12 +112,16 @@ export class Renderer {
             case 'source-atop':
             case 'destination-atop':
             case 'xor':
-                ctx.globalAlpha = opacity;
-                ctx.globalCompositeOperation = blendMode;
-                ctx.drawImage(src, x, y);
+                dest.globalAlpha = opacity;
+                dest.globalCompositeOperation = blendMode;
+                dest.drawImage(src, x, y);
                 return;
         }
-        blend.blend(ctx.canvas, src, x, y, src.width, src.height, opacity, blendMode);
+        const ctx = src.getContext('2d');
+        if (!ctx) {
+            throw new Error('cannot get CanvasRenderingContext2D');
+        }
+        blend.blend(dest, ctx, x, y, src.width, src.height, opacity, blendMode);
         return;
     }
 
@@ -90,7 +137,7 @@ export class Renderer {
     get CanvasHeight(): number { return this.psd.CanvasHeight; }
 
     private canvas: HTMLCanvasElement = document.createElement('canvas');
-    public root = new Node(undefined, undefined);
+    public root = new Node(undefined);
     public nodes: { [seqId: number]: Node } = {};
     constructor(private psd: psd.Root) {
         this.buildTree(this.root, psd);
@@ -103,7 +150,8 @@ export class Renderer {
     private buildTree(n: Node, layer: psd.LayerBase): void {
         let nc: Node;
         for (let lc of layer.Children) {
-            nc = new Node(lc, n);
+            nc = new Node(lc);
+            nc.parent = n;
             this.buildTree(nc, lc);
             n.children.push(nc);
             this.nodes[nc.id] = nc;
@@ -115,7 +163,7 @@ export class Renderer {
         for (let nc: Node, i = n.children.length - 1; i >= 0; --i) {
             nc = n.children[i];
             this.registerClippingGroup(nc);
-            if (nc.layer.Clipping) {
+            if (nc.clipping) {
                 clip.unshift(nc);
             } else {
                 if (clip.length) {
@@ -123,9 +171,9 @@ export class Renderer {
                         c.clippedBy = nc;
                     }
                     nc.clippingBuffer = document.createElement('canvas');
-                    nc.clippingBuffer.width = nc.layer.Width;
-                    nc.clippingBuffer.height = nc.layer.Height;
-                    nc.clip = clip;
+                    nc.clippingBuffer.width = nc.width;
+                    nc.clippingBuffer.height = nc.height;
+                    Array.prototype.push.apply(nc.clip, clip);
                 }
                 clip = [];
             }
@@ -138,8 +186,8 @@ export class Renderer {
 
         this.root.nextState = '';
         for (let cn of this.root.children) {
-            if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
-                if (this.calculateNextState(cn, cn.layer.Opacity / 255, cn.layer.BlendMode)) {
+            if (!cn.clipping || cn.blendMode === 'pass-through') {
+                if (this.calculateNextState(cn, cn.opacity / 255, cn.blendMode)) {
                     this.root.nextState += cn.nextStateHash + '+';
                 }
             }
@@ -148,10 +196,13 @@ export class Renderer {
         let bb = this.root.buffer;
         if (this.root.state !== this.root.nextState) {
             let bbctx = bb.getContext('2d');
+            if (!bbctx) {
+                throw new Error('cannot get CanvasRenderingContext2D');
+            }
             this.clear(bbctx);
             for (let cn of this.root.children) {
-                if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
-                    this.drawLayer(bbctx, cn, -this.psd.X, -this.psd.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
+                if (!cn.clipping || cn.blendMode === 'pass-through') {
+                    this.drawLayer(bbctx, cn, -this.psd.X, -this.psd.Y, cn.opacity / 255, cn.blendMode);
                 }
             }
             this.root.state = this.root.nextState;
@@ -212,35 +263,35 @@ export class Renderer {
         }
 
         n.nextState = '';
-        if (n.layer.Children.length) {
+        if (n.children.length) {
             if (blendMode === 'pass-through') {
                 n.nextState += n.parent.nextStateHash + '+';
             }
-            for (let i = 0, child: psd.Layer; i < n.layer.Children.length; ++i) {
-                child = n.layer.Children[i];
-                if (!child.Clipping || child.BlendMode === 'pass-through') {
-                    if (this.calculateNextState(n.children[i], child.Opacity / 255, child.BlendMode)) {
+            for (let i = 0; i < n.children.length; ++i) {
+                const child = n.children[i];
+                if (!child.clipping || child.blendMode === 'pass-through') {
+                    if (this.calculateNextState(n.children[i], child.opacity / 255, child.blendMode)) {
                         n.nextState += n.children[i].nextStateHash + '+';
                     }
                 }
             }
-        } else if (n.layer.Canvas) {
+        } else if (n.image) {
             n.nextState = n.id.toString();
         }
 
-        if (n.layer.Mask) {
+        if (n.mask) {
             n.nextState += '|lm';
         }
 
-        if (!n.clip || blendMode === 'pass-through') {
+        if (!n.clip.length || blendMode === 'pass-through') {
             return true;
         }
 
-        n.nextState += '|cm' + (n.layer.BlendClippedElements ? '1' : '0') + ':';
-        if (n.layer.BlendClippedElements) {
+        n.nextState += '|cm' + (n.blendClippedElements ? '1' : '0') + ':';
+        if (n.blendClippedElements) {
             for (let i = 0, cn: Node; i < n.clip.length; ++i) {
                 cn = n.clip[i];
-                if (this.calculateNextState(n.clip[i], cn.layer.Opacity / 255, cn.layer.BlendMode)) {
+                if (this.calculateNextState(n.clip[i], cn.opacity / 255, cn.blendMode)) {
                     n.nextState += n.clip[i].nextStateHash + '+';
                 }
             }
@@ -259,7 +310,7 @@ export class Renderer {
     }
 
     private drawLayer(ctx: CanvasRenderingContext2D, n: Node, x: number, y: number, opacity: number, blendMode: string): boolean {
-        if (!n.visible || opacity === 0 || (!n.children.length && !n.layer.Canvas)) {
+        if (!n.visible || opacity === 0 || (!n.children.length && !n.image)) {
             return false;
         }
         let bb = n.buffer;
@@ -267,10 +318,10 @@ export class Renderer {
             if (blendMode === 'pass-through') {
                 // ctx.globalAlpha = 1;
                 // ctx.globalCompositeOperation = 'source-over';
-                // ctx.clearRect(x + n.layer.X, y + n.layer.Y, bb.width, bb.height);
-                this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, 1, 'source-over');
+                // ctx.clearRect(x + n.x, y + n.y, bb.width, bb.height);
+                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'source-over');
             } else {
-                this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+                this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
             }
             return true;
         }
@@ -282,62 +333,65 @@ export class Renderer {
         this.clear(bbctx);
         if (n.children.length) {
             if (blendMode === 'pass-through') {
-                this.draw(bbctx, n.parent.buffer, -x - n.layer.X, -y - n.layer.Y, 1, 'source-over');
+                this.draw(bbctx, n.parent.buffer, -x - n.x, -y - n.y, 1, 'source-over');
                 for (let cn of n.children) {
-                    if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
-                        this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity * opacity / 255, cn.layer.BlendMode);
+                    if (!cn.clipping || cn.blendMode === 'pass-through') {
+                        this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity * opacity / 255, cn.blendMode);
                     }
                 }
             } else {
                 for (let cn of n.children) {
-                    if (!cn.layer.Clipping || cn.layer.BlendMode === 'pass-through') {
-                        this.drawLayer(bbctx, cn, -n.layer.X, -n.layer.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
+                    if (!cn.clipping || cn.blendMode === 'pass-through') {
+                        this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity / 255, cn.blendMode);
                     }
                 }
             }
-        } else if (n.layer.Canvas) {
-            this.draw(bbctx, n.layer.Canvas, 0, 0, 1, 'source-over');
+        } else if (n.image) {
+            this.draw(bbctx, n.image.canvas, 0, 0, 1, 'source-over');
         }
 
-        if (n.layer.Mask) {
+        if (n.mask) {
             this.draw(
                 bbctx,
-                n.layer.Mask,
-                n.layer.MaskX - n.layer.X,
-                n.layer.MaskY - n.layer.Y,
+                n.mask.canvas,
+                n.maskX - n.x,
+                n.maskY - n.y,
                 1,
-                n.layer.MaskDefaultColor ? 'destination-out' : 'destination-in'
+                n.maskDefaultColor ? 'destination-out' : 'destination-in'
             );
         }
 
-        if (!n.clip || blendMode === 'pass-through') {
+        if (!n.clip.length || blendMode === 'pass-through') {
             if (blendMode === 'pass-through') {
                 // ctx.globalAlpha = 1;
                 // ctx.globalCompositeOperation = 'source-over';
-                // ctx.clearRect(x + n.layer.X, y + n.layer.Y, bb.width, bb.height);
-                this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, 1, 'source-over');
+                // ctx.clearRect(x + n.x, y + n.y, bb.width, bb.height);
+                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'source-over');
             } else {
-                this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+                this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
             }
             n.state = n.nextState;
             return true;
         }
 
         let cbb = n.clippingBuffer;
+        if (!cbb) {
+            throw new Error('clippingBuffer not found');
+        }
         let cbbctx = cbb.getContext('2d');
         if (!cbbctx) {
             throw new Error('cannot get CanvasRenderingContext2D for ClipBackBuffer');
         }
 
-        if (n.layer.BlendClippedElements) {
+        if (n.blendClippedElements) {
             this.draw(cbbctx, bb, 0, 0, 1, 'copy-opaque');
             for (let cn of n.clip) {
-                if (cn.layer.Clipping && cn.layer.BlendMode !== 'pass-through') {
+                if (cn.clipping && cn.blendMode !== 'pass-through') {
                     this.drawLayer(
                         cbbctx,
-                        cn, -n.layer.X, -n.layer.Y,
-                        cn.layer.Opacity / 255,
-                        cn.layer.BlendMode
+                        cn, -n.x, -n.y,
+                        cn.opacity / 255,
+                        cn.blendMode
                     );
                 }
             }
@@ -349,10 +403,10 @@ export class Renderer {
             if (blendMode === 'pass-through') {
                 // ctx.globalAlpha = 1;
                 // ctx.globalCompositeOperation = 'source-over';
-                // ctx.clearRect(x + n.layer.X, y + n.layer.Y, cbb.width, cbb.height);
-                this.draw(ctx, cbb, x + n.layer.X, y + n.layer.Y, 1, 'source-over');
+                // ctx.clearRect(x + n.x, y + n.y, cbb.width, cbb.height);
+                this.draw(ctx, cbb, x + n.x, y + n.y, 1, 'source-over');
             } else {
-                this.draw(ctx, cbb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+                this.draw(ctx, cbb, x + n.x, y + n.y, opacity, blendMode);
             }
 
             n.state = n.nextState;
@@ -362,14 +416,14 @@ export class Renderer {
         // this is minor code path.
         // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
         // TODO: pass-through support
-        this.draw(ctx, bb, x + n.layer.X, y + n.layer.Y, opacity, blendMode);
+        this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
         this.clear(cbbctx);
         for (let cn of n.clip) {
-            if (!this.drawLayer(cbbctx, cn, -n.layer.X, -n.layer.Y, 1, 'source-over')) {
+            if (!this.drawLayer(cbbctx, cn, -n.x, -n.y, 1, 'source-over')) {
                 continue;
             }
             this.draw(cbbctx, bb, 0, 0, 1, 'destination-in');
-            this.draw(ctx, cbb, x + n.layer.X, y + n.layer.Y, cn.layer.Opacity / 255, cn.layer.BlendMode);
+            this.draw(ctx, cbb, x + n.x, y + n.y, cn.opacity / 255, cn.blendMode);
             this.clear(cbbctx);
         }
         n.state = n.nextState;

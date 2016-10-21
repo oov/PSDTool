@@ -4,7 +4,7 @@ package main
 
 import "github.com/gopherjs/gopherjs/js"
 
-func createImageCanvas(w int, h int, r []byte, g []byte, b []byte, a []byte) *js.Object {
+func createImageCanvasContext(w int, h int, r []byte, g []byte, b []byte, a []byte) *js.Object {
 	cvs := js.Global.Get("document").Call("createElement", "canvas")
 	cvs.Set("width", w)
 	cvs.Set("height", h)
@@ -38,10 +38,10 @@ func createImageCanvas(w int, h int, r []byte, g []byte, b []byte, a []byte) *js
 		}
 	}
 	ctx.Call("putImageData", imgData, 0, 0)
-	return cvs
+	return ctx
 }
 
-func createMaskCanvas(w int, h int, mask []byte, defaultColor int) *js.Object {
+func createMaskCanvasContext(w int, h int, mask []byte, defaultColor int) *js.Object {
 	cvs := js.Global.Get("document").Call("createElement", "canvas")
 	cvs.Set("width", w)
 	cvs.Set("height", h)
@@ -67,5 +67,5 @@ func createMaskCanvas(w int, h int, mask []byte, defaultColor int) *js.Object {
 		}
 	}
 	ctx.Call("putImageData", imgData, 0, 0)
-	return cvs
+	return ctx
 }

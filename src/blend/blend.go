@@ -471,8 +471,8 @@ const blendModes: {
 const implementedBlendModes = enumImplementedBlendModes();
 
 export function blend(
-    dest: HTMLCanvasElement,
-    src: HTMLCanvasElement,
+    dest: CanvasRenderingContext2D,
+    src: CanvasRenderingContext2D,
     dx: number,
     dy: number,
     sw: number,
@@ -484,26 +484,25 @@ export function blend(
         blendMode = 'source-over';
     }
     if (blendMode in implementedBlendModes) {
-        const dctx = dest.getContext('2d');
-        dctx.save();
-        dctx.globalAlpha = alpha;
-        dctx.globalCompositeOperation = blendMode;
-        dctx.drawImage(src, dx, dy);
-        dctx.restore();
+        dest.save();
+        dest.globalAlpha = alpha;
+        dest.globalCompositeOperation = blendMode;
+        dest.drawImage(src.canvas, dx, dy);
+        dest.restore();
         // console.log('native: '+blendMode);
         return;
     }
 
     let sx = 0;
     let sy = 0;
-    if (dx >= dest.width || dy >= dest.height || dx + sw < 0 || dy + sh < 0 || alpha === 0) {
+    if (dx >= dest.canvas.width || dy >= dest.canvas.height || dx + sw < 0 || dy + sh < 0 || alpha === 0) {
         return;
     }
-    if (sw > src.width) {
-        sw = src.width;
+    if (sw > src.canvas.width) {
+        sw = src.canvas.width;
     }
-    if (sh > src.height) {
-        sh = src.height;
+    if (sh > src.canvas.height) {
+        sh = src.canvas.height;
     }
     if (dx < 0) {
         sw += dx;
@@ -515,21 +514,20 @@ export function blend(
         sy -= dy;
         dy = 0;
     }
-    if (dx + sw > dest.width) {
-        sw = dest.width - dx;
+    if (dx + sw > dest.canvas.width) {
+        sw = dest.canvas.width - dx;
     }
-    if (dy + sh > dest.height) {
-        sh = dest.height - dy;
+    if (dy + sh > dest.canvas.height) {
+        sh = dest.canvas.height - dy;
     }
-    const dctx = dest.getContext('2d');
-    const imgData = dctx.getImageData(dx, dy, sw, sh);
+    const imgData = dest.getImageData(dx, dy, sw, sh);
     const d = imgData.data;
-    const s = src.getContext('2d').getImageData(sx, sy, sw, sh).data;
+    const s = src.getImageData(sx, sy, sw, sh).data;
     if (!(blendMode in blendModes)) {
         throw new Error('unimplemeneted blend mode: ' + blendMode);
     }
     blendModes[blendMode](d, s, sw, sh, alpha);
-    dctx.putImageData(imgData, dx, dy);
+    dest.putImageData(imgData, dx, dy);
     // console.log('js: '+blendMode);
 }
 

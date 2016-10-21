@@ -41,7 +41,7 @@ func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *j
 				if ach, ok := l.Channel[-1]; ok {
 					a = ach.Data
 				}
-				canvas = createImageCanvas(
+				canvas = createImageCanvasContext(
 					l.Rect.Dx(),
 					l.Rect.Dy(),
 					l.Channel[0].Data,
@@ -51,7 +51,7 @@ func parsePSD(in *js.Object, progress *js.Object, complete *js.Object, failed *j
 				)
 			}
 			if m, ok := l.Channel[-2]; ok && l.Mask.Enabled() && !l.Mask.Rect.Empty() {
-				mask = createMaskCanvas(l.Mask.Rect.Dx(), l.Mask.Rect.Dy(), m.Data, l.Mask.DefaultColor)
+				mask = createMaskCanvasContext(l.Mask.Rect.Dx(), l.Mask.Rect.Dy(), m.Data, l.Mask.DefaultColor)
 			}
 			canvasMap[seqID] = [2]*js.Object{canvas, mask}
 		})
@@ -117,10 +117,10 @@ func parsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, f
 				if aab := data.Get("a"); aab.Bool() {
 					a = js.Global.Get("Uint8Array").New(aab).Interface().([]byte)
 				}
-				canvas = createImageCanvas(w, h, r, g, b, a)
+				canvas = createImageCanvasContext(w, h, r, g, b, a)
 			}
 			if m := data.Get("m"); m.Bool() {
-				mask = createMaskCanvas(
+				mask = createMaskCanvasContext(
 					data.Get("mw").Int(), data.Get("mh").Int(),
 					js.Global.Get("Uint8Array").New(m).Interface().([]byte),
 					data.Get("mc").Int(),

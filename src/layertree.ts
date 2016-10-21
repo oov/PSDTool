@@ -282,7 +282,7 @@ export class LayerTree {
                     throw new Error('cannot get CanvasRenderingContext2D for make thumbnail');
                 }
                 ctx.drawImage(
-                    l.Canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
+                    l.Canvas.canvas, (thumb.width - w) / 2, (thumb.height - h) / 2, w, h);
             }
             name.appendChild(thumb);
         }
