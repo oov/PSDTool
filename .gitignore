@@ -1,13 +1,6 @@
+js/index.js
 js/3rd.min.js
-js/blend/blend.js
-js/favorite.js
-js/main.js
-js/downscaler.js
-js/layertree.js
-js/renderer.js
-js/tileder.js
-js/zipper.js
-js/psd/psd.js
-js/psd/psd.js.map
+js/psd.min.js
+js/psd.min.js.map
 css/3rd.min.css
 node_modules
