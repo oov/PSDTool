@@ -1364,6 +1364,9 @@ function enumImplementedBlendModes(): { [b: string]: undefined } {
     const r: { [b: string]: undefined } = {};
     const c = document.createElement('canvas');
     const ctx = c.getContext('2d');
+    if (!ctx) {
+        throw new Error('cannot get CanvasRenderingContext2D');
+    }
     for (const bm of Object.keys(blendModes)) {
         ctx.globalCompositeOperation = bm;
         if (ctx.globalCompositeOperation === bm) {
@@ -1384,6 +1387,9 @@ function detectBrokenColorDodge(): Promise<boolean> {
             c.height = 256;
 
             const ctx = c.getContext('2d');
+            if (!ctx) {
+                throw new Error('cannot get CanvasRenderingContext2D');
+            }
             ctx.fillStyle = 'rgb(255, 255, 255)';
             ctx.fillRect(0, 0, c.width, c.height);
             ctx.globalAlpha = 0.5;
