@@ -609,7 +609,7 @@ export class LayerTree {
         }
     }
 
-    public deserializePartial(baseState: string, overlayState: string, filter: string) {
+    public deserializePartial(baseState: string | undefined, overlayState: string, filter: string) {
         const old = this.serialize(true);
         try {
             if (baseState !== undefined) {
