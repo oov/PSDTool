@@ -35,7 +35,7 @@ export class Node {
     get displayName(): string { return this.displayName_.data; }
     get internalName(): string { return this.internalName_; }
     get fullPath(): string { return this.fullPath_; }
-    get isRoot(): boolean { return !this.input; }
+    get isRoot(): boolean { return this === this.parent; }
     public li: HTMLLIElement;
     public children: Node[] = [];
     public clip: Node[];
