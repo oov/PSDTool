@@ -275,8 +275,12 @@ export class Main {
             }
         });
         this.initUI();
-        getElementById(document, 'samplefile').addEventListener('click', e =>
-            this.loadAndParse(getElementById(document, 'samplefile').getAttribute('data-filename')), false);
+        getElementById(document, 'samplefile').addEventListener('click', e => {
+            const filename = getElementById(document, 'samplefile').getAttribute('data-filename');
+            if (filename) {
+                this.loadAndParse(filename);
+            }
+        }, false);
         window.addEventListener('resize', e => this.resized(), false);
         window.addEventListener('hashchange', e => this.hashchanged(), false);
         this.hashchanged();
@@ -444,9 +448,8 @@ export class Main {
     }
 
     private initFavoriteUI(): void {
-        this.favorite = new favorite.Favorite(
-            getElementById(document, 'favorite-tree'),
-            getElementById(document, 'favorite-tree').getAttribute('data-root-name'));
+        const favoriteTree = getElementById(document, 'favorite-tree');
+        this.favorite = new favorite.Favorite(favoriteTree, favoriteTree.getAttribute('data-root-name') || 'My Favorites');
         this.favorite.onModified = () => {
             this.needRefreshFaview = true;
         };
@@ -473,7 +476,7 @@ export class Main {
         };
         this.favorite.onClearSelection = () => this.leaveReaderMode();
         this.favorite.onSelect = (item: favorite.Node) => {
-            if (item.type !== 'item') {
+            if (item.type !== 'item' || !item.data) {
                 this.leaveReaderMode();
                 return;
             }
@@ -491,7 +494,9 @@ export class Main {
             try {
                 switch (item.type) {
                     case 'item':
-                        this.leaveReaderMode(item.data.value, this.favorite.getFirstFilter(item));
+                        if (item.data) {
+                            this.leaveReaderMode(item.data.value, this.favorite.getFirstFilter(item));
+                        }
                         break;
                     case 'folder':
                     case 'filter':
@@ -506,39 +511,46 @@ export class Main {
 
         this.filterDialog = new FilterDialog(this.favorite);
         this.filterDialog.onUpdate = (id, type, data) => {
-            this.favorite.update({ id, type, data: { value: data } });
+            this.favorite.update(id, { type, data: { value: data } });
             this.favorite.updateLocalStorage();
             this.needRefreshFaview = true;
         };
 
         jQuery('button[data-psdtool-tree-add-item]').on('click', e => {
             this.leaveReaderMode();
-            this.favorite.add('item', true, '', this.layerRoot.serialize(false));
+            this.favorite.addItem(this.layerRoot.serialize(false), undefined, true);
         });
         Mousetrap.bind('mod+b', e => {
             e.preventDefault();
-            let text = this.lastCheckedNode ? this.lastCheckedNode.displayName : 'New Item';
-            text = prompt(document.querySelector('button[data-psdtool-tree-add-item]').getAttribute('data-caption'), text);
+            const captionElem = document.querySelector('button[data-psdtool-tree-add-item]');
+            const caption = captionElem ? captionElem.getAttribute('data-caption') : null;
+            const text = prompt(
+                caption ? caption : 'item name',
+                this.lastCheckedNode ? this.lastCheckedNode.displayName : 'New Item'
+            );
             if (text === null) {
                 return;
             }
             this.leaveReaderMode();
-            this.favorite.add('item', false, text, this.layerRoot.serialize(false));
+            this.favorite.addItem(this.layerRoot.serialize(false), text, true);
         });
 
         jQuery('button[data-psdtool-tree-add-folder]').on('click', e => {
-            this.favorite.add('folder', true);
+            this.favorite.addFolder(undefined, true);
         });
         Mousetrap.bind('mod+d', e => {
             e.preventDefault();
-            let text = prompt(
-                document.querySelector('button[data-psdtool-tree-add-folder]').getAttribute('data-caption'),
-                'New Folder');
+            const captionElem = document.querySelector('button[data-psdtool-tree-add-folder]');
+            const caption = captionElem ? captionElem.getAttribute('data-caption') : null;
+            const text = prompt(
+                caption ? caption : 'item name',
+                'New Folder'
+            );
             if (text === null) {
                 return;
             }
             this.favorite.clearSelection();
-            this.favorite.add('folder', false, text);
+            this.favorite.addFolder(text, true);
         });
 
         jQuery('button[data-psdtool-tree-rename]').on('click', e => this.favorite.edit());
@@ -560,16 +572,16 @@ export class Main {
                     const old = this.layerRoot.serialize(true);
                     const created: string[] = [];
                     let n: layertree.Node;
-                    const elems = document.querySelectorAll('input[name="' + target.name + '"].psdtool-layer-radio');
+                    const elems = document.querySelectorAll(`input[name="${target.name}"].psdtool-layer-radio`);
                     for (let i = 0; i < elems.length; ++i) {
-                        n = this.layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq'), 10)];
+                        n = this.layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq') || '0', 10)];
                         if (n.li.classList.contains('psdtool-item-flip-x') ||
                             n.li.classList.contains('psdtool-item-flip-y') ||
                             n.li.classList.contains('psdtool-item-flip-xy')) {
                             continue;
                         }
                         n.checked = true;
-                        this.favorite.add('item', false, n.displayName, this.layerRoot.serialize(false));
+                        this.favorite.addItem(this.layerRoot.serialize(false), n.displayName, false);
                         created.push(n.displayName);
                     }
                     this.layerRoot.deserialize(old);
@@ -631,21 +643,26 @@ export class Main {
             this.bulkCreateFolderTextarea.value = '';
         }, false);
 
+        const renameInputMapper = new Map<HTMLInputElement, favorite.RenameNode>(); // TODO: use WeakMap instead
         jQuery('#bulk-rename-dialog').on('shown.bs.modal', e => {
+            renameInputMapper.clear();
             let r = (ul: HTMLElement, nodes: favorite.RenameNode[]): void => {
-                let cul: HTMLUListElement;
-                let li: HTMLLIElement;
-                let input: HTMLInputElement;
                 for (let n of nodes) {
-                    input = document.createElement('input');
+                    const input = document.createElement('input');
+                    renameInputMapper.set(input, n);
                     input.className = 'form-control';
                     input.value = n.text;
-                    ((input: HTMLInputElement, n: favorite.RenameNode) => {
-                        input.onblur = e => { n.text = input.value.trim(); };
-                    })(input, n);
-                    li = document.createElement('li');
+                    ((input: HTMLInputElement) => {
+                        input.onblur = e => {
+                            const node = renameInputMapper.get(input);
+                            if (node) {
+                                node.text = input.value.trim();
+                            }
+                        };
+                    })(input);
+                    const li = document.createElement('li');
                     li.appendChild(input);
-                    cul = document.createElement('ul');
+                    const cul = document.createElement('ul');
                     li.appendChild(cul);
                     r(cul, n.children);
                     ul.appendChild(li);
@@ -677,7 +694,10 @@ export class Main {
                 const elem = elems[i];
                 if (elem instanceof HTMLInputElement && elem.value === '') {
                     elem.value = ('0000' + n.toString()).slice(-digits);
-                    elem.onblur(null);
+                    const node = renameInputMapper.get(elem);
+                    if (node) {
+                        node.text = elem.value;
+                    }
                     ++n;
                 }
             }
@@ -819,15 +839,19 @@ export class Main {
 
     private faviewOnRootChanged(): void {
         this.leaveReaderMode();
-        for (let n of this.faview.getActive()) {
-            this.layerRoot.deserializePartial(
-                undefined, n.data.value, this.favorite.getFirstFilter(n));
+        for (const n of this.faview.getActive()) {
+            if (n.data) {
+                this.layerRoot.deserializePartial(
+                    undefined, n.data.value, this.favorite.getFirstFilter(n));
+            }
         }
         this.redraw();
     }
 
     private faviewOnChange(node: favorite.Node): void {
-        this.leaveReaderMode(node.data.value, this.favorite.getFirstFilter(node));
+        if (node.data) {
+            this.leaveReaderMode(node.data.value, this.favorite.getFirstFilter(node));
+        }
     }
 
     private endFaview() {
@@ -841,43 +865,52 @@ export class Main {
         const parents: favorite.Node[] = [];
         const path: string[] = [],
             files: { name: string; value: string; filter?: string }[] = [];
-        let r = (children: favorite.Node[]) => {
+        let r = (children: (favorite.Node | string)[]) => {
             for (let item of children) {
+                if (typeof item === 'string') {
+                    item = this.favorite.get(item);
+                }
                 path.push(Main.cleanForFilename(item.text.replace(/^\*/, '')));
                 switch (item.type) {
                     case 'root':
                         path.pop();
-                        r(item.children);
+                        if (item.children && item.children.length) {
+                            r(item.children);
+                        }
                         path.push('');
                         break;
                     case 'folder':
                         parents.unshift(item);
-                        r(item.children);
+                        if (item.children && item.children.length) {
+                            r(item.children);
+                        }
                         parents.shift();
                         break;
                     case 'filter':
                         parents.unshift(item);
-                        r(item.children);
+                        if (item.children && item.children.length) {
+                            r(item.children);
+                        }
                         parents.shift();
                         break;
                     case 'item':
-                        let filter: string;
-                        for (let p of parents) {
+                        let filter: string | undefined;
+                        for (const p of parents) {
                             if (p.type === 'filter') {
-                                filter = p.data.value;
+                                filter = p.data ? p.data.value : '';
                                 break;
                             }
                         }
                         if (filter) {
                             files.push({
                                 name: path.join('\\') + '.png',
-                                value: item.data.value,
+                                value: item.data ? item.data.value : '',
                                 filter: filter
                             });
                         } else {
                             files.push({
                                 name: path.join('\\') + '.png',
-                                value: item.data.value
+                                value: item.data ? item.data.value : ''
                             });
                         }
                         break;
@@ -934,7 +967,7 @@ export class Main {
             let i = 0;
             const process = () => {
                 if ('filter' in files[i]) {
-                    this.layerRoot.deserializePartial(filterSolo ? '' : backup, files[i].value, files[i].filter);
+                    this.layerRoot.deserializePartial(filterSolo ? '' : backup, files[i].value, files[i].filter || '');
                 } else {
                     this.layerRoot.deserialize(files[i].value);
                 }
@@ -1320,12 +1353,18 @@ export class Main {
         this.sideBodyScrollPos = {};
         jQuery('a[data-toggle="tab"]').on('hide.bs.tab', e => {
             const tab = e.target.getAttribute('href');
+            if (!tab) {
+                return;
+            }
             this.sideBodyScrollPos[tab] = {
                 left: this.sideBody.scrollLeft,
                 top: this.sideBody.scrollTop
             };
         }).on('shown.bs.tab', e => {
             const tab = e.target.getAttribute('href');
+            if (!tab) {
+                return;
+            }
             if (tab in this.sideBodyScrollPos) {
                 this.sideBody.scrollLeft = this.sideBodyScrollPos[tab].left;
                 this.sideBody.scrollTop = this.sideBodyScrollPos[tab].top;
@@ -1435,7 +1474,11 @@ export class Main {
             setTimeout(() => {
                 this.previewCanvas.width = canvas.width;
                 this.previewCanvas.height = canvas.height;
-                this.previewCanvas.getContext('2d').drawImage(canvas, 0, 0);
+                const ctx = this.previewCanvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('cannot get CanvasRenderingContext2D');
+                }
+                ctx.drawImage(canvas, 0, 0);
             }, 0);
         });
         this.layerRoot.updateClass();
@@ -1555,7 +1598,7 @@ export class Main {
 
     // preview mode --------------------------------
 
-    private normalModeState: string;
+    private normalModeState = '';
     private enterReaderMode(state: string, filter?: string, filename?: string): void {
         if (!this.previewBackground.classList.contains('reader')) {
             this.previewBackground.classList.add('reader');
@@ -1594,7 +1637,7 @@ export class Main {
             return;
         }
         this.redraw();
-        this.normalModeState = null;
+        this.normalModeState = '';
     }
 
     // static --------------------------------
@@ -1660,18 +1703,26 @@ export class Main {
         }, false);
         const f = dz.querySelector('input[type=file]');
         if (f instanceof HTMLInputElement) {
-            const file = f;
+            const input = f;
             f.addEventListener('change', e => {
-                loader(file.files);
-                file.value = null;
+                if (input.files && input.files.length) {
+                    loader(input.files);
+                }
+                input.value = '';
             }, false);
         }
     }
 
     private static canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             if (HTMLCanvasElement.prototype.toBlob) {
-                canvas.toBlob(blob => resolve(blob));
+                canvas.toBlob(blob => {
+                    if (blob) {
+                        resolve(blob);
+                        return;
+                    }
+                    reject('could not get Blob');
+                });
                 return;
             }
             const bin = atob(canvas.toDataURL().split(',')[1]);
@@ -1696,9 +1747,11 @@ export class Main {
             return deferred.promise;
         }
         const ifr = document.createElement('iframe');
-        let port: MessagePort;
+        let port: MessagePort | undefined;
         let timer = setTimeout(() => {
-            port.onmessage = null;
+            if (port) {
+                port.onmessage = undefined as any;
+            }
             document.body.removeChild(ifr);
             deferred.reject(new Error('something went wrong'));
         }, 20000);

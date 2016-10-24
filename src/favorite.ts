@@ -8,7 +8,7 @@ export interface PFVOnLS {
 }
 export interface Node {
     id?: string;
-    text?: string;
+    text: string;
     type?: string;
     data?: {
         value: string;
@@ -47,15 +47,19 @@ class JSONBuilder {
     }
 
     public add(name: string, type: string, data?: string): void {
-        let i: number, j: number, partName: string;
+        let j: number;
         let c = this.json_;
-        let nameParts = name.split('/');
+        const nameParts = name.split('/');
         nameParts.unshift(JSONBuilder.encodeName(this.root.text));
-        for (i = 0; i < nameParts.length; ++i) {
-            partName = JSONBuilder.decodeName(nameParts[i]);
+        for (let i = 0; i < nameParts.length; ++i) {
+            const partName = JSONBuilder.decodeName(nameParts[i]);
             for (j = 0; j < c.length; ++j) {
                 if (c[j].text === partName) {
-                    c = <Node[]>c[j].children;
+                    if (!c[j].children) {
+                        c = c[j].children = [];
+                    } else {
+                        c = c[j].children as Node[];
+                    }
                     j = -1;
                     break;
                 }
@@ -65,7 +69,7 @@ class JSONBuilder {
             }
             if (i !== nameParts.length - 1) {
                 c.push(JSONBuilder.createNode(partName, 'folder'));
-                c = c[c.length - 1].children;
+                c = c[c.length - 1].children as Node[];
                 continue;
             }
             c.push(JSONBuilder.createNode(partName, type, data));
@@ -79,7 +83,7 @@ class JSONBuilder {
                     text: text,
                     type: type,
                     data: {
-                        value: data
+                        value: data ? data : ''
                     },
                     children: []
                 };
@@ -97,7 +101,7 @@ class JSONBuilder {
                     text: text,
                     type: type,
                     data: {
-                        value: data
+                        value: data ? data : ''
                     },
                     state: {
                         opened: true
@@ -204,12 +208,14 @@ export class Favorite {
                         lines.push('faview-mode/' + this.faviewMode.toString());
                         lines.push('');
                         path.pop();
-                        r(<Node[]>item.children);
+                        if (item.children && item.children.length) {
+                            r(item.children as Node[]);
+                        }
                         path.push('');
                         break;
                     case 'folder':
-                        if (item.children.length) {
-                            r(<Node[]>item.children);
+                        if (item.children && item.children.length) {
+                            r(item.children as Node[]);
                         } else {
                             lines.push('//' + path.join('/') + '~folder');
                             lines.push('');
@@ -217,13 +223,19 @@ export class Favorite {
                         break;
                     case 'filter':
                         lines.push('//' + path.join('/') + '~filter');
-                        lines.push(item.data.value);
+                        if (item.data && item.data.value) {
+                            lines.push(item.data.value);
+                        }
                         lines.push('');
-                        r(<Node[]>item.children);
+                        if (item.children && item.children.length) {
+                            r(item.children as Node[]);
+                        }
                         break;
                     case 'item':
                         lines.push('//' + path.join('/'));
-                        lines.push(item.data.value);
+                        if (item.data && item.data.value) {
+                            lines.push(item.data.value);
+                        }
                         lines.push('');
                         break;
                 }
@@ -244,13 +256,18 @@ export class Favorite {
         let nodes: RenameNode[] = [];
         let r = (n: Node[], rn: RenameNode[]): void => {
             for (let cn of n) {
+                if (!cn.id) {
+                    throw new Error('node does not have id');
+                }
                 rn.push({
                     id: cn.id,
                     text: cn.text,
                     originalText: cn.text,
                     children: []
                 });
-                r(cn.children, rn[rn.length - 1].children);
+                if (cn.children && cn.children.length) {
+                    r(cn.children as Node[], rn[rn.length - 1].children);
+                }
             }
         };
         r(this.json, nodes);
@@ -283,6 +300,7 @@ export class Favorite {
             case 'copy_node':
                 return node.type !== 'root' && parent.id !== '#' && parent.type !== 'item';
         }
+        return false;
     }
 
     public clearSelection(): void {
@@ -307,36 +325,40 @@ export class Favorite {
         this.jst.edit(target);
     }
 
-    public update(n: Node): void {
+    public update(id: string | undefined, n: { type?: string; data?: { value: string; } }): void {
         let target: Node;
-        if ('id' in n) {
-            target = this.jst.get_node(n.id);
+        if (id) {
+            target = this.jst.get_node(id);
         } else {
-            let selected = this.jst.get_top_selected();
+            const selected = this.jst.get_top_selected();
             if (!selected.length) {
                 return;
             }
             target = selected[0];
         }
-        if ('type' in n) {
+        if (n.type) {
             this.jst.set_type(target, n.type);
         }
-        if ('data' in n) {
+        if (n.data) {
             target.data = n.data;
         }
     }
 
     public getFirstFilter(n: Node): string {
-        for (let p of this.getParents(n, 'filter')) {
-            return p.data.value;
+        for (const p of this.getParents(n, 'filter')) {
+            if (p.data) {
+                return p.data.value;
+            }
         }
         return '';
     }
 
     public getAncestorFilters(n: Node): string[] {
         let r: string[] = [];
-        for (let p of this.getParents(n, 'filter')) {
-            r.push(p.data.value);
+        for (const p of this.getParents(n, 'filter')) {
+            if (p.data) {
+                r.push(p.data.value);
+            }
         }
         return r;
     }
@@ -366,81 +388,96 @@ export class Favorite {
         }
     }
 
-    private addNode(type: string, edit: boolean, text?: string, data?: string): string {
-        let obj: Node;
-        switch (type) {
-            case 'item':
-                if (text === undefined || text === '') {
-                    text = 'New Item';
-                }
-                obj = {
-                    text: text,
-                    type: type,
-                    data: {
-                        value: data
-                    },
-                    children: []
-                };
-                break;
-            case 'folder':
-                if (text === undefined || text === '') {
-                    text = 'New Folder';
-                }
-                obj = {
-                    text: text,
-                    type: type,
-                    children: []
-                };
-                break;
-            case 'filter':
-                if (text === undefined || text === '') {
-                    text = 'New Filter';
-                }
-                obj = {
-                    text: text,
-                    type: type,
-                    children: []
-                };
-                break;
-            default:
-                throw new Error('unsupported object type: ' + type);
+    private createItemNode(data: string, text?: string): Node {
+        if (text === undefined || text === '') {
+            text = 'New Item';
         }
+        return {
+            text: text,
+            type: 'item',
+            data: {
+                value: data
+            },
+            children: []
+        };
+    }
 
-        // create node
-        let selectedList = this.jst.get_top_selected(true);
-        if (selectedList.length === 0) {
-            return this.jst.create_node('root', obj, 'last');
+    private createFolderNode(text?: string): Node {
+        if (text === undefined || text === '') {
+            text = 'New Folder';
         }
-        let selected = selectedList[0];
+        return {
+            text: text,
+            type: 'folder',
+            children: []
+        };
+    }
+
+    private createFilterNode(data: string, text?: string): Node {
+        if (text === undefined || text === '') {
+            text = 'New Filter';
+        }
+        return {
+            text: text,
+            type: 'filter',
+            data: {
+                value: data
+            },
+            children: []
+        };
+    }
+
+    private insertNode(node: Node): string {
+        const selectedList = this.jst.get_top_selected(true);
+        if (selectedList.length === 0) {
+            return this.jst.create_node('root', node, 'last');
+        }
+        const selected = selectedList[0];
         if (selected.type !== 'item') {
-            let n = this.jst.create_node(selected, obj, 'last');
+            const n = this.jst.create_node(selected, node, 'last');
             if (!selected.state.opened) {
                 this.jst.open_node(selected, null);
             }
             return n;
         }
-        let parent = this.jst.get_node(selected.parent);
-        let idx = parent.children.indexOf(selected.id);
-        return this.jst.create_node(parent, obj, idx !== -1 ? idx + 1 : 'last');
+        const parent = this.jst.get_node(selected.parent);
+        const idx = parent.children.indexOf(selected.id);
+        return this.jst.create_node(parent, node, idx !== -1 ? idx + 1 : 'last');
     }
 
-    public add(type: string, edit: boolean, text?: string, data?: string): string {
-        let id = this.addNode(type, edit, text, data);
+    private selectNode(id: string, edit?: boolean): void {
         this.clearSelection();
         this.jst.select_node(id, true);
         if (edit) {
             this.jst.edit(id);
         }
+    }
+
+    public addItem(data: string, text: string | undefined, edit: boolean): string {
+        const id = this.insertNode(this.createItemNode(data, text));
+        this.selectNode(id, edit);
+        return id;
+    }
+
+    public addFolder(text: string | undefined, edit: boolean): string {
+        const id = this.insertNode(this.createFolderNode(text));
+        this.selectNode(id, edit);
+        return id;
+    }
+
+    public addFilter(data: string, text: string | undefined, edit: boolean): string {
+        const id = this.insertNode(this.createFilterNode(data, text));
+        this.selectNode(id, edit);
         return id;
     }
 
     public addFolders(names: string[]): string[] {
-        let ids: string[] = [];
-        for (let name of names) {
-            ids.push(this.addNode('folder', false, name));
+        const ids: string[] = [];
+        for (const name of names) {
+            ids.push(this.insertNode(this.createFolderNode(name)));
         }
         this.clearSelection();
-        for (let id of ids) {
+        for (const id of ids) {
             this.jst.select_node(id, true);
         }
         return ids;
@@ -461,11 +498,11 @@ export class Favorite {
     }
 
     private jstSelectionChanged(): void {
-        let selectedList: Node[] = this.jst.get_top_selected(true);
+        const selectedList: Node[] = this.jst.get_top_selected(true);
         if (selectedList.length === 0) {
             return;
         }
-        let selected = selectedList[0];
+        const selected = selectedList[0];
         if (selected.type !== 'item') {
             if (this.onClearSelection) {
                 this.onClearSelection();
@@ -490,17 +527,17 @@ export class Favorite {
             }
             switch (node.type) {
                 case 'item':
-                    node.data = { value: original.data.value };
+                    node.data = { value: original.data!.value };
                     break;
                 case 'folder':
-                    for (let i = 0; i < node.children.length; ++i) {
-                        process(this.jst.get_node(node.children[i]), this.jst.get_node(original.children[i]));
+                    for (let i = 0; i < node.children!.length; ++i) {
+                        process(this.jst.get_node(node.children![i]), this.jst.get_node(original.children![i]));
                     }
                     break;
                 case 'filter':
-                    node.data = { value: original.data.value };
-                    for (let i = 0; i < node.children.length; ++i) {
-                        process(this.jst.get_node(node.children[i]), this.jst.get_node(original.children[i]));
+                    node.data = { value: original.data!.value };
+                    for (let i = 0; i < node.children!.length; ++i) {
+                        process(this.jst.get_node(node.children![i]), this.jst.get_node(original.children![i]));
                     }
                     break;
             }
@@ -509,28 +546,28 @@ export class Favorite {
     }
 
     private jstMoveNode(e: Event, data: { node: Node, text: string }): void {
-        let text = this.suggestUniqueName(data.node, data.text);
+        const text = this.suggestUniqueName(data.node, data.text);
         if (data.text !== text) {
             this.jst.rename_node(data.node, text);
         }
     }
 
     private jstCreateNode(e: Event, data: { node: Node, text: string }): void {
-        let text = this.suggestUniqueName(data.node);
+        const text = this.suggestUniqueName(data.node);
         if (data.node.text !== text) {
             this.jst.rename_node(data.node, text);
         }
     }
 
     private jstRenameNode(e: Event, data: { node: Node, text: string }): void {
-        let text = this.suggestUniqueName(data.node, data.text);
+        const text = this.suggestUniqueName(data.node, data.text);
         if (data.text !== text) {
             this.jst.rename_node(data.node, text);
         }
     }
 
     private jstDoubleClick(e: Event): void {
-        let selected = this.jst.get_node(e.target);
+        const selected = this.jst.get_node(e.target);
         switch (selected.type) {
             case 'item':
             case 'folder':
@@ -546,24 +583,26 @@ export class Favorite {
     }
 
     private suggestUniqueName(node: Node | string, newText?: string): string {
-        let n: Node = this.jst.get_node(node);
-        let parent: Node = this.jst.get_node(n.parent);
-        let nameMap: { [name: string]: boolean } = {};
-        for (let pc of parent.children) {
-            if (pc === n.id) {
-                continue;
+        const n: Node = this.jst.get_node(node);
+        const parent: Node = this.jst.get_node(n.parent);
+        const nameSet = new Set<string>();
+        const siblings = parent.children;
+        if (siblings && siblings.length) {
+            for (const node of siblings) {
+                const id = typeof node === 'string' ? node : node.id;
+                if (id === n.id) {
+                    continue;
+                }
+                nameSet.add(this.jst.get_text(id));
             }
-            nameMap[this.jst.get_text(pc)] = true;
         }
-        if (newText === undefined) {
-            newText = n.text;
-        }
-        if (!(newText in nameMap)) {
-            return newText;
+        const text = newText ? newText : n.text;
+        if (!nameSet.has(text)) {
+            return text;
         }
         newText += ' ';
         let i = 2;
-        while ((newText + i) in nameMap) {
+        while (nameSet.has(newText + i)) {
             ++i;
         }
         return newText + i;
@@ -622,11 +661,11 @@ export class Favorite {
     }
 
     public updateLocalStorage(): void {
-        let pfv = this.pfv;
+        const pfv = this.pfv;
         stringToArrayBuffer(pfv, ab => {
-            let pfvs = this.getPFVListFromLocalStorage();
+            const pfvs = this.getPFVListFromLocalStorage();
             let found = false;
-            let newUniqueId = 'pfv' + crc32.crc32(ab).toString(16);
+            const newUniqueId = 'pfv' + crc32.crc32(ab).toString(16);
             for (let i = 0; i < pfvs.length; ++i) {
                 if (pfvs[i].id === this.uniqueId && pfvs[i].hash === this.psdHash) {
                     pfvs.splice(i, 1);
@@ -661,14 +700,14 @@ export class Favorite {
         return JSON.parse(localStorage['psdtool_pfv']);
     }
 
-    public getPFVFromLocalStorage(hash: string): PFVOnLS {
-        let pfvs = this.getPFVListFromLocalStorage();
+    public getPFVFromLocalStorage(hash: string): PFVOnLS | undefined {
+        const pfvs = this.getPFVListFromLocalStorage();
         if (!pfvs.length) {
-            return null;
+            return undefined;
         }
-        for (var i = pfvs.length - 1; i >= 0; --i) {
-            if (pfvs[i].hash === hash) {
-                return pfvs[i];
+        for (const pfv of pfvs) {
+            if (pfv.hash === hash) {
+                return pfv;
             }
         }
     }
@@ -679,7 +718,7 @@ export class Favorite {
 
     public loadFromString(s: string, uniqueId?: string): boolean {
         let load = (id: string): void => {
-            let r = this.stringToNodeTree(s);
+            const r = this.stringToNodeTree(s);
             this.initTree((): void => {
                 this.uniqueId = id;
                 this.faviewMode = r.faviewMode;
@@ -699,22 +738,22 @@ export class Favorite {
     }
 
     private stringToNodeTree(s: string): { root: Node[], faviewMode: FaviewMode } {
-        let lines = s.replace(/\r/g, '').split('\n');
+        const lines = s.replace(/\r/g, '').split('\n');
         if (lines.shift() !== '[PSDToolFavorites-v1]') {
             throw new Error('given PFV file does not have a valid header');
         }
 
-        let jb = new JSONBuilder(this.defaultRootName);
-        let setting: { [name: string]: string } = {
+        const jb = new JSONBuilder(this.defaultRootName);
+        const setting: { [name: string]: string } = {
             'root-name': this.defaultRootName,
             'faview-mode': FaviewMode.ShowFaviewAndReadme.toString(),
         };
-        let name: string,
-            type: string,
+        let name = '',
+            type = '',
             data: string[] = [],
             first = true,
             value: string;
-        for (let line of lines) {
+        for (const line of lines) {
             if (line === '') {
                 continue;
             }
@@ -752,7 +791,7 @@ export class Favorite {
             jb.add(name, type, data.join('\n'));
         }
         let faviewMode: FaviewMode;
-        let n = parseInt(setting['faview-mode'], 10);
+        const n = parseInt(setting['faview-mode'], 10);
         switch (n) {
             case FaviewMode.ShowLayerTree:
             case FaviewMode.ShowFaview:
@@ -772,9 +811,9 @@ export class Favorite {
 
 export function countEntries(pfv: string): number {
     let c = 0;
-    let lines = pfv.replace(/\r/g, '').split('\n');
+    const lines = pfv.replace(/\r/g, '').split('\n');
     lines.shift();
-    for (let line of lines) {
+    for (const line of lines) {
         if (line.length > 2 && line.substring(0, 2) === '//') {
             ++c;
         }
@@ -827,22 +866,26 @@ export class Faview {
     }
 
     get items(): FaviewRootItem[] {
-        let r: FaviewRootItem[] = [];
+        const r: FaviewRootItem[] = [];
         for (let i = 0; i < this.rootSel.length; ++i) {
-            let fsels: FaviewSelect[] = [];
-            let selects = this.treeRoots[i].getElementsByTagName('select');
+            const fsels: FaviewSelect[] = [];
+            const selects = this.treeRoots[i].getElementsByTagName('select');
             for (let j = 0; j < selects.length; ++j) {
-                let sel = selects[j];
+                const sel = selects[j];
                 if (sel instanceof HTMLSelectElement) {
-                    let fsel: FaviewSelect = {
-                        caption: sel.getAttribute('data-caption'),
+                    const caption = sel.getAttribute('data-caption');
+                    if (!caption) {
+                        throw new Error('could not get caption');
+                    }
+                    const fsel: FaviewSelect = {
+                        caption,
                         items: [],
                         selectedIndex: sel.selectedIndex
                     };
                     for (let k = 0; k < sel.length; ++k) {
-                        let opt = sel.options[k];
+                        const opt = sel.options[k];
                         fsel.items.push({
-                            name: opt.textContent,
+                            name: opt.textContent || '',
                             value: opt.value
                         });
                     }
@@ -850,9 +893,9 @@ export class Faview {
                 }
             }
 
-            let opt = this.rootSel.options[i];
+            const opt = this.rootSel.options[i];
             r.push({
-                name: opt.textContent,
+                name: opt.textContent || '',
                 value: opt.value,
                 selects: fsels
             });
@@ -876,21 +919,25 @@ export class Faview {
     }
 
     private serialize(): SerializedFaviewData {
-        let result: SerializedFaviewData = {
+        const result: SerializedFaviewData = {
             rootSelectedValue: this.rootSel.value,
             items: {}
         };
         for (let i = 0; i < this.treeRoots.length; ++i) {
-            let item: SerializedFaviewDataItem = {};
-            let selects = this.treeRoots[i].getElementsByTagName('select');
+            const item: SerializedFaviewDataItem = {};
+            const selects = this.treeRoots[i].getElementsByTagName('select');
             for (let i = 0; i < selects.length; ++i) {
-                item[selects[i].getAttribute('data-id')] = {
+                const id = selects[i].getAttribute('data-id');
+                if (!id) {
+                    throw new Error('id is not defined');
+                }
+                item[id] = {
                     value: selects[i].value,
-                    lastMod: parseInt(selects[i].getAttribute('data-lastmod'), 10)
+                    lastMod: parseInt(selects[i].getAttribute('data-lastmod') || '0', 10)
                 };
             }
 
-            let opt = this.rootSel.options[i];
+            const opt = this.rootSel.options[i];
             if (opt instanceof HTMLOptionElement) {
                 result.items[opt.value] = item;
             }
@@ -899,36 +946,41 @@ export class Faview {
     }
 
     private deserialize(state: SerializedFaviewData): void {
-        for (let i = 0; i < this.rootSel.length; ++i) {
-            let opt = this.rootSel.options[i];
-            if (opt instanceof HTMLOptionElement && opt.value in state.items) {
-                let item = state.items[opt.value];
-                let elems = this.treeRoots[i].getElementsByTagName('select');
-                for (let i = 0; i < elems.length; ++i) {
-                    let elem = elems[i];
-                    if (elem instanceof HTMLSelectElement) {
-                        let id = elem.getAttribute('data-id');
-                        if (!(id in item)) {
-                            continue;
-                        }
-                        for (let j = 0; j < elem.length; ++j) {
-                            let opt = elem.options[j];
-                            if (opt instanceof HTMLOptionElement && opt.value === item[id].value) {
-                                elem.selectedIndex = j;
-                                elem.setAttribute('data-lastmod', item[id].lastMod.toString());
-                                let range = elem.parentElement.querySelector('input[type=range]');
-                                if (range instanceof HTMLInputElement) {
-                                    range.value = j.toString();
-                                }
-                                break;
-                            }
-                        }
-                    }
+        for (let ri = 0; ri < this.rootSel.length; ++ri) {
+            const opt = this.rootSel.options[ri];
+            if (!(opt instanceof HTMLOptionElement) || !(opt.value in state.items)) {
+                continue;
+            }
+            const item = state.items[opt.value], elems = this.treeRoots[ri].getElementsByTagName('select');
+            for (let i = 0; i < elems.length; ++i) {
+                const elem = elems[i];
+                if (!(elem instanceof HTMLSelectElement)) {
+                    continue;
                 }
 
-                if (state.rootSelectedValue === opt.value) {
-                    this.rootSel.selectedIndex = i;
+                const id = elem.getAttribute('data-id');
+                if (!id) {
+                    throw new Error('id is not defined');
                 }
+                if (!(id in item)) {
+                    continue;
+                }
+                for (let j = 0; j < elem.length; ++j) {
+                    const opt = elem.options[j];
+                    if (!(opt instanceof HTMLOptionElement) || opt.value !== item[id].value) {
+                        continue;
+                    }
+                    elem.selectedIndex = j;
+                    elem.setAttribute('data-lastmod', item[id].lastMod.toString());
+                    const range = elem.parentElement.querySelector('input[type=range]');
+                    if (range instanceof HTMLInputElement) {
+                        range.value = j.toString();
+                    }
+                    break;
+                }
+            }
+            if (state.rootSelectedValue === opt.value) {
+                this.rootSel.selectedIndex = ri;
             }
         }
     }
@@ -949,7 +1001,7 @@ export class Faview {
 
     private changed(select: HTMLSelectElement): void {
         select.setAttribute('data-lastmod', Date.now().toString());
-        let range = select.parentElement.querySelector('input[type=range]');
+        const range = select.parentElement.querySelector('input[type=range]');
         if (range instanceof HTMLInputElement) {
             range.value = select.selectedIndex.toString();
         }
@@ -959,7 +1011,7 @@ export class Faview {
     }
 
     private keyup(e: KeyboardEvent): void {
-        let target = e.target;
+        const target = e.target;
         if (target instanceof HTMLSelectElement) {
             // it is a workaround for Firefox that does not fire change event by keyboard input
             target.blur();
@@ -968,7 +1020,7 @@ export class Faview {
     }
 
     private change(e: Event): void {
-        let target = e.target;
+        const target = e.target;
         if (target instanceof HTMLSelectElement) {
             if (target === this.rootSel) {
                 this.rootChanged();
@@ -976,7 +1028,7 @@ export class Faview {
             }
             this.changed(target);
         } else if (target instanceof HTMLInputElement && target.type === 'range') {
-            let sel = target.parentElement.querySelector('select');
+            const sel = target.parentElement.querySelector('select');
             if (sel instanceof HTMLSelectElement) {
                 sel.selectedIndex = parseInt(target.value, 10);
                 this.changed(sel);
@@ -985,9 +1037,9 @@ export class Faview {
     }
 
     private input(e: Event): void {
-        let target = e.target;
+        const target = e.target;
         if (target instanceof HTMLInputElement && target.type === 'range') {
-            let sel = target.parentElement.querySelector('select');
+            const sel = target.parentElement.querySelector('select');
             if (sel instanceof HTMLSelectElement) {
                 sel.selectedIndex = parseInt(target.value, 10);
                 this.changed(sel);
@@ -996,7 +1048,7 @@ export class Faview {
     }
 
     private click(e: MouseEvent): void {
-        let target = e.target;
+        const target = e.target;
         if (target instanceof HTMLButtonElement) {
             let mv = 0;
             if (target.classList.contains('psdtool-faview-prev')) {
@@ -1007,7 +1059,7 @@ export class Faview {
             if (mv === 0) {
                 return;
             }
-            let sel = target.parentElement.querySelector('select');
+            const sel = target.parentElement.querySelector('select');
             if (sel instanceof HTMLSelectElement) {
                 sel.selectedIndex = (sel.length + sel.selectedIndex + mv) % sel.length;
                 sel.focus();
@@ -1017,28 +1069,37 @@ export class Faview {
     }
 
     private addNode(n: Node, ul: HTMLUListElement): void {
-        let caption = n.text.replace(/^\*/, '');
-        let li = document.createElement('li');
-        let span = document.createElement('span');
+        if (!n.id) {
+            throw new Error('node id is not defined');
+        }
+        const caption = n.text.replace(/^\*/, '');
+        const li = document.createElement('li');
+        const span = document.createElement('span');
         span.className = 'glyphicon glyphicon-asterisk';
         li.appendChild(span);
         li.appendChild(document.createTextNode(' ' + caption));
         ul.appendChild(li);
 
-        let sel = document.createElement('select');
+        const sel = document.createElement('select');
         sel.className = 'form-control psdtool-faview-select';
         sel.setAttribute('data-id', n.id);
         sel.setAttribute('data-caption', caption);
-        let cul = document.createElement('ul');
+        const cul = document.createElement('ul');
         let opt: HTMLOptionElement;
-        let firstItemId: string;
+        let firstItemId: string | undefined;
         let numItems = 0, numChild = 0;
-        for (let cn of n.children) {
-            if (typeof cn !== 'string') {
+        if (n.children && n.children.length) {
+            for (let cn of n.children) {
+                if (typeof cn === 'string') {
+                    cn = this.favorite.get(cn);
+                }
                 switch (cn.type) {
                     case 'item':
                         opt = document.createElement('option');
                         opt.textContent = cn.text;
+                        if (!cn.id) {
+                            throw new Error('node id is not defined');
+                        }
                         opt.value = cn.id;
                         if (++numItems === 1) {
                             firstItemId = cn.id;
@@ -1054,7 +1115,7 @@ export class Faview {
             }
         }
         // show filtered entry only
-        if (numItems > 0 && this.favorite.getFirstFilter(this.favorite.get(firstItemId)) !== '') {
+        if (numItems > 0 && firstItemId && this.favorite.getFirstFilter(this.favorite.get(firstItemId)) !== '') {
             let range = document.createElement('input');
             range.type = 'range';
             range.max = (numItems - 1).toString();
@@ -1087,37 +1148,40 @@ export class Faview {
     }
 
     private addRoot(nodes: Node[]): void {
-        let opt: HTMLOptionElement;
-        for (let n of nodes) {
-            if (n.text.length > 1 && n.text.charAt(0) === '*') {
-                opt = document.createElement('option');
+        for (const n of nodes) {
+            if (n.text.length > 1 && n.text.charAt(0) === '*' && n.id) {
+                const opt = document.createElement('option');
                 opt.value = n.id;
                 opt.textContent = n.text.substring(1);
                 this.rootSel.appendChild(opt);
 
-                let ul = document.createElement('ul');
-                for (let cn of n.children) {
-                    if (typeof cn !== 'string') {
-                        switch (cn.type) {
-                            case 'folder':
-                            case 'filter':
-                                this.addNode(cn, ul);
+                const ul = document.createElement('ul');
+                if (n.children) {
+                    for (const cn of n.children) {
+                        if (typeof cn !== 'string') {
+                            switch (cn.type) {
+                                case 'folder':
+                                case 'filter':
+                                    this.addNode(cn, ul);
+                            }
                         }
                     }
                 }
 
-                let li = document.createElement('li');
+                const li = document.createElement('li');
                 li.style.display = 'none';
                 li.appendChild(ul);
                 this.treeRoots.push(li);
                 this.root.appendChild(li);
 
-                let selects = li.getElementsByTagName('select');
+                const selects = li.getElementsByTagName('select');
                 for (let i = 0; i < selects.length; ++i) {
                     selects[i].setAttribute('data-lastmod', (selects.length - i).toString());
                 }
             }
-            this.addRoot(n.children);
+            if (n.children) {
+                this.addRoot(n.children as Node[]);
+            }
         }
     }
 
@@ -1145,7 +1209,7 @@ export class Faview {
         for (let i = 0; i < selects.length; ++i) {
             items.push({
                 n: this.favorite.get(selects[i].value),
-                lastMod: parseInt(selects[i].getAttribute('data-lastmod'), 10)
+                lastMod: parseInt(selects[i].getAttribute('data-lastmod') || '0', 10)
             });
         }
         items.sort((a, b): number => a.lastMod === b.lastMod ? 0
