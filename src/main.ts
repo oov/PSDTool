@@ -1190,8 +1190,6 @@ export class Main {
     private exportFaviewPRIMA(): void {
         const z = new primar.Primar(), td = new tileder.Tileder();
         const prog = new ProgressDialog('Exporting...', '');
-
-        // make faview.json
         const faviewData = {
             width: 0,
             height: 0,
@@ -1204,20 +1202,6 @@ export class Main {
                 };
             })
         };
-
-        let queue = 0, finished = 0, completed = false;
-        const processed = () => {
-            ++finished;
-            if (!completed || finished !== queue) {
-                return;
-            }
-            prog.update(1, 'building a file...');
-            const blob = z.generate(faviewData);
-            saveAs(blob, 'tiled.prima');
-            prog.close();
-        };
-
-        let first = true;
         this.enumerateFaview(
             (
                 path: { caption: string, name: string, index: number }[],
@@ -1225,28 +1209,34 @@ export class Main {
                 index: number, total: number,
                 next: () => void
             ) => {
-                if (first) {
+                if (faviewData.width === 0) {
                     faviewData.width = image.width;
                     faviewData.height = image.height;
-                    first = false;
                 }
                 prog.update(index / total, `${index}/${total}`);
                 td.add('', image, next);
             },
             () => {
-                td.finish(false, (tsx: tileder.Tsx, progress: number) => {
-                    ++queue;
-                    Main.canvasToBlob(tsx.getImage(document)).then(blob => {
-                        z.addImage(blob);
-                        processed();
-                    });
-                }, (image: tileder.Image, progress: number) => {
-                    z.addMap(image.data);
-                }, () => {
-                    ++queue;
-                    completed = true;
-                    processed();
-                });
+                const images: Promise<Blob>[] = [];
+                td.finish(
+                    false,
+                    (tsx: tileder.Tsx, progress: number) => {
+                        images.push(Main.canvasToBlob(tsx.getImage(document)));
+                    },
+                    (image: tileder.Image, progress: number) => {
+                        z.addMap(image.data);
+                    },
+                    () => {
+                        Promise.all(images).then(blobs => {
+                            for (const b of blobs) {
+                                z.addImage(b);
+                            }
+                            prog.update(1, 'building a file...');
+                            saveAs(z.generate(faviewData), 'tiled.prima');
+                            prog.close();
+                        });
+                    }
+                );
             }
         );
     }
