@@ -70,6 +70,7 @@ export class Image implements ImageData {
             case 'csv':
                 return new Blob([int32ArrayToCSV(new Int32Array(this.data), this.width, '\n')], { type: 'text/csv; charset=utf-8' });
             case 'bin':
+                // TODO: support big-endian system
                 return new Blob([this.data], { type: 'application/octet-binary' });
             default:
                 throw new Error('unknown tile format: ' + tileFormat);
