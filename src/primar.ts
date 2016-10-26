@@ -62,10 +62,11 @@ export class Primar {
         const archive: (Blob | ArrayBuffer)[] = [];
         {
             const blob = new Blob([JSON.stringify(structure)], { type: 'application/json; charset=utf-8' });
-            const header = new ArrayBuffer(8);
+            const header = new ArrayBuffer(12);
             const dv = new DataView(header);
-            dv.setUint32(0, 0x184d2a50, true);
-            dv.setUint32(4, blob.size, true);
+            dv.setUint32(0, 0x614e6e44, true);
+            dv.setUint32(4, 0x184d2a50, true);
+            dv.setUint32(8, blob.size, true);
             archive.push(header, blob);
         }
         for (const image of this.images) {
