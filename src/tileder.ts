@@ -469,7 +469,8 @@ class Chopper {
         w: number,
         h: number,
         tileSize: number,
-        crc32: (b: ArrayBuffer) => number
+        crc32: (b: ArrayBuffer, table?: Uint32Array) => number,
+        crc32Table: Uint32Array
     ): [ImageData, Map<number, Tile>, ArrayBuffer[]] {
         const buffers: ArrayBuffer[] = [];
         const tile = new Map<number, Tile>();
@@ -495,7 +496,7 @@ class Chopper {
                         buf[dx++] = ab[sx++];
                     }
                 }
-                const hash = crc32(buf.buffer);
+                const hash = crc32(buf.buffer, crc32Table);
                 if (!tile.has(hash)) {
                     const bb = buf.slice().buffer;
                     buffers.push(bb);
@@ -518,7 +519,7 @@ class Chopper {
                         buf[dx++] = ab[sx++];
                     }
                 }
-                const hash = crc32(buf.buffer);
+                const hash = crc32(buf.buffer, crc32Table);
                 if (!tile.has(hash)) {
                     const bb = buf.slice().buffer;
                     buffers.push(bb);
@@ -541,7 +542,7 @@ class Chopper {
                         buf[dx++] = ab[sx++];
                     }
                 }
-                const hash = crc32(buf.buffer);
+                const hash = crc32(buf.buffer, crc32Table);
                 if (!tile.has(hash)) {
                     const bb = buf.slice().buffer;
                     buffers.push(bb);
@@ -563,7 +564,7 @@ class Chopper {
                     buf[dx++] = ab[sx++];
                 }
             }
-            const hash = crc32(buf.buffer);
+            const hash = crc32(buf.buffer, crc32Table);
             if (!tile.has(hash)) {
                 const bb = buf.slice().buffer;
                 buffers.push(bb);
@@ -599,7 +600,7 @@ var crc32 = ${crc32.crc32.toString()};
 var chop = ${Chopper._chop.toString()};
 onmessage = function(e){
     var d = e.data;
-    var ret = chop(d.index, d.name, d.buffer, d.width, d.height, d.tileSize, crc32);
+    var ret = chop(d.index, d.name, d.buffer, d.width, d.height, d.tileSize, crc32, crcTable);
     postMessage({data: ret[0], tile: ret[1]}, ret[2]);
 };`], { type: 'text/javascript' }));
         return Chopper.workerURL;

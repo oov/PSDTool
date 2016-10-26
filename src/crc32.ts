@@ -51,8 +51,10 @@ export function getCRCTable(): Uint32Array {
     return crcTable;
 }
 
-export function crc32(src: ArrayBuffer): number {
-    const table = crcTable;
+export function crc32(src: ArrayBuffer, table?: Uint32Array): number {
+    if (!table) {
+        table = crcTable;
+    }
     const u8a = new Uint8Array(src);
     let crc = 0 ^ (-1);
     for (let i = 0; i < u8a.length; i++) {
