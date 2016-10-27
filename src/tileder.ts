@@ -360,7 +360,12 @@ export class Tileder {
             this._waitReadyChopper(this.queueMax, chopper => {
                 chopper.chop(index, name, buffer, width, height, this._tileSize, (data, tile) => {
                     tile.forEach((v, hash) => {
-                        if (!this._tile.has(hash)) {
+                        const vv = this._tile.get(hash);
+                        if (vv) {
+                            if (vv.p > v.p) {
+                                vv.p = v.p;
+                            }
+                        } else {
                             this._tile.set(hash, v);
                         }
                     });
@@ -407,25 +412,40 @@ export class Tileder {
         imageCallback: (image: ImageData, progress: number) => void,
         complete: () => void
     ): void {
-        const tileSet: Tsx[] = [];
-        let gid = 1;
-        Builder.build(
-            compressMap,
-            this._tile,
-            this._images,
-            this._tileSize,
-            (tsx, index, total) => {
-                const o = new Tsx(tsx, gid, index.toString());
-                tileSet.push(o);
-                gid += tsx.tileCount;
-                tsxCallback(o, index / total);
-            },
-            (image, index, total) => {
-                const o = new Image(image, tileSet);
-                imageCallback(o, index / total);
-            },
-            complete
-        );
+        let find = () => {
+            let finished = true;
+            for (let i = 0; i < this._chopper.length; ++i) {
+                if (this._chopper[i].tasks > 0) {
+                    finished = false;
+                    break;
+                }
+            }
+            if (finished) {
+                const tileSet: Tsx[] = [];
+                let gid = 1;
+                Builder.build(
+                    compressMap,
+                    this._tile,
+                    this._images,
+                    this._tileSize,
+                    (tsx, index, total) => {
+                        const o = new Tsx(tsx, gid, index.toString());
+                        tileSet.push(o);
+                        gid += tsx.tileCount;
+                        tsxCallback(o, index / total);
+                    },
+                    (image, index, total) => {
+                        const o = new Image(image, tileSet);
+                        console.log(`${index} / ${total} CRC:${crc32.crc32(image.data)}`);
+                        imageCallback(o, index / total);
+                    },
+                    complete
+                );
+            } else {
+                setTimeout(() => find(), 100);
+            }
+        };
+        find();
     }
 }
 
@@ -696,7 +716,10 @@ class Builder {
         const aLen = a.length;
 
         a.sort((a, b) => {
-            return a.p === b.p ? 0 : a.p < b.p ? -1 : 1;
+            if (a.p === b.p) {
+                return a.h === b.h ? 0 : a.h < b.h ? -1 : 1;
+            }
+            return a.p < b.p ? -1 : 1;
         });
 
         let aPos = 0, numTsxes = 0;
