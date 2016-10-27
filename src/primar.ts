@@ -59,14 +59,26 @@ export class Primar {
     }
 
     public generate(structure: any): Blob {
+        this.finishMap();
+
+        let total = 7;
+        for (const ab of this.blocks) {
+            total += ab.byteLength;
+        }
+        total += 4;
+        for (const b of this.images) {
+            total += 8 + b.size;
+        }
+
         const archive: (Blob | ArrayBuffer)[] = [];
         {
             const blob = new Blob([JSON.stringify(structure)], { type: 'application/json; charset=utf-8' });
-            const header = new ArrayBuffer(12);
+            const header = new ArrayBuffer(16);
             const dv = new DataView(header);
             dv.setUint32(0, 0x614e6e44, true);
-            dv.setUint32(4, 0x184d2a50, true);
-            dv.setUint32(8, blob.size, true);
+            dv.setUint32(4, total + 8 + blob.size, true);
+            dv.setUint32(8, 0x184d2a50, true);
+            dv.setUint32(12, blob.size, true);
             archive.push(header, blob);
         }
         for (const image of this.images) {
@@ -84,7 +96,6 @@ export class Primar {
         dv.setUint8(6, 0x51);
         archive.push(header);
 
-        this.finishMap();
         Array.prototype.push.apply(archive, this.blocks);
         archive.push(new ArrayBuffer(4));
         return new Blob(archive, { type: 'application/octet-binary' });
