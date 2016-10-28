@@ -74,17 +74,16 @@ function copy(dest: Uint8Array, src: Uint8Array, di: number, si: number, len: nu
     }
 }
 
-export function calcUncompressedLen(src: ArrayBuffer): number {
-    const srcBuf = new Uint8Array(src);
-    const sn = srcBuf.length;
+export function calcUncompressedLen(src: Uint8Array): number {
+    const sn = src.length;
     if (sn === 0) {
         return 0;
     }
 
     for (let si = 0, di = 0; ; ) {
         // literals and match lengths (token)
-        let lLen = srcBuf[si] >> 4;
-        let mLen = srcBuf[si] & 0xf;
+        let lLen = src[si] >> 4;
+        let mLen = src[si] & 0xf;
         if (++si === sn) {
             throw errInvalidSource;
         }
@@ -92,13 +91,13 @@ export function calcUncompressedLen(src: ArrayBuffer): number {
         // literals
         if (lLen > 0) {
             if (lLen === 0xf) {
-                while (srcBuf[si] === 0xff) {
+                while (src[si] === 0xff) {
                     lLen += 0xff;
                     if (++si === sn) {
                         throw errInvalidSource;
                     }
                 }
-                lLen += srcBuf[si];
+                lLen += src[si];
                 if (++si === sn) {
                     throw errInvalidSource;
                 }
@@ -114,20 +113,20 @@ export function calcUncompressedLen(src: ArrayBuffer): number {
         if (si >= sn) {
             throw errInvalidSource;
         }
-        const offset = srcBuf[si - 2] | (srcBuf[si - 1] << 8);
+        const offset = src[si - 2] | (src[si - 1] << 8);
         if (di - offset < 0 || offset === 0) {
             throw errInvalidSource;
         }
 
         // match
         if (mLen === 0xf) {
-            while (srcBuf[si] === 0xff) {
+            while (src[si] === 0xff) {
                 mLen += 0xff;
                 if (++si === sn) {
                     throw errInvalidSource;
                 }
             }
-            mLen += srcBuf[si];
+            mLen += src[si];
             if (++si === sn) {
                 throw errInvalidSource;
             }
@@ -143,19 +142,17 @@ export function calcUncompressedLen(src: ArrayBuffer): number {
     }
 }
 
-export function uncompressBlock(src: ArrayBuffer, dst: ArrayBuffer): number {
-    const srcBuf = new Uint8Array(src);
-    const destBuf = new Uint8Array(dst);
-    const sn = srcBuf.length;
-    const dn = destBuf.length;
+export function uncompressBlock(src: Uint8Array, dest: Uint8Array): number {
+    const sn = src.length;
+    const dn = dest.length;
     if (sn === 0) {
         return 0;
     }
 
     for (let si = 0, di = 0; ; ) {
         // literals and match lengths (token)
-        let lLen = srcBuf[si] >> 4;
-        let mLen = srcBuf[si] & 0xf;
+        let lLen = src[si] >> 4;
+        let mLen = src[si] & 0xf;
         if (++si === sn) {
             throw errInvalidSource;
         }
@@ -163,13 +160,13 @@ export function uncompressBlock(src: ArrayBuffer, dst: ArrayBuffer): number {
         // literals
         if (lLen > 0) {
             if (lLen === 0xf) {
-                while (srcBuf[si] === 0xff) {
+                while (src[si] === 0xff) {
                     lLen += 0xff;
                     if (++si === sn) {
                         throw errInvalidSource;
                     }
                 }
-                lLen += srcBuf[si];
+                lLen += src[si];
                 if (++si === sn) {
                     throw errInvalidSource;
                 }
@@ -177,7 +174,7 @@ export function uncompressBlock(src: ArrayBuffer, dst: ArrayBuffer): number {
             if (dn - di < lLen || si + lLen > sn) {
                 throw errShortBuffer;
             }
-            copy(destBuf, srcBuf, di, si, lLen);
+            copy(dest, src, di, si, lLen);
             di += lLen;
             si += lLen;
             if (si >= sn) {
@@ -189,20 +186,20 @@ export function uncompressBlock(src: ArrayBuffer, dst: ArrayBuffer): number {
         if (si >= sn) {
             throw errInvalidSource;
         }
-        const offset = srcBuf[si - 2] | (srcBuf[si - 1] << 8);
+        const offset = src[si - 2] | (src[si - 1] << 8);
         if (di - offset < 0 || offset === 0) {
             throw errInvalidSource;
         }
 
         // match
         if (mLen === 0xf) {
-            while (srcBuf[si] === 0xff) {
+            while (src[si] === 0xff) {
                 mLen += 0xff;
                 if (++si === sn) {
                     throw errInvalidSource;
                 }
             }
-            mLen += srcBuf[si];
+            mLen += src[si];
             if (++si === sn) {
                 throw errInvalidSource;
             }
@@ -215,10 +212,10 @@ export function uncompressBlock(src: ArrayBuffer, dst: ArrayBuffer): number {
 
         // copy the match (NB. match is at least 4 bytes long)
         for (; mLen >= offset; mLen -= offset) {
-            copy(destBuf, destBuf, di, di - offset, offset);
+            copy(dest, dest, di, di - offset, offset);
             di += offset;
         }
-        copy(destBuf, destBuf, di, di - offset, mLen);
+        copy(dest, dest, di, di - offset, mLen);
         di += mLen;
     }
 }
@@ -227,11 +224,9 @@ export function compressBlockBound(n: number): number {
     return n + (n / 255 | 0) + 16;
 }
 
-export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: number): number {
-    const srcBuf = new Uint8Array(src);
-    const destBuf = new Uint8Array(dst);
-    const sn = srcBuf.length - mfLimit;
-    const dn = destBuf.length;
+export function compressBlock(src: Uint8Array, dest: Uint8Array, soffset: number): number {
+    const sn = src.length - mfLimit;
+    const dn = dest.length;
     if (sn <= 0 || dn === 0 || soffset >= sn) {
         return 0;
     }
@@ -244,7 +239,7 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
     // Initialise the hash table with the first 64Kb of the input buffer
     // (used when compressing dependent blocks)
     while (si < soffset) {
-        const h = imul(getUint32(srcBuf, si), hasher) >>> hashShift;
+        const h = imul(getUint32(src, si), hasher) >>> hashShift;
         hashTable[h] = ++si;
     }
 
@@ -252,7 +247,7 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
     let fma = 1 << skipStrength;
     while (si < sn - minMatch) {
         // hash the next 4 bytes (sequence)...
-        const h = imul(getUint32(srcBuf, si), hasher) >>> hashShift;
+        const h = imul(getUint32(src, si), hasher) >>> hashShift;
         // -1 to separate existing entries from new ones
         const ref = hashTable[h] - 1;
         // ...and store the position of the hash in the hash table (+1 to compensate the -1 upon saving)
@@ -270,10 +265,10 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
         // the sequence is new, out of bound (64kb) or not valid: try next sequence
         if (ref < 0 || //(fma & ((1 << skipStrength) - 1)) < 4 || // this code seems has a big penalty for size...
             (si - ref) >> winSizeLog > 0 ||
-            srcBuf[ref] !== srcBuf[si] ||
-            srcBuf[ref + 1] !== srcBuf[si + 1] ||
-            srcBuf[ref + 2] !== srcBuf[si + 2] ||
-            srcBuf[ref + 3] !== srcBuf[si + 3]) {
+            src[ref] !== src[si] ||
+            src[ref + 1] !== src[si + 1] ||
+            src[ref + 2] !== src[si + 2] ||
+            src[ref + 3] !== src[si + 3]) {
             // variable step: improves performance on non-compressible data
             si += fma >> skipStrength;
             ++fma;
@@ -287,32 +282,32 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
         // encode match length part 1
         si += minMatch;
         let mLen = si; // match length has minMatch already
-        while (si <= sn && srcBuf[si] === srcBuf[si - offset]) {
+        while (si <= sn && src[si] === src[si - offset]) {
             si++;
         }
         mLen = si - mLen;
         if (mLen < 0xf) {
-            destBuf[di] = mLen;
+            dest[di] = mLen;
         } else {
-            destBuf[di] = 0xf;
+            dest[di] = 0xf;
         }
 
         // encode literals length
         if (lLen < 0xf) {
-            destBuf[di] |= lLen << 4;
+            dest[di] |= lLen << 4;
         } else {
-            destBuf[di] |= 0xf0;
+            dest[di] |= 0xf0;
             if (++di === dn) {
                 throw errShortBuffer;
             }
             let l = lLen - 0xf;
             for (; l >= 0xff; l -= 0xff) {
-                destBuf[di] = 0xff;
+                dest[di] = 0xff;
                 if (++di === dn) {
                     throw errShortBuffer;
                 }
             }
-            destBuf[di] = l & 0xff;
+            dest[di] = l & 0xff;
         }
         if (++di === dn) {
             throw errShortBuffer;
@@ -322,7 +317,7 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
         if (di + lLen >= dn) {
             throw errShortBuffer;
         }
-        copy(destBuf, srcBuf, di, anchor, lLen);
+        copy(dest, src, di, anchor, lLen);
         di += lLen;
         anchor = si;
 
@@ -331,18 +326,18 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
         if (di >= dn) {
             throw errShortBuffer;
         }
-        destBuf[di - 2] = offset;
-        destBuf[di - 1] = offset >> 8;
+        dest[di - 2] = offset;
+        dest[di - 1] = offset >> 8;
 
         // encode match length part 2
         if (mLen >= 0xf) {
             for (mLen -= 0xf; mLen >= 0xff; mLen -= 0xff) {
-                destBuf[di] = 0xff;
+                dest[di] = 0xff;
                 if (++di === dn) {
                     throw errShortBuffer;
                 }
             }
-            destBuf[di] = mLen;
+            dest[di] = mLen;
             if (++di === dn) {
                 throw errShortBuffer;
             }
@@ -355,28 +350,28 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
     }
 
     // last literals
-    let lLen = srcBuf.length - anchor;
+    let lLen = src.length - anchor;
     if (lLen < 0xf) {
-        destBuf[di] = lLen << 4;
+        dest[di] = lLen << 4;
     } else {
-        destBuf[di] = 0xf0;
+        dest[di] = 0xf0;
         if (++di === dn) {
             throw errShortBuffer;
         }
         for (lLen -= 0xf; lLen >= 0xff; lLen -= 0xff) {
-            destBuf[di] = 0xff;
+            dest[di] = 0xff;
             if (++di === dn) {
                 throw errShortBuffer;
             }
         }
-        destBuf[di] = lLen;
+        dest[di] = lLen;
     }
     if (++di === dn) {
         throw errShortBuffer;
     }
 
     // write literals
-    const lastLen = srcBuf.length - anchor;
+    const lastLen = src.length - anchor;
     const n = di + lastLen;
     if (n > dn) {
         throw errShortBuffer;
@@ -384,16 +379,14 @@ export function compressBlock(src: ArrayBuffer, dst: ArrayBuffer, soffset: numbe
         // incompressible
         return 0;
     }
-    copy(destBuf, srcBuf, di, anchor, lastLen);
+    copy(dest, src, di, anchor, lastLen);
     di += lastLen;
     return di;
 }
 
-export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: number): number {
-    const srcBuf = new Uint8Array(src);
-    const destBuf = new Uint8Array(dst);
-    const sn = srcBuf.length - mfLimit;
-    const dn = destBuf.length;
+export function compressBlockHC(src: Uint8Array, dest: Uint8Array, soffset: number): number {
+    const sn = src.length - mfLimit;
+    const dn = dest.length;
     if (sn <= 0 || dn === 0 || soffset >= sn) {
         return 0;
     }
@@ -408,7 +401,7 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
     // Initialise the hash table with the first 64Kb of the input buffer
     // (used when compressing dependent blocks)
     while (si < soffset) {
-        const h = imul(getUint32(srcBuf, si), hasher) >>> hashShift;
+        const h = imul(getUint32(src, si), hasher) >>> hashShift;
         chainTable[si & winMask] = hashTable[h];
         hashTable[h] = ++si;
     }
@@ -416,16 +409,16 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
     let anchor = si;
     while (si < sn - minMatch) {
         // hash the next 4 bytes (sequence)...
-        const h = imul(getUint32(srcBuf, si), hasher) >>> hashShift;
+        const h = imul(getUint32(src, si), hasher) >>> hashShift;
 
         // follow the chain until out of window and give the longest match
         let mLen = 0;
         let offset = 0;
         for (let next = hashTable[h] - 1; next > 0 && next > si - winSize; next = chainTable[next & winMask] - 1) {
             // the first (mLen==0) or next byte (mLen>=minMatch) at current match length must match to improve on the match length
-            if (srcBuf[next + mLen] === srcBuf[si + mLen]) {
+            if (src[next + mLen] === src[si + mLen]) {
                 for (let ml = 0; ; ++ml) {
-                    if (srcBuf[next + ml] !== srcBuf[si + ml] || si + ml > sn) {
+                    if (src[next + ml] !== src[si + ml] || si + ml > sn) {
                         // found a longer match, keep its position and length
                         if (mLen < ml && ml >= minMatch) {
                             mLen = ml;
@@ -449,7 +442,7 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
         // update hash/chain tables with overlaping bytes:
         // si already hashed, add everything from si+1 up to the match length
         for (let si2 = si + 1, ml = si + mLen; si2 < ml; ) {
-            const h = imul(getUint32(srcBuf, si2), hasher) >>> hashShift;
+            const h = imul(getUint32(src, si2), hasher) >>> hashShift;
             chainTable[si2 & winMask] = hashTable[h];
             hashTable[h] = ++si2;
         }
@@ -459,27 +452,27 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
         mLen -= minMatch; // match length does not include minMatch
 
         if (mLen < 0xf) {
-            destBuf[di] = mLen;
+            dest[di] = mLen;
         } else {
-            destBuf[di] = 0xf;
+            dest[di] = 0xf;
         }
 
         // encode literals length
         if (lLen < 0xf) {
-            destBuf[di] |= lLen << 4;
+            dest[di] |= lLen << 4;
         } else {
-            destBuf[di] |= 0xf0;
+            dest[di] |= 0xf0;
             if (++di === dn) {
                 throw errShortBuffer;
             }
             let l = lLen - 0xf;
             for (; l >= 0xff; l -= 0xff) {
-                destBuf[di] = 0xff;
+                dest[di] = 0xff;
                 if (++di === dn) {
                     throw errShortBuffer;
                 }
             }
-            destBuf[di] = l & 0xff;
+            dest[di] = l & 0xff;
         }
         if (++di === dn) {
             throw errShortBuffer;
@@ -489,7 +482,7 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
         if (di + lLen >= dn) {
             throw errShortBuffer;
         }
-        copy(destBuf, srcBuf, di, anchor, lLen);
+        copy(dest, src, di, anchor, lLen);
         di += lLen;
         anchor = si;
 
@@ -498,18 +491,18 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
         if (di >= dn) {
             throw errShortBuffer;
         }
-        destBuf[di - 2] = offset;
-        destBuf[di - 1] = offset >> 8;
+        dest[di - 2] = offset;
+        dest[di - 1] = offset >> 8;
 
         // encode match length part 2
         if (mLen >= 0xf) {
             for (mLen -= 0xf; mLen >= 0xff; mLen -= 0xff) {
-                destBuf[di] = 0xff;
+                dest[di] = 0xff;
                 if (++di === dn) {
                     throw errShortBuffer;
                 }
             }
-            destBuf[di] = mLen;
+            dest[di] = mLen;
             if (++di === dn) {
                 throw errShortBuffer;
             }
@@ -522,28 +515,28 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
     }
 
     // last literals
-    let lLen = srcBuf.length - anchor;
+    let lLen = src.length - anchor;
     if (lLen < 0xf) {
-        destBuf[di] = lLen << 4;
+        dest[di] = lLen << 4;
     } else {
-        destBuf[di] = 0xf0;
+        dest[di] = 0xf0;
         if (++di === dn) {
             throw errShortBuffer;
         }
         for (lLen -= 0xf; lLen >= 0xff; lLen -= 0xff) {
-            destBuf[di] = 0xff;
+            dest[di] = 0xff;
             if (++di === dn) {
                 throw errShortBuffer;
             }
         }
-        destBuf[di] = lLen;
+        dest[di] = lLen;
     }
     if (++di === dn) {
         throw errShortBuffer;
     }
 
     // write literals
-    const lastLen = srcBuf.length - anchor;
+    const lastLen = src.length - anchor;
     const n = di + lastLen;
     if (n > dn) {
         throw errShortBuffer;
@@ -551,7 +544,7 @@ export function compressBlockHC(src: ArrayBuffer, dst: ArrayBuffer, soffset: num
         // incompressible
         return 0;
     }
-    copy(destBuf, srcBuf, di, anchor, lastLen);
+    copy(dest, src, di, anchor, lastLen);
     di += lastLen;
     return di;
 }
