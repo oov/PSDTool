@@ -436,7 +436,6 @@ export class Tileder {
                     },
                     (image, index, total) => {
                         const o = new Image(image, tileSet);
-                        console.log(`${index} / ${total} CRC:${crc32.crc32(image.data)}`);
                         imageCallback(o, index / total);
                     },
                     complete

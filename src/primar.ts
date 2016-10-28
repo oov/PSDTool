@@ -13,14 +13,19 @@ function fillZero(dest: Uint8Array, di: number, len: number) {
 }
 
 export class Primar {
-    private images: Blob[] = [];
+    constructor(private readonly bufferSize: number) {
+        if (bufferSize !== 1024 * 1024 && bufferSize !== 4 * 1024 * 1024) {
+            throw new Error(`unsupported buffer size: ${bufferSize}`);
+        }
+    }
 
+    private images: Blob[] = [];
     public addImage(blob: Blob): void {
         this.images.push(blob);
     }
 
     private blocks: ArrayBuffer[] = [];
-    private buffer = new Uint8Array(1024 * 1024);
+    private buffer = new Uint8Array(this.bufferSize);
     private compBuf = new Uint8Array(lz4.compressBlockBound(this.buffer.length));
     private used = 0;
     public addMap(ab: ArrayBuffer): void {
@@ -91,9 +96,18 @@ export class Primar {
         const header = new ArrayBuffer(7);
         const dv = new DataView(header);
         dv.setUint32(0, 0x184d2204, true);
-        dv.setUint8(4, 0x60);
-        dv.setUint8(5, 0x60);
-        dv.setUint8(6, 0x51);
+        switch (this.bufferSize) {
+            case 1024 * 1024:
+                dv.setUint8(4, 0x60);
+                dv.setUint8(5, 0x60);
+                dv.setUint8(6, 0x51);
+                break;
+            case 4 * 1024 * 1024:
+                dv.setUint8(4, 0x60);
+                dv.setUint8(5, 0x70);
+                dv.setUint8(6, 0x73);
+                break;
+        }
         archive.push(header);
 
         Array.prototype.push.apply(archive, this.blocks);

@@ -1188,7 +1188,7 @@ export class Main {
     }
 
     private exportFaviewPRIMA(): void {
-        const z = new primar.Primar(), td = new tileder.Tileder();
+        const td = new tileder.Tileder();
         const prog = new ProgressDialog('Exporting...', '');
         const faviewData = {
             width: 0,
@@ -1217,6 +1217,7 @@ export class Main {
                 td.add('', image, next);
             },
             () => {
+                const z = new primar.Primar((faviewData.width * faviewData.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024);
                 const images: Promise<Blob>[] = [];
                 td.finish(
                     false,
