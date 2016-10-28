@@ -1222,9 +1222,11 @@ export class Main {
                 td.finish(
                     false,
                     (tsx: tileder.Tsx, progress: number) => {
-                        images.push(Main.canvasToBlob(tsx.getImage(document)));
+                        prog.update(progress, `compressing image...`);
+                        images.push(new Promise(resolve => resolve(tsx.getLZ4Image())));
                     },
                     (image: tileder.Image, progress: number) => {
+                        prog.update(progress, `compressing maps...`);
                         z.addMap(image.data);
                     },
                     () => {

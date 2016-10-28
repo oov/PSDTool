@@ -38,7 +38,7 @@ export class Primar {
             copy(this.buffer, src, this.used, 0, alen);
 
             {
-                const written = lz4.compressBlockHC(this.buffer.buffer, this.compBuf.buffer, 0);
+                const written = lz4.compressBlockHC(this.buffer, this.compBuf, 0);
                 const block = new Uint8Array(written + 4);
                 new DataView(block.buffer).setUint32(0, written, true);
                 copy(block, this.compBuf, 4, 0, written);
@@ -55,7 +55,7 @@ export class Primar {
             return;
         }
         fillZero(this.buffer, this.used, this.buffer.length - this.used);
-        const written = lz4.compressBlockHC(this.buffer.buffer, this.compBuf.buffer, 0);
+        const written = lz4.compressBlockHC(this.buffer, this.compBuf, 0);
         const block = new Uint8Array(written + 4);
         new DataView(block.buffer).setUint32(0, written, true);
         copy(block, this.compBuf, 4, 0, written);

@@ -1,5 +1,6 @@
 'use strict';
 import * as crc32 from './crc32';
+import * as lz4 from './lz4/src/lz4';
 
 export interface ImageData {
     index: number;
@@ -252,6 +253,50 @@ export class Tsx implements TsxData {
         }
         ctx.putImageData(imageData, 0, 0);
         return image;
+    }
+
+    public getLZ4Image(): Blob {
+        const buffers: ArrayBuffer[] = [];
+
+        const header = new ArrayBuffer(15);
+        const dv = new DataView(header);
+        dv.setUint32(0, this.width, true);
+        dv.setUint32(4, this.height, true);
+        dv.setUint32(8, 0x184d2204, true);
+        dv.setUint8(12, 0x60);
+        dv.setUint8(13, 0x70);
+        dv.setUint8(14, 0x73);
+        buffers.push(header);
+
+        const data = new Uint8Array(this.data);
+        const buf = new Uint8Array(4 * 1024 * 1024), bufLen = buf.byteLength;
+        const compBuf = new Uint8Array(lz4.compressBlockBound(bufLen));
+        let pos = 0, p0 = 0, p1 = 0, p2 = 0, p3 = 0;
+        while (pos < data.byteLength) {
+            let d = 0;
+            for (const end = Math.min(pos + bufLen, data.byteLength); pos < end;) {
+                buf[d++] = data[pos] - p0;
+                p0 = data[pos++];
+                buf[d++] = data[pos] - p1;
+                p1 = data[pos++];
+                buf[d++] = data[pos] - p2;
+                p2 = data[pos++];
+                buf[d++] = data[pos] - p3;
+                p3 = data[pos++];
+            }
+            for (; d < bufLen; ++d) {
+                buf[d] = 0;
+            }
+            const written = lz4.compressBlockHC(buf, compBuf, 0);
+            const block = new Uint8Array(written + 4);
+            new DataView(block.buffer).setUint32(0, written, true);
+            for (let i = 0; i < written; ++i) {
+                block[i + 4] = compBuf[i];
+            }
+            buffers.push(block);
+        }
+
+        return new Blob(buffers, { type: 'application/octet-stream' });
     }
 
     public export(): string {
