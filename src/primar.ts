@@ -46,15 +46,39 @@ export class Primar {
     private imageWriter = new lz4s.Streamer(this.bufferSize);
     private firstMap: Uint8Array | undefined;
     private skipped = 0;
+    private pos = 0;
+    private readonly useSubFilter = false;
 
     private imageWriterFilter(buf: Uint8Array): void {
-        if (this.skipped < this.bufferSize) {
-            // TODO: skip first map
+        if (!this.useSubFilter) {
+            return;
         }
-        // TODO: apply sub filter
-        // for (let di = this.used, si = 0, diEnd = di + src.byteLength; di < diEnd; ++si, di += 4) {
-        //     bufView.setInt32(di, src[si] - firstMap[si], true);
-        // }
+        if (!this.firstMap) {
+            throw new Error('firstMap is not ready');
+        }
+        const siEnd = this.firstMap.byteLength;
+        if (this.skipped < siEnd) {
+            if (this.skipped + buf.byteLength <= siEnd) {
+                this.skipped += buf.byteLength;
+                return;
+            }
+            const skipSize = siEnd - this.skipped;
+            buf = new Uint8Array(buf.buffer, buf.byteOffset + skipSize, buf.length - skipSize);
+            this.skipped += skipSize;
+        }
+        const src = new DataView(this.firstMap.buffer, this.firstMap.byteOffset, this.firstMap.byteLength);
+        const dest = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+        const diEnd = dest.byteLength;
+        let di = 0, si = this.pos;
+        while (di < diEnd) {
+            for (let i = 0, len = Math.min(diEnd - di, siEnd - si); i < len; di += 4, si += 4, i += 4) {
+                dest.setInt32(di, dest.getInt32(di, true) - src.getInt32(si, true), true);
+            }
+            if (si === siEnd) {
+                si = 0;
+            }
+        }
+        this.pos = si;
     }
 
     public addImage(image: tileder.Image): void {
