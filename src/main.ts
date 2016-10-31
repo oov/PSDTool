@@ -1221,15 +1221,15 @@ export class Main {
                 td.finish(
                     false,
                     (tsx: tileder.Tsx, progress: number) => {
-                        prog.update(progress, `compressing tsx...`);
+                        prog.update(progress, `compressing tsxes...`);
                         z.addTsx(tsx);
                     },
                     (image: tileder.Image, progress: number) => {
-                        prog.update(progress, `compressing image...`);
+                        prog.update(progress, `compressing images...`);
                         z.addImage(image);
                     },
                     () => {
-                        prog.update(1, 'building a file...');
+                        prog.update(1, 'building a file... (sometimes it takes a long time)');
                         z.generate(faviewData).then(b => {
                             saveAs(b, 'tiled.prima');
                             prog.close();

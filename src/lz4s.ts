@@ -23,27 +23,34 @@ class Compresser {
         this.worker.onmessage = e => {
             const callback = this._callbacks.shift();
             if (callback) {
-                callback(e.data.buffer.buffer);
+                if (e.data.compressed) {
+                    callback(e.data.compressed, true);
+                } else {
+                    callback(e.data.original, false);
+                }
             }
         };
     }
 
-    private _callbacks: ((ab: ArrayBuffer) => void)[] = [];
-    public compressHC(buffer: ArrayBuffer): Promise<ArrayBuffer> {
-        return new Promise<ArrayBuffer>(resolve => {
-            this._callbacks.push(ab => resolve(ab));
+    private _callbacks: ((ab: ArrayBuffer, success: boolean) => void)[] = [];
+    public compressHC(buffer: ArrayBuffer): Promise<[ArrayBuffer, boolean]> {
+        return new Promise<[ArrayBuffer, boolean]>(resolve => {
+            this._callbacks.push((ab, success) => resolve([ab, success]));
             this.worker.postMessage({ buffer }, [buffer]);
         });
     }
     public get tasks(): number { return this._callbacks.length; }
 
-    private static _compress(src: ArrayBuffer, compBuffer: Uint8Array | undefined, LZ4: any): [ArrayBuffer, Uint8Array] {
+    private static _compress(src: ArrayBuffer, compBuffer: Uint8Array | undefined, LZ4: any): [ArrayBuffer | undefined, Uint8Array] {
         const len: number = LZ4.compressBlockBound(src.byteLength);
         if (!compBuffer || compBuffer.byteLength < len) {
             compBuffer = new Uint8Array(len);
         }
         const written: number = LZ4.compressBlockHC(new Uint8Array(src), compBuffer);
-        return [compBuffer.slice(0, written), compBuffer];
+        if (written > src.byteLength) {
+            return [undefined, compBuffer];
+        }
+        return [compBuffer.slice(0, written).buffer, compBuffer];
     }
 
     private static workerURL: string;
@@ -57,7 +64,11 @@ importScripts('${location.protocol}//${location.host}/js/lz4.js');
 var compBuffer, compress = ${Compresser._compress.toString()};
 onmessage = function(e){
     var r = compress(e.data.buffer, compBuffer, LZ4);
-    postMessage({ buffer: r[0] }, [r[0].buffer]);
+    if (r[0]) {
+        postMessage({ compressed: r[0] }, [r[0]]);
+    } else {
+        postMessage({ original: e.data.buffer }, [e.data.buffer]);
+    }
     compBuffer = r[1];
 };`], { type: 'text/javascript' }));
         return Compresser.workerURL;
@@ -87,12 +98,12 @@ class CompressWorkers {
         }
     }
 
-    private _compressHC(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+    private _compressHC(buffer: ArrayBuffer): Promise<[ArrayBuffer, boolean]> {
         return this._waitReadyCompressers(this.queueMax).then(c => c.compressHC(buffer));
     }
 
     private static _instance: CompressWorkers;
-    public static compressHC(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+    public static compressHC(buffer: ArrayBuffer): Promise<[ArrayBuffer, boolean]> {
         if (!CompressWorkers._instance) {
             CompressWorkers._instance = new CompressWorkers(2, 3);
         }
@@ -101,7 +112,7 @@ class CompressWorkers {
 }
 
 export class Streamer {
-    private buffers: Promise<ArrayBuffer>[] = [];
+    private buffers: Promise<[ArrayBuffer, boolean]>[] = [];
     private buffer = new Uint8Array(this.bufferSize);
     private used = 0;
 
@@ -186,9 +197,9 @@ export class Streamer {
             abs.push(header);
             totalSize += header.byteLength;
 
-            for (const ab of r) {
+            for (const [ab, success] of r) {
                 const size = new ArrayBuffer(4);
-                new DataView(size).setUint32(0, ab.byteLength, true);
+                new DataView(size).setUint32(0, ab.byteLength | (success ? 0 : 0x80000000), true);
                 abs.push(size, ab);
                 totalSize += size.byteLength + ab.byteLength;
             }
