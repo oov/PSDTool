@@ -1218,24 +1218,20 @@ export class Main {
             },
             () => {
                 const z = new primar.Primar((faviewData.width * faviewData.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024);
-                const images: Promise<Blob>[] = [];
                 td.finish(
                     false,
                     (tsx: tileder.Tsx, progress: number) => {
-                        prog.update(progress, `compressing image...`);
-                        images.push(new Promise(resolve => resolve(tsx.getLZ4Image())));
+                        prog.update(progress, `compressing tsx...`);
+                        z.addTsx(tsx);
                     },
                     (image: tileder.Image, progress: number) => {
-                        prog.update(progress, `compressing maps...`);
-                        z.addMap(image.data);
+                        prog.update(progress, `compressing image...`);
+                        z.addImage(image);
                     },
                     () => {
-                        Promise.all(images).then(blobs => {
-                            for (const b of blobs) {
-                                z.addImage(b);
-                            }
-                            prog.update(1, 'building a file...');
-                            saveAs(z.generate(faviewData), 'tiled.prima');
+                        prog.update(1, 'building a file...');
+                        z.generate(faviewData).then(b => {
+                            saveAs(b, 'tiled.prima');
                             prog.close();
                         });
                     }

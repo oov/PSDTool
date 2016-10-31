@@ -1,117 +1,106 @@
-import * as lz4 from './lz4/src/lz4';
-
-function copy(dest: Uint8Array, src: Uint8Array, di: number, si: number, len: number) {
-    for (let i = 0; i < len; ++i) {
-        dest[di++] = src[si++];
-    }
-}
-
-function fillZero(dest: Uint8Array, di: number, len: number) {
-    for (let i = 0; i < len; ++i) {
-        dest[di++] = 0;
-    }
-}
+import * as lz4s from './lz4s';
+import * as tileder from './tileder';
 
 export class Primar {
     constructor(private readonly bufferSize: number) {
         if (bufferSize !== 1024 * 1024 && bufferSize !== 4 * 1024 * 1024) {
             throw new Error(`unsupported buffer size: ${bufferSize}`);
         }
+        this.imageWriter.onFilter = buf => this.imageWriterFilter(buf);
     }
 
-    private images: Blob[] = [];
-    public addImage(blob: Blob): void {
-        this.images.push(blob);
-    }
-
-    private blocks: ArrayBuffer[] = [];
-    private buffer = new Uint8Array(this.bufferSize);
-    private compBuf = new Uint8Array(lz4.compressBlockBound(this.buffer.length));
-    private used = 0;
-    public addMap(ab: ArrayBuffer): void {
-        const src = new Uint8Array(ab);
-        if (this.buffer.length - this.used >= src.length) {
-            copy(this.buffer, src, this.used, 0, src.length);
-            this.used += src.length;
-        } else {
-            const alen = this.buffer.length - this.used;
-            copy(this.buffer, src, this.used, 0, alen);
-
-            {
-                const written = lz4.compressBlockHC(this.buffer, this.compBuf, 0);
-                const block = new Uint8Array(written + 4);
-                new DataView(block.buffer).setUint32(0, written, true);
-                copy(block, this.compBuf, 4, 0, written);
-                this.blocks.push(block.buffer);
+    private tsxes: Promise<[ArrayBuffer[], number]>[] = [];
+    public addTsx(tsx: tileder.Tsx): void {
+        const st = new lz4s.Streamer(4 * 1024 * 1024);
+        let px0 = 0, px1 = 0, px2 = 0, px3 = 0;
+        st.onFilter = buf => {
+            let p0 = px0, p1 = px1, p2 = px2, p3 = px3, i = 0;
+            const end = buf.byteLength;
+            while (i < end) {
+                buf[i] -= p0;
+                p0 += buf[i++];
+                buf[i] -= p1;
+                p1 += buf[i++];
+                buf[i] -= p2;
+                p2 += buf[i++];
+                buf[i] -= p3;
+                p3 += buf[i++];
             }
-
-            this.used = src.length - alen;
-            copy(this.buffer, src, 0, alen, this.used);
-        }
-    }
-
-    private finishMap(): void {
-        if (this.used === 0) {
-            return;
-        }
-        fillZero(this.buffer, this.used, this.buffer.length - this.used);
-        const written = lz4.compressBlockHC(this.buffer, this.compBuf, 0);
-        const block = new Uint8Array(written + 4);
-        new DataView(block.buffer).setUint32(0, written, true);
-        copy(block, this.compBuf, 4, 0, written);
-        this.blocks.push(block.buffer);
-        this.used = 0;
-    }
-
-    public generate(structure: any): Blob {
-        this.finishMap();
-
-        let total = 7;
-        for (const ab of this.blocks) {
-            total += ab.byteLength;
-        }
-        total += 4;
-        for (const b of this.images) {
-            total += 8 + b.size;
-        }
-
-        const archive: (Blob | ArrayBuffer)[] = [];
-        {
-            const blob = new Blob([JSON.stringify(structure)], { type: 'application/json; charset=utf-8' });
-            const header = new ArrayBuffer(16);
-            const dv = new DataView(header);
-            dv.setUint32(0, 0x614e6e44, true);
-            dv.setUint32(4, total + 8 + blob.size, true);
-            dv.setUint32(8, 0x184d2a50, true);
-            dv.setUint32(12, blob.size, true);
-            archive.push(header, blob);
-        }
-        for (const image of this.images) {
+            px0 = p0;
+            px1 = p1;
+            px2 = p2;
+            px3 = p3;
+        };
+        st.addUint8Array(new Uint8Array(tsx.data));
+        this.tsxes.push(st.finish().then(r => {
+            const [buffers, totalSize] = r;
             const header = new ArrayBuffer(8);
             const dv = new DataView(header);
-            dv.setUint32(0, 0x184d2a51, true);
-            dv.setUint32(4, image.size, true);
-            archive.push(header, image);
-        }
-        const header = new ArrayBuffer(7);
-        const dv = new DataView(header);
-        dv.setUint32(0, 0x184d2204, true);
-        switch (this.bufferSize) {
-            case 1024 * 1024:
-                dv.setUint8(4, 0x60);
-                dv.setUint8(5, 0x60);
-                dv.setUint8(6, 0x51);
-                break;
-            case 4 * 1024 * 1024:
-                dv.setUint8(4, 0x60);
-                dv.setUint8(5, 0x70);
-                dv.setUint8(6, 0x73);
-                break;
-        }
-        archive.push(header);
+            dv.setUint32(0, tsx.width, true);
+            dv.setUint32(4, tsx.height, true);
+            buffers.unshift(header);
+            return [buffers, totalSize + 8];
+        }));
+    }
 
-        Array.prototype.push.apply(archive, this.blocks);
-        archive.push(new ArrayBuffer(4));
-        return new Blob(archive, { type: 'application/octet-binary' });
+    private imageWriter = new lz4s.Streamer(this.bufferSize);
+    private firstMap: Uint8Array | undefined;
+    private skipped = 0;
+
+    private imageWriterFilter(buf: Uint8Array): void {
+        if (this.skipped < this.bufferSize) {
+            // TODO: skip first map
+        }
+        // TODO: apply sub filter
+        // for (let di = this.used, si = 0, diEnd = di + src.byteLength; di < diEnd; ++si, di += 4) {
+        //     bufView.setInt32(di, src[si] - firstMap[si], true);
+        // }
+    }
+
+    public addImage(image: tileder.Image): void {
+        const src = new Int32Array(image.data);
+        if (!this.firstMap) {
+            const firstMap = this.firstMap = new Int32Array(src.length);
+            for (let i = 0, len = src.length; i < len; ++i) {
+                firstMap[i] = src[i];
+            }
+        }
+        this.imageWriter.addInt32Array(src);
+    }
+
+    public generate(structure: any): Promise<Blob> {
+        return Promise.all([
+            Promise.all(this.tsxes),
+            this.imageWriter.finish()
+        ]).then(r => {
+            const [tsxes, imageSet] = r;
+            const [imageSetBuffers, imageSetSize] = imageSet;
+            let total = imageSetSize;
+            for (const [, totalSize] of tsxes) {
+                total += 8 + totalSize;
+            }
+
+            const archive: (Blob | ArrayBuffer)[] = [];
+            {
+                const blob = new Blob([JSON.stringify(structure)], { type: 'application/json; charset=utf-8' });
+                const header = new ArrayBuffer(16);
+                const dv = new DataView(header);
+                dv.setUint32(0, 0x614e6e44, true);
+                dv.setUint32(4, total + 8 + blob.size, true);
+                dv.setUint32(8, 0x184d2a50, true);
+                dv.setUint32(12, blob.size, true);
+                archive.push(header, blob);
+            }
+            for (const [abs, totalSize] of tsxes) {
+                const header = new ArrayBuffer(8);
+                const dv = new DataView(header);
+                dv.setUint32(0, 0x184d2a51, true);
+                dv.setUint32(4, totalSize, true);
+                archive.push(header);
+                Array.prototype.push.apply(archive, abs);
+            }
+            Array.prototype.push.apply(archive, imageSetBuffers);
+            return new Blob(archive, { type: 'application/octet-binary' });
+        });
     }
 }

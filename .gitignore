@@ -2,5 +2,6 @@ js/index.js
 js/3rd.min.js
 js/psd.min.js
 js/psd.min.js.map
+js/lz4.js
 css/3rd.min.css
 node_modules
