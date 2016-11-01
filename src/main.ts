@@ -1105,7 +1105,7 @@ export class Main {
                     td.add(name, image, next);
                 },
                 () => {
-                    td.finish(tileFormat === 'binz', (tsx: tileder.Tsx, progress: number) => {
+                    td.finish(tileFormat === 'binz', (tsx: tileder.Tsx, index: number, total: number) => {
                         ++queue;
                         Main.canvasToBlob(tsx.getImage(document)).then(blob => {
                             z.add(`${tsx.filename}.png`, blob, () => {
@@ -1125,7 +1125,7 @@ export class Main {
                                 }
                             }, e => errorHandler('cannot write png to a zip archive', e));
                         });
-                    }, (image: tileder.Image, progress: number) => {
+                    }, (image: tileder.Image, index: number, total: number) => {
                         let f = compress ? z.addCompress : z.add;
                         f = f.bind(z);
                         ++queue;
@@ -1133,7 +1133,7 @@ export class Main {
                             `${image.name}.${ext}`,
                             image.export(fileFormat, tileFormat, useTSX),
                             () => {
-                                prog.update(progress / 2 + 1 / 2, `${image.name}.${ext}`);
+                                prog.update((index / total) / 2 + 1 / 2, `${image.name}.${ext}`);
                                 processed();
                             },
                             e => errorHandler('cannot write file to a zip archive', e)
@@ -1220,12 +1220,15 @@ export class Main {
                 const z = new primar.Primar((faviewData.width * faviewData.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024);
                 td.finish(
                     false,
-                    (tsx: tileder.Tsx, progress: number) => {
-                        prog.update(progress, `compressing tsxes...`);
+                    (tsx: tileder.Tsx, index: number, total: number) => {
+                        prog.update(index / total, `compressing tsxes...`);
                         z.addTsx(tsx);
                     },
-                    (image: tileder.Image, progress: number) => {
-                        prog.update(progress, `compressing images...`);
+                    (image: tileder.Image, index: number, total: number) => {
+                        prog.update(index / total, `compressing images...`);
+                        if (index === 0) {
+                            z.setImageTotal(total);
+                        }
                         z.addImage(image);
                     },
                     () => {

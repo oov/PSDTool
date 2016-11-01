@@ -3,6 +3,7 @@ import * as crc32 from './crc32';
 
 export interface ImageData {
     index: number;
+    hash: number;
     name: string;
     width: number;
     height: number;
@@ -16,6 +17,7 @@ export interface ImageData {
 
 export class Image implements ImageData {
     public index: number;
+    public hash: number;
     public name: string;
     public width: number;
     public height: number;
@@ -30,6 +32,7 @@ export class Image implements ImageData {
 
     constructor(data: ImageData, tileSet: Tsx[]) {
         this.index = data.index;
+        this.hash = data.hash;
         this.name = data.name;
         this.width = data.width;
         this.height = data.height;
@@ -408,8 +411,8 @@ export class Tileder {
 
     public finish(
         compressMap: boolean,
-        tsxCallback: (tsx: Tsx, progress: number) => void,
-        imageCallback: (image: ImageData, progress: number) => void,
+        tsxCallback: (tsx: Tsx, index: number, total: number) => void,
+        imageCallback: (image: ImageData, index: number, total: number) => void,
         complete: () => void
     ): void {
         let find = () => {
@@ -432,11 +435,11 @@ export class Tileder {
                         const o = new Tsx(tsx, gid, index.toString());
                         tileSet.push(o);
                         gid += tsx.tileCount;
-                        tsxCallback(o, index / total);
+                        tsxCallback(o, index, total);
                     },
                     (image, index, total) => {
                         const o = new Image(image, tileSet);
-                        imageCallback(o, index / total);
+                        imageCallback(o, index, total);
                     },
                     complete
                 );
@@ -492,6 +495,26 @@ class Chopper {
         crc32: (b: ArrayBuffer, table?: Uint32Array) => number,
         crc32Table: Uint32Array
     ): [ImageData, Map<number, Tile>, ArrayBuffer[]] {
+        const calcHash = (a: Uint32Array): number => {
+            const hashBits = 32;
+            const t: number[] = new Array(hashBits + 1);
+            const per = a.length / hashBits | 0;
+            t[0] = 0;
+            for (let i = 0, n = 0, v = 0, ti = 0; i < a.length; ++i) {
+                v += a[i];
+                if (++n === per) {
+                    t[++ti] = v;
+                    n = 0;
+                    v = 0;
+                }
+            }
+            let h = 0;
+            for (let i = 1; i < t.length; ++i) {
+                h = (h << 1) | (t[i] > t[i - 1] ? 1 : 0);
+            }
+            return h;
+        };
+
         const buffers: ArrayBuffer[] = [];
         const tile = new Map<number, Tile>();
         const tileSize4 = tileSize << 2;
@@ -596,6 +619,7 @@ class Chopper {
         buffers.push(imageHash.buffer);
         return [{
             index,
+            hash: calcHash(imageHash),
             name,
             width: bwc,
             height: bhc,
@@ -677,8 +701,27 @@ class Builder {
         imageCallback: (tsx: ImageData, index: number, total: number) => void,
     ): void {
         const map = buildTsx(tile, tileSize, tsxCallback, calcImageSize);
+
+        const popCount = (v: number): number => {
+            v = (v & 0x55555555) + (v >>> 1 & 0x55555555);
+            v = (v & 0x33333333) + (v >>> 2 & 0x33333333);
+            v = (v & 0x0f0f0f0f) + (v >>> 4 & 0x0f0f0f0f);
+            v = (v & 0x00ff00ff) + (v >>> 8 & 0x00ff00ff);
+            return (v & 0x0000ffff) + (v >>> 16 & 0x0000ffff);
+        };
+        let h = 0;
+        for (let i = 0; i < images.length; ++i) {
+            if (images[i].index === 0) {
+                h = images[i].hash;
+                break;
+            }
+        }
         images.sort((a, b) => {
-            return a.index === b.index ? 0 : a.index < b.index ? -1 : 1;
+            if (a.hash === b.hash) {
+                return a.index === b.index ? 0 : a.index < b.index ? -1 : 1;
+            }
+            const ap = popCount(a.hash ^ h), bp = popCount(b.hash ^ h);
+            return bp < ap ? -1 : 1;
         });
         for (let i = 0; i < images.length; ++i) {
             const image = images[i];

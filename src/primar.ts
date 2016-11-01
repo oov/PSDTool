@@ -81,7 +81,16 @@ export class Primar {
         this.pos = si;
     }
 
+    private imageIndices: DataView | undefined;
+    private imageIndex = 0;
+    public setImageTotal(n: number): void {
+        this.imageIndices = new DataView(new ArrayBuffer(n * 4));
+    }
+
     public addImage(image: tileder.Image): void {
+        if (this.imageIndices) {
+            this.imageIndices.setUint32(image.index * 4, this.imageIndex++, true);
+        }
         const src = new Int32Array(image.data);
         if (!this.firstMap) {
             const firstMap = this.firstMap = new Int32Array(src.length);
@@ -99,7 +108,11 @@ export class Primar {
         ]).then(r => {
             const [tsxes, imageSet] = r;
             const [imageSetBuffers, imageSetSize] = imageSet;
-            let total = imageSetSize;
+            const imageIndices = this.imageIndices;
+            if (!imageIndices) {
+                throw new Error('image indexes is not initialized.');
+            }
+            let total = 8 + imageIndices.byteLength + imageSetSize;
             for (const [, totalSize] of tsxes) {
                 total += 8 + totalSize;
             }
@@ -122,6 +135,13 @@ export class Primar {
                 dv.setUint32(4, totalSize, true);
                 archive.push(header);
                 Array.prototype.push.apply(archive, abs);
+            }
+            {
+                const header = new ArrayBuffer(8);
+                const dv = new DataView(header);
+                dv.setUint32(0, 0x184d2a52, true);
+                dv.setUint32(4, imageIndices.byteLength, true);
+                archive.push(header, imageIndices.buffer);
             }
             Array.prototype.push.apply(archive, imageSetBuffers);
             return new Blob(archive, { type: 'application/octet-binary' });
