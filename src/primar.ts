@@ -2,10 +2,12 @@ import * as lz4s from './lz4s';
 import * as tileder from './tileder';
 
 export class Primar {
-    constructor(private readonly bufferSize: number) {
-        if (bufferSize !== 1024 * 1024 && bufferSize !== 4 * 1024 * 1024) {
-            throw new Error(`unsupported buffer size: ${bufferSize}`);
-        }
+    private readonly bufferSize = (this.width * this.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024;
+    constructor(
+        private readonly width: number,
+        private readonly height: number,
+        private readonly tileSize: number
+    ) {
         this.imageWriter.onFilter = buf => this.imageWriterFilter(buf);
     }
 
@@ -101,49 +103,66 @@ export class Primar {
         this.imageWriter.addInt32Array(src);
     }
 
-    public generate(structure: any): Promise<Blob> {
-        return Promise.all([
-            Promise.all(this.tsxes),
-            this.imageWriter.finish()
-        ]).then(r => {
+    public generate(patterns: any): Promise<Blob> {
+        const pData: Promise<[number, ArrayBuffer[], number]> = this.imageWriter.finish().then(r => {
+            const [buffers, size] = r;
+            const s = new lz4s.Streamer(4 * 1024 * 1024);
+            for (const b of buffers) {
+                s.addUint8Array(new Uint8Array(b));
+            }
+            return s.finish().then(r => {
+                const [buffers2, size2] = r;
+                return [size, buffers2, size2];
+            });
+        });
+        return Promise.all([Promise.all(this.tsxes), pData]).then(r => {
             const [tsxes, imageSet] = r;
-            const [imageSetBuffers, imageSetSize] = imageSet;
+            const [originalSize, imageSetBuffers, imageSetSize] = imageSet;
             const imageIndices = this.imageIndices;
             if (!imageIndices) {
                 throw new Error('image indexes is not initialized.');
             }
-            let total = 8 + imageIndices.byteLength + imageSetSize;
+            let total = 8 + imageIndices.byteLength + 12 + imageSetSize;
             for (const [, totalSize] of tsxes) {
                 total += 8 + totalSize;
             }
 
             const archive: (Blob | ArrayBuffer)[] = [];
             {
-                const blob = new Blob([JSON.stringify(structure)], { type: 'application/json; charset=utf-8' });
-                const header = new ArrayBuffer(16);
-                const dv = new DataView(header);
-                dv.setUint32(0, 0x614e6e44, true);
-                dv.setUint32(4, total + 8 + blob.size, true);
-                dv.setUint32(8, 0x184d2a50, true);
-                dv.setUint32(12, blob.size, true);
-                archive.push(header, blob);
+                const blob = new Blob([JSON.stringify(patterns)], { type: 'application/json; charset=utf-8' });
+                const v = new DataView(new ArrayBuffer(34));
+                v.setUint32(0, 0x46464952, true); // 'RIFF'
+                v.setUint32(4, 8 + 10 + 8 + blob.size + total, true);
+                v.setUint32(8, 0x414e4e44, true); // 'DNNA'
+                v.setUint32(12, 10, true);
+                v.setUint32(16, this.width, true);
+                v.setUint32(20, this.height, true);
+                v.setUint16(24, this.tileSize, true);
+                v.setUint32(26, 0x4e525450, true); // 'PTRN'
+                v.setUint32(30, blob.size, true);
+                archive.push(v.buffer, blob);
             }
             for (const [abs, totalSize] of tsxes) {
-                const header = new ArrayBuffer(8);
-                const dv = new DataView(header);
-                dv.setUint32(0, 0x184d2a51, true);
-                dv.setUint32(4, totalSize, true);
-                archive.push(header);
+                const v = new DataView(new ArrayBuffer(8));
+                v.setUint32(0, 0x20474d49, true); // 'IMG '
+                v.setUint32(4, totalSize, true);
+                archive.push(v.buffer);
                 Array.prototype.push.apply(archive, abs);
             }
             {
-                const header = new ArrayBuffer(8);
-                const dv = new DataView(header);
-                dv.setUint32(0, 0x184d2a52, true);
-                dv.setUint32(4, imageIndices.byteLength, true);
-                archive.push(header, imageIndices.buffer);
+                const v = new DataView(new ArrayBuffer(8));
+                v.setUint32(0, 0x504d4449, true); // 'IDMP'
+                v.setUint32(4, imageIndices.byteLength, true);
+                archive.push(v.buffer, imageIndices.buffer);
             }
-            Array.prototype.push.apply(archive, imageSetBuffers);
+            {
+                const v = new DataView(new ArrayBuffer(12));
+                v.setUint32(0, 0x454c4954, true); // 'TILE'
+                v.setUint32(4, imageSetSize + 4, true);
+                v.setUint32(8, originalSize, true);
+                archive.push(v.buffer);
+                Array.prototype.push.apply(archive, imageSetBuffers);
+            }
             return new Blob(archive, { type: 'application/octet-binary' });
         });
     }

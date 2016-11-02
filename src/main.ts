@@ -1190,18 +1190,14 @@ export class Main {
     private exportFaviewPRIMA(): void {
         const td = new tileder.Tileder();
         const prog = new ProgressDialog('Exporting...', '');
-        const faviewData = {
-            width: 0,
-            height: 0,
-            tileSize: 16,
-            roots: this.faview.items.map(root => {
-                return {
-                    name: root.name,
-                    captions: root.selects.map(sel => Main.cleanForFilename(sel.caption)),
-                    selects: root.selects.map(sel => sel.items.map(item => Main.cleanForFilename(item.name)))
-                };
-            })
-        };
+        let width = 0, height = 0, tileSize = 16;
+        const patterns = this.faview.items.map(root => {
+            return {
+                name: root.name,
+                captions: root.selects.map(sel => Main.cleanForFilename(sel.caption)),
+                selects: root.selects.map(sel => sel.items.map(item => Main.cleanForFilename(item.name)))
+            };
+        });
         this.enumerateFaview(
             (
                 path: { caption: string, name: string, index: number }[],
@@ -1209,15 +1205,15 @@ export class Main {
                 index: number, total: number,
                 next: () => void
             ) => {
-                if (faviewData.width === 0) {
-                    faviewData.width = image.width;
-                    faviewData.height = image.height;
+                if (width === 0) {
+                    width = image.width;
+                    height = image.height;
                 }
                 prog.update(index / total, `${index}/${total}`);
                 td.add('', image, next);
             },
             () => {
-                const z = new primar.Primar((faviewData.width * faviewData.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024);
+                const z = new primar.Primar(width, height, tileSize);
                 td.finish(
                     false,
                     (tsx: tileder.Tsx, index: number, total: number) => {
@@ -1233,7 +1229,7 @@ export class Main {
                     },
                     () => {
                         prog.update(1, 'building a file... (sometimes it takes a long time)');
-                        z.generate(faviewData).then(b => {
+                        z.generate(patterns).then(b => {
                             saveAs(b, 'tiled.prima');
                             prog.close();
                         });
