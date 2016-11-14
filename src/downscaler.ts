@@ -41,16 +41,14 @@ export class DownScaler {
             throw new Error('cannot get CanvasRenderingContext2D from src');
         }
         const srcImageData = srcCtx.getImageData(0, 0, this.src.width, this.src.height);
-        const tmp = new Float32Array(this.destWidth * this.destHeight << 2);
-        DownScaler.calculate(tmp, srcImageData.data, this.scale, this.src.width, this.src.height);
+        const destImageData = srcCtx.createImageData(this.destWidth, this.destHeight);
+        DownScaler.calculate(destImageData, srcImageData);
         this.adjustSize();
         const ctx = this.dest.getContext('2d');
         if (!ctx) {
             throw new Error('cannot get CanvasRenderingContext2D from dest');
         }
-        const imgData = ctx.createImageData(this.destWidth, this.destHeight);
-        DownScaler.float32ToUint8ClampedArray(imgData.data, tmp, this.destWidth, this.destHeight, imgData.width);
-        ctx.putImageData(imgData, 0, 0);
+        ctx.putImageData(destImageData, 0, 0);
         return this.dest;
     }
 
@@ -63,9 +61,16 @@ export class DownScaler {
             if (!ctx) {
                 throw new Error('cannot get CanvasRenderingContext2D from dest');
             }
-            const imgData = ctx.createImageData(this.destWidth, this.destHeight);
-            DownScaler.copyBuffer(imgData.data, new Uint8Array(e.data.buffer), this.destWidth, this.destHeight, imgData.width);
-            ctx.putImageData(imgData, 0, 0);
+            const destImageData = ctx.createImageData(this.destWidth, this.destHeight);
+            const s = new Uint8Array(e.data.dest.ab);
+            const d = new Uint8Array(destImageData.data.buffer, destImageData.data.byteOffset, destImageData.data.byteLength);
+            for (let i = 0, len = d.length; i < len; i += 4) {
+                d[i] = s[i];
+                d[i + 1] = s[i + 1];
+                d[i + 2] = s[i + 2];
+                d[i + 3] = s[i + 3];
+            }
+            ctx.putImageData(destImageData, 0, 0);
             callback(this.dest);
         };
         const srcCtx = this.src.getContext('2d');
@@ -73,29 +78,23 @@ export class DownScaler {
             throw new Error('cannot get CanvasRenderingContext2D from src');
         }
         const srcImageData = srcCtx.getImageData(0, 0, this.src.width, this.src.height);
-        w.postMessage({
-            src: srcImageData.data.buffer,
-            srcWidth: this.src.width,
-            srcHeight: this.src.height,
-            scale: this.scale,
-            destWidth: this.destWidth,
-            destHeight: this.destHeight
-        }, [srcImageData.data.buffer]);
-    }
-
-    static copyBuffer(dest: Uint8ClampedArray, src: Uint8Array, srcWidth: number, srcHeight: number, destWidth: number) {
-        srcWidth *= 4;
-        destWidth *= 4;
-        for (let x: number, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
-            sl = srcWidth * y;
-            dl = destWidth * y;
-            for (x = 0; x < srcWidth; x += 4) {
-                dest[dl + x] = src[sl + x];
-                dest[dl + x + 1] = src[sl + x + 1];
-                dest[dl + x + 2] = src[sl + x + 2];
-                dest[dl + x + 3] = src[sl + x + 3];
-            }
+        const destCtx = this.dest.getContext('2d');
+        if (!destCtx) {
+            throw new Error('cannot get CanvasRenderingContext2D from dest');
         }
+        const destImageData = destCtx.createImageData(this.destWidth, this.destHeight);
+        w.postMessage({
+            src: {
+                ab: srcImageData.data.buffer,
+                width: srcImageData.width,
+                height: srcImageData.height
+            },
+            dest: {
+                ab: destImageData.data.buffer,
+                width: destImageData.width,
+                height: destImageData.height
+            }
+        }, [srcImageData.data.buffer, destImageData.data.buffer]);
     }
 
     static workerURL: string;
@@ -108,14 +107,18 @@ export class DownScaler {
         const sourceCode = `
 'use strict';
 var calculate = ${DownScaler.calculate.toString()};
-var float32ToUint8ClampedArray = ${DownScaler.float32ToUint8ClampedArray.toString()};
 onmessage = function(e) {
     var d = e.data;
-    var tmp = new Float32Array(d.destWidth * d.destHeight << 2);
-    calculate(tmp, new Uint8Array(d.src), d.scale, d.srcWidth, d.srcHeight);
-    var dest = new Uint8ClampedArray(d.destWidth * d.destHeight << 2);
-    float32ToUint8ClampedArray(dest, tmp, d.destWidth, d.destHeight, d.destWidth);
-    postMessage({buffer: dest.buffer}, [dest.buffer]);
+    calculate({
+        data: new Uint8ClampedArray(d.dest.ab),
+        width: d.dest.width,
+        height: d.dest.height
+    }, {
+        data: new Uint8ClampedArray(d.src.ab),
+        width: d.src.width,
+        height: d.src.height
+    });
+    postMessage({dest: d.dest}, [d.dest.ab]);
 };`;
         DownScaler.workerURL = URL.createObjectURL(new Blob([sourceCode], { type: 'text/javascript' }));
         return DownScaler.workerURL;
@@ -128,37 +131,22 @@ onmessage = function(e) {
         }
     }
 
-    static float32ToUint8ClampedArray(dest: Uint8ClampedArray, src: Float32Array, srcWidth: number, srcHeight: number, destWidth: number) {
-        srcWidth *= 4;
-        destWidth *= 4;
-        for (let ma: number, x: number, y = 0, sl = 0, dl = 0; y < srcHeight; ++y) {
-            sl = srcWidth * y;
-            dl = destWidth * y;
-            for (x = 0; x < srcWidth; x += 4) {
-                ma = 255 / src[sl + x + 3];
-                dest[dl + x] = src[sl + x] * ma;
-                dest[dl + x + 1] = src[sl + x + 1] * ma;
-                dest[dl + x + 2] = src[sl + x + 2] * ma;
-                dest[dl + x + 3] = src[sl + x + 3];
-            }
-        }
-    }
-
-    static calculate(tbuf: Float32Array, sbuf: Uint8ClampedArray, scale: number, sw: number, sh: number): void {
-        const tw = 0 | sw * scale;
-        const sqScale = scale * scale; // square scale = area of source pixel within target
+    static calculate(dest: ImageData, src: ImageData): void {
+        const tmp = new Float32Array(dest.data.length);
+        const s = new Uint8Array(src.data.buffer, src.data.byteOffset, src.data.byteLength);
+        const d = new Uint8Array(dest.data.buffer, dest.data.byteOffset, dest.data.byteLength);
+        const dw = dest.width, dh = dest.height, dwx4 = dw << 2;
+        const sw = src.width, sh = src.height;
+        const scaleW = dw / sw, scaleH = dh / sh, boxScale = scaleW * scaleH;
         let sx = 0,
-            sy = 0,
-            sIndex = 0; // source x,y, index within source array
+            si = 0; // source x,y, index within source array
         let tx = 0,
             ty = 0,
             yIndex = 0,
-            tIndex = 0,
-            tIndex2 = 0; // target x,y, x,y index within target array
+            di = 0; // target x,y, x,y index within target array
         let tX = 0,
             tY = 0; // rounded tx, ty
         let w = 0,
-            nw = 0,
             wx = 0,
             nwx = 0,
             wy = 0,
@@ -172,28 +160,28 @@ onmessage = function(e) {
             sB = 0,
             sA = 0;
 
-        for (sy = 0; sy < sh; sy++) {
-            ty = sy * scale; // y src position within target
+        for (let sy = 0; sy < sh; ++sy) {
+            ty = sy * scaleH; // y src position within target
             tY = 0 | ty; // rounded : target pixel's y
-            yIndex = (tY * tw) << 2; // line index within target array
-            crossY = (tY !== (0 | ty + scale));
+            yIndex = tY * dwx4; // line index within target array
+            crossY = (tY !== (0 | ty + scaleH));
             if (crossY) { // if pixel is crossing botton target pixel
                 wy = (tY + 1 - ty); // weight of point within target pixel
-                nwy = (ty + scale - tY - 1); // ... within y+1 target pixel
+                nwy = (ty + scaleH - tY - 1); // ... within y+1 target pixel
             }
-            for (sx = 0; sx < sw; sx++ , sIndex += 4) {
-                tx = sx * scale; // x src position within target
+            for (sx = 0; sx < sw; ++sx, si += 4) {
+                tx = sx * scaleW; // x src position within target
                 tX = 0 | tx; // rounded : target pixel's x
-                tIndex = yIndex + (tX << 2); // target pixel index within target array
-                crossX = (tX !== (0 | tx + scale));
+                di = yIndex + (tX << 2); // target pixel index within target array
+                crossX = (tX !== (0 | tx + scaleW));
                 if (crossX) { // if pixel is crossing target pixel's right
                     wx = (tX + 1 - tx); // weight of point within target pixel
-                    nwx = (tx + scale - tX - 1); // ... within x+1 target pixel
+                    nwx = (tx + scaleW - tX - 1); // ... within x+1 target pixel
                 }
-                sR = sbuf[sIndex]; // retrieving r,g,b for curr src px.
-                sG = sbuf[sIndex + 1];
-                sB = sbuf[sIndex + 2];
-                sA = sbuf[sIndex + 3];
+                sR = s[si]; // retrieving r,g,b for curr src px.
+                sG = s[si + 1];
+                sB = s[si + 2];
+                sA = s[si + 3];
                 if (sA === 0) {
                     continue;
                 }
@@ -206,65 +194,74 @@ onmessage = function(e) {
 
                 if (!crossX && !crossY) { // pixel does not cross
                     // just add components weighted by squared scale.
-                    tbuf[tIndex] += sR * sqScale;
-                    tbuf[tIndex + 1] += sG * sqScale;
-                    tbuf[tIndex + 2] += sB * sqScale;
-                    tbuf[tIndex + 3] += sA * sqScale;
+                    tmp[di] += sR * boxScale;
+                    tmp[di + 1] += sG * boxScale;
+                    tmp[di + 2] += sB * boxScale;
+                    tmp[di + 3] += sA * boxScale;
                 } else if (crossX && !crossY) { // cross on X only
-                    w = wx * scale;
+                    w = wx * scaleW;
                     // add weighted component for current px
-                    tbuf[tIndex] += sR * w;
-                    tbuf[tIndex + 1] += sG * w;
-                    tbuf[tIndex + 2] += sB * w;
-                    tbuf[tIndex + 3] += sA * w;
+                    tmp[di] += sR * w;
+                    tmp[di + 1] += sG * w;
+                    tmp[di + 2] += sB * w;
+                    tmp[di + 3] += sA * w;
                     // add weighted component for next (tX+1) px
-                    nw = nwx * scale;
-                    tbuf[tIndex + 4] += sR * nw;
-                    tbuf[tIndex + 5] += sG * nw;
-                    tbuf[tIndex + 6] += sB * nw;
-                    tbuf[tIndex + 7] += sA * nw;
+                    w = nwx * scaleW;
+                    tmp[di + 4] += sR * w;
+                    tmp[di + 5] += sG * w;
+                    tmp[di + 6] += sB * w;
+                    tmp[di + 7] += sA * w;
                 } else if (crossY && !crossX) { // cross on Y only
-                    w = wy * scale;
+                    w = wy * scaleH;
                     // add weighted component for current px
-                    tbuf[tIndex] += sR * w;
-                    tbuf[tIndex + 1] += sG * w;
-                    tbuf[tIndex + 2] += sB * w;
-                    tbuf[tIndex + 3] += sA * w;
+                    tmp[di] += sR * w;
+                    tmp[di + 1] += sG * w;
+                    tmp[di + 2] += sB * w;
+                    tmp[di + 3] += sA * w;
                     // add weighted component for next (tY+1) px
-                    tIndex2 = tIndex + (tw << 2);
-                    nw = nwy * scale;
-                    tbuf[tIndex2] += sR * nw;
-                    tbuf[tIndex2 + 1] += sG * nw;
-                    tbuf[tIndex2 + 2] += sB * nw;
-                    tbuf[tIndex2 + 3] += sA * nw;
+                    di += dwx4;
+                    w = nwy * scaleH;
+                    tmp[di] += sR * w;
+                    tmp[di + 1] += sG * w;
+                    tmp[di + 2] += sB * w;
+                    tmp[di + 3] += sA * w;
                 } else { // crosses both x and y : four target points involved
                     // add weighted component for current px
                     w = wx * wy;
-                    tbuf[tIndex] += sR * w;
-                    tbuf[tIndex + 1] += sG * w;
-                    tbuf[tIndex + 2] += sB * w;
-                    tbuf[tIndex + 3] += sA * w;
+                    tmp[di] += sR * w;
+                    tmp[di + 1] += sG * w;
+                    tmp[di + 2] += sB * w;
+                    tmp[di + 3] += sA * w;
                     // for tX + 1; tY px
-                    nw = nwx * wy;
-                    tbuf[tIndex + 4] += sR * nw; // same for x
-                    tbuf[tIndex + 5] += sG * nw;
-                    tbuf[tIndex + 6] += sB * nw;
-                    tbuf[tIndex + 7] += sA * nw;
+                    w = nwx * wy;
+                    tmp[di + 4] += sR * w; // same for x
+                    tmp[di + 5] += sG * w;
+                    tmp[di + 6] += sB * w;
+                    tmp[di + 7] += sA * w;
                     // for tX ; tY + 1 px
-                    tIndex2 = tIndex + (tw << 2);
-                    nw = wx * nwy;
-                    tbuf[tIndex2] += sR * nw; // same for mul
-                    tbuf[tIndex2 + 1] += sG * nw;
-                    tbuf[tIndex2 + 2] += sB * nw;
-                    tbuf[tIndex2 + 3] += sA * nw;
+                    di += dwx4;
+                    w = wx * nwy;
+                    tmp[di] += sR * w; // same for mul
+                    tmp[di + 1] += sG * w;
+                    tmp[di + 2] += sB * w;
+                    tmp[di + 3] += sA * w;
                     // for tX + 1 ; tY +1 px
-                    nw = nwx * nwy;
-                    tbuf[tIndex2 + 4] += sR * nw; // same for both x and y
-                    tbuf[tIndex2 + 5] += sG * nw;
-                    tbuf[tIndex2 + 6] += sB * nw;
-                    tbuf[tIndex2 + 7] += sA * nw;
+                    w = nwx * nwy;
+                    tmp[di + 4] += sR * w; // same for both x and y
+                    tmp[di + 5] += sG * w;
+                    tmp[di + 6] += sB * w;
+                    tmp[di + 7] += sA * w;
                 }
             } // end for sx
         } // end for sy
+
+        const len = d.length;
+        for (si = 0, w = 0; si < len; si += 4) {
+            w = 255 / tmp[si + 3];
+            d[si] = tmp[si] * w;
+            d[si + 1] = tmp[si + 1] * w;
+            d[si + 2] = tmp[si + 2] * w;
+            d[si + 3] = tmp[si + 3];
+        }
     }
 }
