@@ -1,0 +1,25 @@
+{
+  "name": "downscaler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "downscaler.js",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "browserify": "^13.1.0",
+    "superstatic": "^4.0.3",
+    "tsify": "^2.0.2",
+    "typescript": "^2.0.3",
+    "watchify": "^3.7.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "superstatic --port 10081 --debug true",
+    "watch": "watchify src/downscaler.ts -p [ tsify ] --s DownScaler -o downscaler.js -v",
+    "build": "browserify src/downscaler.ts -p [ tsify ] --s DownScaler | uglifyjs -mc > downscaler.js"
+  },
+  "repository": {},
+  "author": "oov",
+  "license": "MIT",
+  "homepage": "https://github.com/oov/downscaler-ts/"
+}
