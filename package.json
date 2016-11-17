@@ -23,7 +23,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "superstatic --port 10080 --debug true",
     "watch": "watchify src/main.ts -p [ tsify ] -o js/index.js -v",
-    "build": "browserify src/main.ts -p [ tsify ] | uglifyjs -mc > js/index.js && cp src/lz4/lz4.js js/lz4.js"
+    "build": "browserify src/main.ts -p [ tsify ] | uglifyjs -mc > js/index.js && cp src/lz4/lz4.js js/lz4.js && cp src/downscaler/downscaler.js js/downscaler.js"
   },
   "repository": {
     "type": "git",
