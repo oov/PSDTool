@@ -231,6 +231,7 @@ class FaviewSettingDialog {
 export class Main {
     private optionAutoTrim: HTMLInputElement;
     private optionSafeMode: HTMLInputElement;
+    private optionUseOldResizer: HTMLInputElement;
 
     private sideBody: HTMLElement;
     private sideBodyScrollPos: { [name: string]: { left: number; top: number } } = {};
@@ -1325,6 +1326,7 @@ export class Main {
     private initUI() {
         this.optionAutoTrim = Main.getInputElement('#option-auto-trim');
         this.optionSafeMode = Main.getInputElement('#option-safe-mode');
+        this.optionUseOldResizer = Main.getInputElement('#option-use-old-resizer');
 
         // save and restore scroll position of side-body on each tab.
         const toolbars = document.querySelectorAll('.psdtool-tab-toolbar');
@@ -1497,6 +1499,7 @@ export class Main {
 
     private render(callback: (progress: number, canvas: HTMLCanvasElement) => void): void {
         const autoTrim = this.optionAutoTrim.checked;
+        const useOldResizer = this.optionUseOldResizer.checked;
         const w = autoTrim ? this.renderer.Width : this.renderer.CanvasWidth;
         const h = autoTrim ? this.renderer.Height : this.renderer.CanvasHeight;
         const px = parseInt(this.maxPixels.value, 10);
@@ -1542,7 +1545,7 @@ export class Main {
         if (this.layerRoot.flip !== ltf) {
             this.layerRoot.flip = ltf;
         }
-        this.renderer.render(scale, autoTrim, rf, callback);
+        this.renderer.render(scale, autoTrim, rf, useOldResizer, callback);
     }
 
     // layerTree --------------------------------
