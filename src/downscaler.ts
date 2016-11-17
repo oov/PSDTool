@@ -146,7 +146,7 @@ onmessage = function(e) {
         }
     }
 
-	// There is a bug in this routine, but it has not been fixed for backward compatibility.
+    // There is a bug in this routine, but it has not been fixed for backward compatibility.
     static calculate20160127(dest: ImageData, src: ImageData, scale: number): void {
         const tmp = new Float32Array(dest.data.length);
         const s = new Uint8Array(src.data.buffer, src.data.byteOffset, src.data.byteLength);
