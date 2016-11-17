@@ -16,11 +16,19 @@ export class DownScaler {
         if (!ctx) {
             throw new Error('cannot get CanvasRenderingContext2D from dest');
         }
-        ctx.drawImage(
-            this.src,
-            0, 0, this.src.width, this.src.height,
-            0, 0, Math.round(this.src.width * this.scale), Math.round(this.src.height * this.scale)
-        );
+        if (this.useOld) {
+            ctx.drawImage(
+                this.src,
+                0, 0, this.src.width, this.src.height,
+                0, 0, Math.round(this.src.width * this.scale), Math.round(this.src.height * this.scale)
+            );
+        } else {
+            ctx.drawImage(
+                this.src,
+                0, 0, this.src.width, this.src.height,
+                0, 0, this.destWidth, this.destHeight
+            );
+        }
         return this.dest;
     }
 
