@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "declaration": false,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "removeComments": false,
+    "noLib": false,
+    "preserveConstEnums": true,
+    "suppressImplicitAnyIndexErrors": false,
+    "lib": ["dom", "es5", "es2015.core"]
+  },
+  "formatCodeOptions": {
+    "indentSize": 4,
+    "tabSize": 4,
+    "newLineCharacter": "\n",
+    "convertTabsToSpaces": true,
+    "insertSpaceAfterCommaDelimiter": true,
+    "insertSpaceAfterSemicolonInForStatements": true,
+    "insertSpaceBeforeAndAfterBinaryOperators": true,
+    "insertSpaceAfterKeywordsInControlFlowStatements": true,
+    "insertSpaceAfterFunctionKeywordForAnonymousFunctions": true,
+    "insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis": false,
+    "placeOpenBraceOnNewLineForFunctions": true,
+    "placeOpenBraceOnNewLineForControlBlocks": true
+  },
+  "compileOnSave": false,
+  "include": [
+    "./src/**/*.ts",
+    "node_modules/@types/**/*.ts"
+  ],
+  "exclude": [
+  ]
+}
