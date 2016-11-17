@@ -533,7 +533,7 @@ export class Main {
                 return;
             }
             this.leaveReaderMode();
-            this.favorite.addItem(this.layerRoot.serialize(false), text, true);
+            this.favorite.addItem(this.layerRoot.serialize(false), text, false);
         });
 
         jQuery('button[data-psdtool-tree-add-folder]').on('click', e => {
