@@ -321,10 +321,7 @@ export class Renderer {
         let bb = n.buffer;
         if (n.state === n.nextState) {
             if (blendMode === 'pass-through') {
-                // ctx.globalAlpha = 1;
-                // ctx.globalCompositeOperation = 'source-over';
-                // ctx.clearRect(x + n.x, y + n.y, bb.width, bb.height);
-                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'source-over');
+                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'copy-all');
             } else {
                 this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
             }
@@ -368,10 +365,7 @@ export class Renderer {
 
         if (!n.clip.length || blendMode === 'pass-through') {
             if (blendMode === 'pass-through') {
-                // ctx.globalAlpha = 1;
-                // ctx.globalCompositeOperation = 'source-over';
-                // ctx.clearRect(x + n.x, y + n.y, bb.width, bb.height);
-                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'source-over');
+                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'copy-all');
             } else {
                 this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
             }
@@ -406,10 +400,7 @@ export class Renderer {
             n.buffer = cbb;
 
             if (blendMode === 'pass-through') {
-                // ctx.globalAlpha = 1;
-                // ctx.globalCompositeOperation = 'source-over';
-                // ctx.clearRect(x + n.x, y + n.y, cbb.width, cbb.height);
-                this.draw(ctx, cbb, x + n.x, y + n.y, 1, 'source-over');
+                this.draw(ctx, cbb, x + n.x, y + n.y, 1, 'copy-all');
             } else {
                 this.draw(ctx, cbb, x + n.x, y + n.y, opacity, blendMode);
             }
