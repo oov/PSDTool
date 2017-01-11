@@ -319,49 +319,40 @@
 					<h4 class="modal-title" id="export-dialog-label">エクスポート</h4>
 				</div>
 				<div class="modal-body">
-					<p>
-						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-pfv">PFV ファイルをエクスポート</button>
-					</p>
+					<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-pfv">PFV ファイルをエクスポート</button>
 					<p><small>PFV ファイルはお気に入りの情報が記録されたテキストファイルで、「インポート」を使って読み込んだりエディタで開いて直接編集したりできます。</small></p>
-					<p>
-						<div class="btn-group">
-							<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
-							<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								<span class="caret"></span>
-								<span class="sr-only">オプション</span>
-							</button>
-							<ul class="dropdown-menu">
-								<li><a href="#" data-dismiss="modal" id="export-favorites-zip-filter-solo">フィルタリングされた項目は残ったパーツのみを出力</a></li>
-							</ul>
-						</div>
-					</p>
+					<div class="btn-group">
+						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-favorites-zip">画像を ZIP ファイルでエクスポート</button>
+						<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							<span class="caret"></span>
+							<span class="sr-only">オプション</span>
+						</button>
+						<ul class="dropdown-menu">
+							<li><a href="#" data-dismiss="modal" id="export-favorites-zip-filter-solo">フィルタリングされた項目は残ったパーツのみを出力</a></li>
+						</ul>
+					</div>
 					<p><small>PNG ファイルと PFV ファイルを無圧縮の ZIP ファイルに書き出します。画像には現在の反転や縮小の設定が適用されます。</small></p>
-					<p>
-						<div class="btn-group">
-							<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								シンプルビューの全パターンをエクスポート <span class="caret"></span>
-							</button>
-							<ul class="dropdown-menu">
-								<li class="dropdown-header">PNG 詰め合わせ ZIP</li>
-								<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名あり / 入れ子</span><small class="text-muted">例: キャラ名\眉-困り\目-にっこり\口-笑い.png</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名あり / フラット</span><small class="text-muted">例: キャラ名_眉-困り_目-にっこり_口-笑い.png</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名なし / 入れ子</span><small class="text-muted">例: キャラ名\困り\にっこり\笑い.png</small></a></li>
-								<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名なし / フラット</span><small class="text-muted">例: キャラ名_困り_にっこり_笑い.png</small></a></li>
-								<li role="separator" class="divider"></li>
-								<li><a href="#" data-dismiss="modal" data-toggle="modal" data-target="#tiled-export-dialog">Tiled Map Editor 用にエクスポート...</a></li>
-								<li role="separator" class="divider"></li>
-								<li><a href="#" data-dismiss="modal" data-export-faview="prima">PRIMA</a></li>
-							</ul>
-						</div>
-					</p>
+					<div class="btn-group">
+						<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							シンプルビューの全パターンをエクスポート <span class="caret"></span>
+						</button>
+						<ul class="dropdown-menu">
+							<li class="dropdown-header">PNG 詰め合わせ ZIP</li>
+							<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名あり / 入れ子</span><small class="text-muted">例: キャラ名\眉-困り\目-にっこり\口-笑い.png</small></a></li>
+							<li><a href="#" data-dismiss="modal" data-export-faview="standard" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名あり / フラット</span><small class="text-muted">例: キャラ名_眉-困り_目-にっこり_口-笑い.png</small></a></li>
+							<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="tree"><span class="psdtool-export-faview-type-caption">パーツ名なし / 入れ子</span><small class="text-muted">例: キャラ名\困り\にっこり\笑い.png</small></a></li>
+							<li><a href="#" data-dismiss="modal" data-export-faview="compact" data-structure="flat"><span class="psdtool-export-faview-type-caption">パーツ名なし / フラット</span><small class="text-muted">例: キャラ名_困り_にっこり_笑い.png</small></a></li>
+							<li role="separator" class="divider"></li>
+							<li><a href="#" data-dismiss="modal" data-toggle="modal" data-target="#tiled-export-dialog">Tiled Map Editor 用にエクスポート...</a></li>
+							<li role="separator" class="divider"></li>								<li><a href="#" data-dismiss="modal" data-export-faview="prima">PRIMA</a></li>
+						</ul>
+					</div>
 					<p><small>
 						シンプルビューで作成可能な全ての組み合わせを書き出します。
 						ただし「目を決めるセレクトボックスが複数ある」など項目を操作した順番によって結果が変わるようなものには対応していません。
 						画像には現在の反転や縮小の設定が適用されます。
 					</small></p>
-					<p>
-						<button type="button" class="btn btn-default" data-dismiss="modal" id="export-layer-structure">レイヤー構造をテキストファイルでエクスポート</button>
-					</p>
+					<button type="button" class="btn btn-default" data-dismiss="modal" id="export-layer-structure">レイヤー構造をテキストファイルでエクスポート</button>0
 					<p><small>PSD ファイルのレイヤー構造をタブで整形された UTF-8 テキストファイルとして出力します。これにはお気に入りのデータは一切含まれていません。</small></p>
 				</div>
 			</div>
