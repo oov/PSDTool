@@ -124,7 +124,7 @@ export class Streamer {
         }
     }
 
-    private compress(bytes?: number): Promise<void> {
+    private compress(bytes?: number): Promise<[ArrayBuffer, boolean]> {
         if (bytes) {
             fillZero(this.buffer, bytes, this.buffer.length - bytes);
         }
@@ -139,8 +139,8 @@ export class Streamer {
         return p;
     }
 
-    public addInt32Array(src: Int32Array): Promise<void> {
-        const p: Promise<void>[] = [];
+    public addInt32Array(src: Int32Array): Promise<[ArrayBuffer, boolean][]> {
+        const p: Promise<[ArrayBuffer, boolean]>[] = [];
         while (true) {
             if (this.bufferSize - this.used >= src.byteLength) {
                 copyInt32(this.buffer, src, this.used, 0, src.byteLength);
@@ -155,8 +155,8 @@ export class Streamer {
         }
     }
 
-    public addUint8Array(src: Uint8Array): Promise<void> {
-        const p: Promise<void>[] = [];
+    public addUint8Array(src: Uint8Array): Promise<[ArrayBuffer, boolean][]> {
+        const p: Promise<[ArrayBuffer, boolean]>[] = [];
         while (true) {
             if (this.bufferSize - this.used >= src.byteLength) {
                 copy(this.buffer, src, this.used, 0, src.byteLength);

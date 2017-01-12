@@ -76,6 +76,9 @@ class FilterDialog {
             if (inp instanceof HTMLInputElement) {
                 let li = inp.parentElement;
                 while (!(li instanceof HTMLLIElement)) {
+                    if (!li) {
+                        throw new Error('li tag is not found');
+                    }
                     li = li.parentElement;
                 }
                 const checked = inp.checked;
@@ -87,7 +90,7 @@ class FilterDialog {
                     }
                 }
                 if (checked) {
-                    for (let parent = li.parentElement; parent !== this.treeRoot; parent = parent.parentElement) {
+                    for (let parent = li.parentElement; parent !== this.treeRoot && parent; parent = parent.parentElement) {
                         if (parent instanceof HTMLLIElement) {
                             const inp = parent.querySelector('input');
                             if (inp instanceof HTMLInputElement) {
@@ -151,9 +154,9 @@ class FilterDialog {
         const inputs = this.treeRoot.querySelectorAll('input');
         for (let i = 0, elem: Element, li: HTMLElement; i < inputs.length; ++i) {
             elem = inputs[i];
-            if (elem instanceof HTMLInputElement) {
+            if (elem instanceof HTMLInputElement && elem.parentElement) {
                 li = elem.parentElement;
-                while (li && li.tagName !== 'LI') {
+                while (li && li.parentElement && li.tagName !== 'LI') {
                     li = li.parentElement;
                 }
                 if (elem.disabled) {
@@ -327,7 +330,7 @@ export class Main {
             const elem = toolbars[i];
             if (elem instanceof HTMLElement) {
                 let p = elem.parentElement;
-                while (!p.classList.contains('psdtool-tab-pane') && p) {
+                while (p && !p.classList.contains('psdtool-tab-pane')) {
                     p = p.parentElement;
                 }
                 if (p) {

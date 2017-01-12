@@ -42,9 +42,9 @@ export class Node {
     public maskHeight = 0;
     public maskDefaultColor = 0; // 0 or 255
 
-    public readonly blendMode = 'normal';
-    public readonly opacity = 255; // 0 ~ 255
-    public readonly blendClippedElements = true;
+    public readonly blendMode: string;
+    public readonly opacity: number; // 0 ~ 255
+    public readonly blendClippedElements: boolean;
 
     public parent = this;
     constructor(layer: psd.Layer | undefined) {

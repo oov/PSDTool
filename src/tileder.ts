@@ -359,7 +359,7 @@ export class Tileder {
     }
 
     private _add(index: number, name: string, buffer: ArrayBuffer, width: number, height: number): Promise<void> {
-        return new Promise(resolve => {
+        return new Promise<void>(resolve => {
             this._waitReadyChopper(this.queueMax, chopper => {
                 chopper.chop(index, name, buffer, width, height, this._tileSize, (data, tile) => {
                     tile.forEach((v, hash) => {

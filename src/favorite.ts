@@ -972,6 +972,9 @@ export class Faview {
                     }
                     elem.selectedIndex = j;
                     elem.setAttribute('data-lastmod', item[id].lastMod.toString());
+                    if (!elem.parentElement) {
+                        throw new Error('unexpected behavior');
+                    }
                     const range = elem.parentElement.querySelector('input[type=range]');
                     if (range instanceof HTMLInputElement) {
                         range.value = j.toString();
@@ -1001,6 +1004,9 @@ export class Faview {
 
     private changed(select: HTMLSelectElement): void {
         select.setAttribute('data-lastmod', Date.now().toString());
+        if (!select.parentElement) {
+            throw new Error('unexpected behavior');
+        }
         const range = select.parentElement.querySelector('input[type=range]');
         if (range instanceof HTMLInputElement) {
             range.value = select.selectedIndex.toString();
@@ -1028,6 +1034,9 @@ export class Faview {
             }
             this.changed(target);
         } else if (target instanceof HTMLInputElement && target.type === 'range') {
+            if (!target.parentElement) {
+                throw new Error('unexpected behavior');
+            }
             const sel = target.parentElement.querySelector('select');
             if (sel instanceof HTMLSelectElement) {
                 sel.selectedIndex = parseInt(target.value, 10);
@@ -1039,6 +1048,9 @@ export class Faview {
     private input(e: Event): void {
         const target = e.target;
         if (target instanceof HTMLInputElement && target.type === 'range') {
+            if (!target.parentElement) {
+                throw new Error('unexpected behavior');
+            }
             const sel = target.parentElement.querySelector('select');
             if (sel instanceof HTMLSelectElement) {
                 sel.selectedIndex = parseInt(target.value, 10);
@@ -1058,6 +1070,9 @@ export class Faview {
             }
             if (mv === 0) {
                 return;
+            }
+            if (!target.parentElement) {
+                throw new Error('unexpected behavior');
             }
             const sel = target.parentElement.querySelector('select');
             if (sel instanceof HTMLSelectElement) {
