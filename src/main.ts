@@ -1,3 +1,6 @@
+import {polyfill} from 'es6-promise';
+polyfill();
+
 import * as renderer from './renderer';
 import * as favorite from './favorite';
 import * as layertree from './layertree';

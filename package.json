@@ -6,18 +6,19 @@
   "dependencies": {
     "@types/bootstrap": "^3.3.32",
     "@types/filesaver": "0.0.30",
-    "@types/jquery": "^2.0.33",
-    "@types/jstree": "^3.3.32",
+    "@types/jquery": "^2.0.39",
+    "@types/jstree": "^3.3.34",
     "@types/mithril": "0.0.31",
-    "@types/mousetrap": "^1.5.32",
-    "@types/pako": "^0.2.31"
+    "@types/mousetrap": "^1.5.33",
+    "@types/pako": "^0.2.31",
+    "es6-promise": "^4.0.5"
   },
   "devDependencies": {
-    "browserify": "^13.1.0",
+    "browserify": "^13.3.0",
     "superstatic": "^4.0.3",
-    "tsify": "^2.0.2",
-    "typescript": "^2.0.3",
-    "watchify": "^3.7.0"
+    "tsify": "^2.0.8",
+    "typescript": "^2.1.5",
+    "watchify": "^3.8.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
