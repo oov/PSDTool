@@ -1388,8 +1388,11 @@ export class Main {
                 const p = s.indexOf(';');
                 s = s.substring(0, p) + ';filename=' + encodeURIComponent(name) + s.substring(p);
             }
-            e.dataTransfer.setData('text/uri-list', s);
-            e.dataTransfer.setData('text/plain', s);
+            try {
+                e.dataTransfer.setData('text', s);
+                e.dataTransfer.setData('text/uri-list', s);
+                e.dataTransfer.setData('text/plain', s);
+            } catch (e) { /* ignore errors */ }
         }, false);
 
         jQuery('#main').on('splitpaneresize', e => this.resized()).splitPane();
