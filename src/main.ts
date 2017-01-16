@@ -1,4 +1,4 @@
-import {polyfill} from 'es6-promise';
+import { polyfill } from 'es6-promise';
 polyfill();
 
 import * as renderer from './renderer';
