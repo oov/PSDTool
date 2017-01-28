@@ -116,7 +116,7 @@ export class DownScaler {
         }
         const sourceCode = `
 'use strict';
-importScripts('${location.protocol}//${location.host}/js/downscaler.js');
+importScripts('${location.protocol}//${location.host}${location.pathname.replace(/[^/]*$/, '')}js/downscaler.js');
 var calculate20160127 = ${DownScaler.calculate20160127.toString()};
 onmessage = function(e) {
     var d = e.data;

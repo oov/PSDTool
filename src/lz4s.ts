@@ -60,7 +60,7 @@ class Compresser {
         }
         Compresser.workerURL = URL.createObjectURL(new Blob([`
 'use strict';
-importScripts('${location.protocol}//${location.host}/js/lz4.js');
+importScripts('${location.protocol}//${location.host}${location.pathname.replace(/[^/]*$/, '')}js/lz4.js');
 var compBuffer, compress = ${Compresser._compress.toString()};
 onmessage = function(e){
     var r = compress(e.data.buffer, compBuffer, LZ4);
