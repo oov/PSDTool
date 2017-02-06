@@ -98,7 +98,7 @@ export class Node {
 }
 
 export class Renderer {
-    private draw(dest: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
+    private static draw(dest: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
         switch (blendMode) {
             case 'clear':
             case 'copy':
@@ -125,7 +125,7 @@ export class Renderer {
         return;
     }
 
-    private clear(ctx: CanvasRenderingContext2D): void {
+    private static clear(ctx: CanvasRenderingContext2D): void {
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -199,7 +199,7 @@ export class Renderer {
             if (!bbctx) {
                 throw new Error('cannot get CanvasRenderingContext2D');
             }
-            this.clear(bbctx);
+            Renderer.clear(bbctx);
             for (let cn of this.root.children) {
                 if (!cn.clipping || cn.blendMode === 'pass-through') {
                     this.drawLayer(bbctx, cn, -this.psd.X, -this.psd.Y, cn.opacity / 255, cn.blendMode);
@@ -221,7 +221,7 @@ export class Renderer {
             if (!ctx) {
                 throw new Error('cannot get CanvasRenderingContext2D');
             }
-            this.clear(ctx);
+            Renderer.clear(ctx);
             ctx.save();
             switch (flip) {
                 case FlipType.FlipX:
@@ -321,9 +321,9 @@ export class Renderer {
         let bb = n.buffer;
         if (n.state === n.nextState) {
             if (blendMode === 'pass-through') {
-                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'copy-all');
+                Renderer.draw(ctx, bb, x + n.x, y + n.y, 1, 'copy-all');
             } else {
-                this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
+                Renderer.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
             }
             return true;
         }
@@ -332,10 +332,10 @@ export class Renderer {
         if (!bbctx) {
             throw new Error('cannot get CanvasRenderingContext2D for BackBuffer');
         }
-        this.clear(bbctx);
+        Renderer.clear(bbctx);
         if (n.children.length) {
             if (blendMode === 'pass-through') {
-                this.draw(bbctx, n.parent.buffer, -x - n.x, -y - n.y, 1, 'source-over');
+                Renderer.draw(bbctx, n.parent.buffer, -x - n.x, -y - n.y, 1, 'source-over');
                 for (let cn of n.children) {
                     if (!cn.clipping || cn.blendMode === 'pass-through') {
                         this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity * opacity / 255, cn.blendMode);
@@ -349,11 +349,11 @@ export class Renderer {
                 }
             }
         } else if (n.image) {
-            this.draw(bbctx, n.image.canvas, 0, 0, 1, 'source-over');
+            Renderer.draw(bbctx, n.image.canvas, 0, 0, 1, 'source-over');
         }
 
         if (n.mask) {
-            this.draw(
+            Renderer.draw(
                 bbctx,
                 n.mask.canvas,
                 n.maskX - n.x,
@@ -365,9 +365,9 @@ export class Renderer {
 
         if (!n.clip.length || blendMode === 'pass-through') {
             if (blendMode === 'pass-through') {
-                this.draw(ctx, bb, x + n.x, y + n.y, 1, 'copy-all');
+                Renderer.draw(ctx, bb, x + n.x, y + n.y, 1, 'copy-all');
             } else {
-                this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
+                Renderer.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
             }
             n.state = n.nextState;
             return true;
@@ -383,7 +383,7 @@ export class Renderer {
         }
 
         if (n.blendClippedElements) {
-            this.draw(cbbctx, bb, 0, 0, 1, 'copy-opaque');
+            Renderer.draw(cbbctx, bb, 0, 0, 1, 'copy-opaque');
             for (let cn of n.clip) {
                 if (cn.clipping && cn.blendMode !== 'pass-through') {
                     this.drawLayer(
@@ -394,15 +394,15 @@ export class Renderer {
                     );
                 }
             }
-            this.draw(cbbctx, bb, 0, 0, 1, 'copy-alpha');
+            Renderer.draw(cbbctx, bb, 0, 0, 1, 'copy-alpha');
             // swap buffer for next time
             n.clippingBuffer = bb;
             n.buffer = cbb;
 
             if (blendMode === 'pass-through') {
-                this.draw(ctx, cbb, x + n.x, y + n.y, 1, 'copy-all');
+                Renderer.draw(ctx, cbb, x + n.x, y + n.y, 1, 'copy-all');
             } else {
-                this.draw(ctx, cbb, x + n.x, y + n.y, opacity, blendMode);
+                Renderer.draw(ctx, cbb, x + n.x, y + n.y, opacity, blendMode);
             }
 
             n.state = n.nextState;
@@ -412,15 +412,15 @@ export class Renderer {
         // this is minor code path.
         // it is only used when "Blend Clipped Layers as Group" is unchecked in Photoshop's Layer Style dialog.
         // TODO: pass-through support
-        this.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
-        this.clear(cbbctx);
+        Renderer.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
+        Renderer.clear(cbbctx);
         for (let cn of n.clip) {
             if (!this.drawLayer(cbbctx, cn, -n.x, -n.y, 1, 'source-over')) {
                 continue;
             }
-            this.draw(cbbctx, bb, 0, 0, 1, 'destination-in');
-            this.draw(ctx, cbb, x + n.x, y + n.y, cn.opacity / 255, cn.blendMode);
-            this.clear(cbbctx);
+            Renderer.draw(cbbctx, bb, 0, 0, 1, 'destination-in');
+            Renderer.draw(ctx, cbb, x + n.x, y + n.y, cn.opacity / 255, cn.blendMode);
+            Renderer.clear(cbbctx);
         }
         n.state = n.nextState;
         return true;
