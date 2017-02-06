@@ -14,9 +14,9 @@
     "es6-promise": "^4.0.5"
   },
   "devDependencies": {
-    "browserify": "^13.3.0",
+    "browserify": "^14.0.0",
     "superstatic": "^4.0.3",
-    "tsify": "^2.0.8",
+    "tsify": "^3.0.1",
     "typescript": "^2.1.5",
     "watchify": "^3.9.0"
   },
