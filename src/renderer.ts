@@ -201,9 +201,7 @@ export class Renderer {
             }
             Renderer.clear(bbctx);
             for (let cn of this.root.children) {
-                if (!cn.clipping || cn.blendMode === 'pass-through') {
-                    this.drawLayer(bbctx, cn, -this.psd.X, -this.psd.Y, cn.opacity / 255, cn.blendMode);
-                }
+                this.drawLayer(bbctx, cn, -this.psd.X, -this.psd.Y, cn.opacity / 255, cn.blendMode);
             }
             this.root.state = this.root.nextState;
         }
@@ -263,7 +261,7 @@ export class Renderer {
     }
 
     private calculateNextState(n: Node, opacity: number, blendMode: string) {
-        if (!n.visible || opacity === 0) {
+        if (!n.visible || opacity === 0 || n.clipping || (!n.children.length && !n.image)) {
             return false;
         }
 
@@ -274,10 +272,8 @@ export class Renderer {
             }
             for (let i = 0; i < n.children.length; ++i) {
                 const child = n.children[i];
-                if (!child.clipping || child.blendMode === 'pass-through') {
-                    if (this.calculateNextState(n.children[i], child.opacity / 255, child.blendMode)) {
-                        n.nextState += n.children[i].nextStateHash + '+';
-                    }
+                if (this.calculateNextState(n.children[i], child.opacity / 255, child.blendMode)) {
+                    n.nextState += n.children[i].nextStateHash + '+';
                 }
             }
         } else if (n.image) {
@@ -296,9 +292,11 @@ export class Renderer {
         if (n.blendClippedElements) {
             for (let i = 0, cn: Node; i < n.clip.length; ++i) {
                 cn = n.clip[i];
+                cn.clipping = false;
                 if (this.calculateNextState(n.clip[i], cn.opacity / 255, cn.blendMode)) {
                     n.nextState += n.clip[i].nextStateHash + '+';
                 }
+                cn.clipping = true;
             }
             return true;
         }
@@ -315,7 +313,7 @@ export class Renderer {
     }
 
     private drawLayer(ctx: CanvasRenderingContext2D, n: Node, x: number, y: number, opacity: number, blendMode: string): boolean {
-        if (!n.visible || opacity === 0 || (!n.children.length && !n.image)) {
+        if (!n.visible || opacity === 0 || n.clipping || (!n.children.length && !n.image)) {
             return false;
         }
         let bb = n.buffer;
@@ -337,15 +335,11 @@ export class Renderer {
             if (blendMode === 'pass-through') {
                 Renderer.draw(bbctx, ctx.canvas, -x - n.x, -y - n.y, 1, 'source-over');
                 for (let cn of n.children) {
-                    if (!cn.clipping || cn.blendMode === 'pass-through') {
-                        this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity * opacity / 255, cn.blendMode);
-                    }
+                    this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity * opacity / 255, cn.blendMode);
                 }
             } else {
                 for (let cn of n.children) {
-                    if (!cn.clipping || cn.blendMode === 'pass-through') {
-                        this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity / 255, cn.blendMode);
-                    }
+                    this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity / 255, cn.blendMode);
                 }
             }
         } else if (n.image) {
@@ -363,7 +357,7 @@ export class Renderer {
             );
         }
 
-        if (!n.clip.length || blendMode === 'pass-through') {
+        if (!n.clip.length) {
             if (blendMode === 'pass-through') {
                 Renderer.draw(ctx, bb, x + n.x, y + n.y, 1, 'copy-all');
             } else {
@@ -385,14 +379,14 @@ export class Renderer {
         if (n.blendClippedElements) {
             Renderer.draw(cbbctx, bb, 0, 0, 1, 'copy-opaque');
             for (let cn of n.clip) {
-                if (cn.clipping && cn.blendMode !== 'pass-through') {
-                    this.drawLayer(
-                        cbbctx,
-                        cn, -n.x, -n.y,
-                        cn.opacity / 255,
-                        cn.blendMode
-                    );
-                }
+                cn.clipping = false;
+                this.drawLayer(
+                    cbbctx,
+                    cn, -n.x, -n.y,
+                    cn.opacity / 255,
+                    cn.blendMode
+                );
+                cn.clipping = true;
             }
             Renderer.draw(cbbctx, bb, 0, 0, 1, 'copy-alpha');
             // swap buffer for next time
@@ -415,9 +409,12 @@ export class Renderer {
         Renderer.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
         Renderer.clear(cbbctx);
         for (let cn of n.clip) {
+            cn.clipping = false;
             if (!this.drawLayer(cbbctx, cn, -n.x, -n.y, 1, 'source-over')) {
+                cn.clipping = true;
                 continue;
             }
+            cn.clipping = true;
             Renderer.draw(cbbctx, bb, 0, 0, 1, 'destination-in');
             Renderer.draw(ctx, cbb, x + n.x, y + n.y, cn.opacity / 255, cn.blendMode);
             Renderer.clear(cbbctx);
