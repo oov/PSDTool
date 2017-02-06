@@ -335,7 +335,7 @@ export class Renderer {
         Renderer.clear(bbctx);
         if (n.children.length) {
             if (blendMode === 'pass-through') {
-                Renderer.draw(bbctx, n.parent.buffer, -x - n.x, -y - n.y, 1, 'source-over');
+                Renderer.draw(bbctx, ctx.canvas, -x - n.x, -y - n.y, 1, 'source-over');
                 for (let cn of n.children) {
                     if (!cn.clipping || cn.blendMode === 'pass-through') {
                         this.drawLayer(bbctx, cn, -n.x, -n.y, cn.opacity * opacity / 255, cn.blendMode);
