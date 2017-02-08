@@ -1312,10 +1312,12 @@ const implementedBlendModes = enumImplementedBlendModes();
 export function blend(
     dest: CanvasRenderingContext2D,
     src: CanvasRenderingContext2D,
+    sx: number,
+    sy: number,
     dx: number,
     dy: number,
-    sw: number,
-    sh: number,
+    w: number,
+    h: number,
     alpha: number,
     blendMode: string
 ): void {
@@ -1326,46 +1328,44 @@ export function blend(
         dest.save();
         dest.globalAlpha = alpha;
         dest.globalCompositeOperation = blendMode;
-        dest.drawImage(src.canvas, dx, dy);
+        dest.drawImage(src.canvas, sx, sy, w, h, dx, dy, w, h);
         dest.restore();
         // console.log('native: '+blendMode);
         return;
     }
 
-    let sx = 0;
-    let sy = 0;
-    if (dx >= dest.canvas.width || dy >= dest.canvas.height || dx + sw < 0 || dy + sh < 0 || alpha === 0) {
-        return;
-    }
-    if (sw > src.canvas.width) {
-        sw = src.canvas.width;
-    }
-    if (sh > src.canvas.height) {
-        sh = src.canvas.height;
-    }
     if (dx < 0) {
-        sw += dx;
+        w -= dx;
         sx -= dx;
         dx = 0;
     }
+    if (sx < 0) {
+        w -= sx;
+        dx -= sx;
+        sx = 0;
+    }
     if (dy < 0) {
-        sh += dy;
+        h -= dy;
         sy -= dy;
         dy = 0;
     }
-    if (dx + sw > dest.canvas.width) {
-        sw = dest.canvas.width - dx;
+    if (sy < 0) {
+        h -= sy;
+        dy -= sy;
+        sy = 0;
     }
-    if (dy + sh > dest.canvas.height) {
-        sh = dest.canvas.height - dy;
+    w = Math.min(w, src.canvas.width - sx, dest.canvas.width - dx);
+    h = Math.min(h, src.canvas.height - sy, dest.canvas.height - dy);
+    if (w <= 0 || h <= 0 || alpha === 0) {
+        return;
     }
-    const imgData = dest.getImageData(dx, dy, sw, sh);
+    const imgData = dest.getImageData(dx, dy, w, h);
     const d = imgData.data;
-    const s = src.getImageData(sx, sy, sw, sh).data;
+    const s = src.getImageData(sx, sy, w, h).data;
     if (!(blendMode in blendModes)) {
         throw new Error('unimplemeneted blend mode: ' + blendMode);
     }
-    blendModes[blendMode](d, s, sw, sh, alpha);
+    blendModes[blendMode](d, s, w, h, alpha);
     dest.putImageData(imgData, dx, dy);
     // console.log('js: '+blendMode);
 }

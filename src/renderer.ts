@@ -121,7 +121,7 @@ export class Renderer {
         if (!ctx) {
             throw new Error('cannot get CanvasRenderingContext2D');
         }
-        blend.blend(dest, ctx, x, y, src.width, src.height, opacity, blendMode);
+        blend.blend(dest, ctx, 0, 0, x, y, src.width, src.height, opacity, blendMode);
         return;
     }
 
