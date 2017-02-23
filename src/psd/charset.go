@@ -7,6 +7,7 @@ package main
 const (
 	charsetBINARY    = "Binary"
 	charsetASCII     = "ASCII"
+	charsetUTF16     = "UTF-16"
 	charsetUTF8      = "UTF-8"
 	charsetEUCJP     = "EUC-JP"
 	charsetShiftJIS  = "Shift_JIS"
@@ -26,6 +27,11 @@ func identifyCharset(bs []byte) string {
 	var length = len(bs)
 	if length == 0 {
 		return charsetASCII
+	}
+
+	if length >= 2 && ((bs[0] == 0xFF && bs[1] == 0xFE) || (bs[0] == 0xFE && bs[1] == 0xFF)) {
+		// UTF-16 BOM.
+		return charsetUTF16
 	}
 
 	if length >= 3 && bs[0] == 0xEF && bs[1] == 0xBB && bs[2] == 0xBF {

@@ -14,6 +14,7 @@ import (
 	"log"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/oov/psd"
 	"golang.org/x/text/encoding/japanese"
@@ -178,6 +179,41 @@ func (r *root) Build(img *psd.PSD) error {
 	return nil
 }
 
+func utf16ToUTF8(b []byte) (string, error) {
+	buf := make([]uint16, len(b)/2)
+	var isLE bool
+	if len(b) >= 2 {
+		// Strip BOM if it exists.
+		if b[0] == 0xff && b[1] == 0xfe {
+			isLE = true
+			b = b[2:]
+			buf = buf[1:]
+		} else if b[0] == 0xfe && b[1] == 0xff {
+			b = b[2:]
+			buf = buf[1:]
+		}
+	}
+	if isLE {
+		for i := range buf {
+			bi := i << 1
+			buf[i] = uint16(b[bi]) | uint16(b[bi+1])<<8
+		}
+	} else {
+		for i := range buf {
+			bi := i << 1
+			buf[i] = uint16(b[bi+1]) | uint16(b[bi])<<8
+		}
+	}
+	return string(utf16.Decode(buf)), nil
+}
+
+func stripUTF8BOM(b []byte) (string, error) {
+	if len(b) >= 3 && b[0] == 0xef && b[1] == 0xbb && b[2] == 0xbf {
+		return string(b[3:]), nil
+	}
+	return string(b), nil
+}
+
 func readTextFile(r io.Reader) (string, error) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -185,6 +221,10 @@ func readTextFile(r io.Reader) (string, error) {
 	}
 
 	switch identifyCharset(b) {
+	case "UTF-8":
+		return stripUTF8BOM(b)
+	case "UTF-16":
+		return utf16ToUTF8(b)
 	case "ISO-2022-JP":
 		b, err = japanese.ISO2022JP.NewDecoder().Bytes(b)
 	case "EUC-JP":
