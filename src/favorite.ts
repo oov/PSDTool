@@ -883,7 +883,7 @@ export class Faview {
                         selectedIndex: sel.selectedIndex
                     };
                     for (let k = 0; k < sel.length; ++k) {
-                        const opt = sel.options[k];
+                        const opt = sel.options.item(k);
                         fsel.items.push({
                             name: opt.textContent || '',
                             value: opt.value
@@ -893,7 +893,7 @@ export class Faview {
                 }
             }
 
-            const opt = this.rootSel.options[i];
+            const opt = this.rootSel.options.item(i);
             r.push({
                 name: opt.textContent || '',
                 value: opt.value,
