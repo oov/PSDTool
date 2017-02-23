@@ -54,13 +54,12 @@ export class Node {
         }
         this.id = layer.SeqID;
         let width = layer.Width, height = layer.Height;
-        if (width * height <= 0) {
-            return;
-        }
 
-        this.buffer = document.createElement('canvas');
-        this.buffer.width = width;
-        this.buffer.height = height;
+        if (width * height > 0) {
+            this.buffer = document.createElement('canvas');
+            this.buffer.width = width;
+            this.buffer.height = height;
+        }
 
         this.image = layer.Canvas;
         this.x = layer.X;
