@@ -97,6 +97,78 @@ export class Node {
 }
 
 export class Renderer {
+    private static applyMaskToPassThroughLayer(
+        dest: CanvasRenderingContext2D,
+        src: CanvasRenderingContext2D,
+        mask: CanvasRenderingContext2D,
+        sx: number,
+        sy: number,
+        dx: number,
+        dy: number,
+        mx: number,
+        my: number,
+        w: number,
+        h: number,
+        maskMode: boolean
+    ): void {
+        if (dx < 0) {
+            w -= dx;
+            sx -= dx;
+            mx -= dx;
+            dx = 0;
+        }
+        if (sx < 0) {
+            w -= sx;
+            dx -= sx;
+            mx -= sx;
+            sx = 0;
+        }
+        if (dy < 0) {
+            h -= dy;
+            sy -= dy;
+            my -= dy;
+            dy = 0;
+        }
+        if (sy < 0) {
+            h -= sy;
+            dy -= sy;
+            my -= sy;
+            sy = 0;
+        }
+        w = Math.min(w, src.canvas.width - sx, dest.canvas.width - dx);
+        h = Math.min(h, src.canvas.height - sy, dest.canvas.height - dy);
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        const imgData = dest.getImageData(dx, dy, w, h);
+        const d = imgData.data;
+        const s = src.getImageData(sx, sy, w, h).data;
+
+        const mE = dest.canvas.ownerDocument.createElement('canvas');
+        mE.width = w;
+        mE.height = h;
+        const mC = mE.getContext('2d');
+        if (!(mC instanceof CanvasRenderingContext2D)) {
+            throw new Error('cannot get canvas context');
+        }
+        mC.fillRect(0, 0, w, h);
+        if (maskMode) {
+            Renderer.draw(mC, mask.canvas, mx, my, 1, 'destination-out');
+        } else {
+            Renderer.draw(mC, mask.canvas, mx, my, 1, 'destination-in');
+        }
+        const m = mC.getImageData(0, 0, w, h).data;
+        let a: number, na: number;
+        for (let i = 0, len = w * h << 2; i < len; i += 4) {
+            a = m[i + 3];
+            na = 255 - a;
+            d[i + 0] = ((d[i + 0] * a * 32897) >> 23) + ((s[i + 0] * na * 32897) >> 23);
+            d[i + 1] = ((d[i + 1] * a * 32897) >> 23) + ((s[i + 1] * na * 32897) >> 23);
+            d[i + 2] = ((d[i + 2] * a * 32897) >> 23) + ((s[i + 2] * na * 32897) >> 23);
+            d[i + 3] = ((d[i + 3] * a * 32897) >> 23) + ((s[i + 3] * na * 32897) >> 23);
+        }
+        dest.putImageData(imgData, dx, dy);
+    }
     private static draw(dest: CanvasRenderingContext2D, src: HTMLCanvasElement, x: number, y: number, opacity: number, blendMode: string): void {
         switch (blendMode) {
             case 'clear':
@@ -346,14 +418,31 @@ export class Renderer {
         }
 
         if (n.mask) {
-            Renderer.draw(
-                bbctx,
-                n.mask.canvas,
-                n.maskX - n.x,
-                n.maskY - n.y,
-                1,
-                n.maskDefaultColor ? 'destination-out' : 'destination-in'
-            );
+            if (blendMode === 'pass-through') {
+                Renderer.applyMaskToPassThroughLayer(
+                    bbctx,
+                    ctx,
+                    n.mask,
+                    x + n.x,
+                    y + n.y,
+                    0,
+                    0,
+                    n.maskX - n.x,
+                    n.maskY - n.y,
+                    n.width,
+                    n.height,
+                    n.maskDefaultColor === 255
+                );
+            } else {
+                Renderer.draw(
+                    bbctx,
+                    n.mask.canvas,
+                    n.maskX - n.x,
+                    n.maskY - n.y,
+                    1,
+                    n.maskDefaultColor ? 'destination-out' : 'destination-in'
+                );
+            }
         }
 
         if (!n.clip.length) {
