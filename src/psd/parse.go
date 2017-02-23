@@ -258,6 +258,9 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 		}
 		var psdf, pfvf, txtf *zip.File
 		for _, f := range zr.File {
+			if len(f.Name) <= 4 {
+				continue
+			}
 			if psdf == nil && strings.ToLower(f.Name[len(f.Name)-4:]) == ".psd" {
 				psdf = f
 				continue
