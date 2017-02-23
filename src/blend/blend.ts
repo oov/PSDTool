@@ -74,15 +74,6 @@ function copyOpaque(d: Uint8ClampedArray, s: Uint8ClampedArray, w: number, h: nu
     }
 }
 
-function copyAll(d: Uint8ClampedArray, s: Uint8ClampedArray, w: number, h: number, alpha: number): void {
-        for (let i = 0, len = w * h << 2; i < len; i += 4) {
-            d[i + 0] = s[i + 0];
-            d[i + 1] = s[i + 1];
-            d[i + 2] = s[i + 2];
-            d[i + 3] = s[i + 3];
-        }
-}
-
 
 function blendNormal(d: Uint8ClampedArray, s: Uint8ClampedArray, w: number, h: number, alpha: number): void {
     let sr: number, sg: number, sb: number, sa: number, dr: number, dg: number, db: number, da: number;
@@ -1270,7 +1261,6 @@ const blendModes: {
 } = {
     'copy-alpha': copyAlpha,
     'copy-opaque': copyOpaque,
-    'copy-all': copyAll,
 
     // 'pass-through': blendPassThrough,
     'source-over': blendNormal,
