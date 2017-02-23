@@ -596,16 +596,16 @@ export class Favorite {
                 nameSet.add(this.jst.get_text(id));
             }
         }
-        const text = newText ? newText : n.text;
+        let text = newText ? newText : n.text;
         if (!nameSet.has(text)) {
             return text;
         }
-        newText += ' ';
+        text += ' ';
         let i = 2;
-        while (nameSet.has(newText + i)) {
+        while (nameSet.has(text + i)) {
             ++i;
         }
-        return newText + i;
+        return text + i;
     }
 
     private initTree(loaded?: () => void, data?: Node[]): void {
