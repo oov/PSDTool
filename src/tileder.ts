@@ -727,7 +727,11 @@ class Builder {
             const image = images[i];
             const d = new Uint32Array(image.data);
             for (let j = 0; j < d.length; ++j) {
-                d[j] = map.get(d[j]) + 1;
+                const v = map.get(d[j]);
+                if (v === undefined) {
+                    throw new Error(`chip ${d[j]} is not found(logic error)`);
+                }
+                d[j] = v + 1;
             }
             if (compressMap) {
                 image.data = compress(new Uint8Array(image.data)).buffer;
