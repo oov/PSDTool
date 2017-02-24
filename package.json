@@ -5,7 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "@types/bootstrap": "^3.3.32",
-    "@types/filesaver": "0.0.30",
+    "@types/file-saver": "^0.0.0",
     "@types/jquery": "^2.0.39",
     "@types/jstree": "^3.3.34",
     "@types/mithril": "0.0.31",
@@ -14,17 +14,16 @@
     "es6-promise": "^4.0.5"
   },
   "devDependencies": {
-    "browserify": "^14.0.0",
     "superstatic": "^4.0.3",
-    "tsify": "^3.0.1",
+    "ts-loader": "^0.8.2",
     "typescript": "^2.2.1",
-    "watchify": "^3.9.0"
+    "webpack": "^1.13.2"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "superstatic --port 10080 --debug true",
-    "watch": "watchify src/main.ts -p [ tsify ] -o js/index.js -v",
-    "build": "browserify src/main.ts -p [ tsify ] | uglifyjs -mc > js/index.js && cp src/lz4/lz4.js js/lz4.js && cp src/downscaler/downscaler.js js/downscaler.js"
+    "build": "webpack --optimize-minimize && cp src/lz4/lz4.js js/lz4.js && cp src/downscaler/downscaler.js js/downscaler.js",
+    "watch": "webpack --progress --colors --watch"
   },
   "repository": {
     "type": "git",
