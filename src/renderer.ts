@@ -374,11 +374,12 @@ export class Renderer {
 
         // we cannot cache in this mode
         n.nextState += Date.now() + '_' + Math.random() + ':';
-
         for (let cn of n.clip) {
+            cn.clipping = false;
             if (this.calculateNextState(cn, 1, 'source-over')) {
                 n.nextState += cn.nextStateHash + '+';
             }
+            cn.clipping = true;
         }
         return true;
     }
@@ -499,7 +500,7 @@ export class Renderer {
         // TODO: pass-through support
         Renderer.draw(ctx, bb, x + n.x, y + n.y, opacity, blendMode);
         Renderer.clear(cbbctx);
-        for (let cn of n.clip) {
+        for (const cn of n.clip) {
             cn.clipping = false;
             if (!this.drawLayer(cbbctx, cn, -n.x, -n.y, 1, 'source-over')) {
                 cn.clipping = true;
