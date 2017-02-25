@@ -97,12 +97,15 @@ func mapCanvasJS(canvasMap map[int][2]*js.Object, root *js.Object) {
 }
 
 func parsePSDInWorker(in *js.Object, progress *js.Object, complete *js.Object, failed *js.Object) {
-	script := js.Global.Get("document").Call("getElementById", "psdgo")
-	if !script.Bool() {
-		panic("id=psdgo not found")
+	var scriptURL *js.Object
+	if script := js.Global.Get("document").Call("getElementById", "psdgo"); script.Bool() {
+		scriptURL = script.Get("src")
+	} else if scriptURL = js.Global.Get("psdgoWorkerURL"); !scriptURL.Bool() {
+		failed.Invoke("script url not found")
+		return
 	}
-	worker := js.Global.Get("Worker").New(script.Get("src"))
-	script.Set("psdgo", worker)
+	worker := js.Global.Get("Worker").New(scriptURL)
+	js.Global.Set("psdgoWorker", worker)
 	canvasMap := map[int][2]*js.Object{}
 	worker.Set("onmessage", func(e *js.Object) {
 		data := e.Get("data")
