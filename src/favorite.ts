@@ -835,13 +835,25 @@ interface SerializedFaviewData {
     };
 }
 
-export interface FaviewSelect {
-    caption: string;
-    items: {
-        name: string;
-        value: string;
-    }[];
-    selectedIndex: number;
+interface FaviewSelectItem {
+    name: string;
+    value: string;
+}
+
+export class FaviewSelect {
+    get selectedIndex(): number {
+        return this.select.selectedIndex;
+    }
+    set selectedIndex(v: number) {
+        this.select.selectedIndex = v;
+        this.changed(this.select);
+    }
+    constructor(
+        private readonly select: HTMLSelectElement,
+        private readonly changed: (sel: HTMLSelectElement) => void,
+        public readonly caption: string,
+        public readonly items: FaviewSelectItem[],
+    ) { }
 }
 
 export interface FaviewRootItem {
@@ -877,19 +889,15 @@ export class Faview {
                     if (!caption) {
                         throw new Error('could not get caption');
                     }
-                    const fsel: FaviewSelect = {
-                        caption,
-                        items: [],
-                        selectedIndex: sel.selectedIndex
-                    };
+                    const items: FaviewSelectItem[] = [];
                     for (let k = 0; k < sel.length; ++k) {
                         const opt = sel.options.item(k);
-                        fsel.items.push({
+                        items.push({
                             name: opt.textContent || '',
                             value: opt.value
                         });
                     }
-                    fsels.push(fsel);
+                    fsels.push(new FaviewSelect(sel, sel => this.changed(sel), caption, items));
                 }
             }
 
