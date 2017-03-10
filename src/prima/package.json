@@ -1,0 +1,39 @@
+{
+  "name": "prima-ts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/chai": "^3.4.35",
+    "@types/mocha": "^2.2.39",
+    "chai": "^3.5.0",
+    "karma": "^1.5.0",
+    "karma-chai": "^0.1.0",
+    "karma-chrome-launcher": "^2.0.0",
+    "karma-mocha": "^1.3.0",
+    "karma-webpack": "^2.0.2",
+    "mocha": "^3.2.0",
+    "raw-loader": "^0.5.1",
+    "superstatic": "^4.0.3",
+    "ts-loader": "^0.8.2",
+    "typescript": "^2.2.1",
+    "webpack": "^1.13.2"
+  },
+  "scripts": {
+    "test": "karma start",
+    "start": "superstatic --port 10080 --debug true",
+    "build": "webpack --optimize-minimize",
+    "watch": "webpack --progress --colors --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oov/prima-ts.git"
+  },
+  "author": "oov",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/oov/prima-ts/issues"
+  },
+  "homepage": "https://github.com/oov/prima-ts#readme"
+}
