@@ -848,6 +848,13 @@ export class FaviewSelect {
         this.select.selectedIndex = v;
         this.changed(this.select);
     }
+    get value(): string {
+        return this.select.value;
+    }
+    valueByIndex(index: number): string {
+        return this.select.options.item(index).value;
+    }
+
     constructor(
         private readonly select: HTMLSelectElement,
         private readonly changed: (sel: HTMLSelectElement) => void,
