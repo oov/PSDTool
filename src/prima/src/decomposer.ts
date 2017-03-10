@@ -36,8 +36,8 @@ class Decomposer {
     static decompose(tileSize: number, patternSet: pattern.Set, renderFunc: RenderFunc): Promise<DecomposedImage> {
         const d = new Decomposer(tileSize, patternSet, renderFunc);
         return d.buildAreaMap().
-            then(() => d.completeHashesMap()).
-            then(() => new DecomposedImage(d.width, d.height, d.tileSize, d.hashesMap, d.chipMap));
+            then(() => d.buildHashes()).
+            then(patternHashes => new DecomposedImage(d.width, d.height, d.tileSize, patternHashes, d.chipMap));
     }
 
     private render(parts: pattern.Pattern): Promise<RenderedImage> {
@@ -47,7 +47,7 @@ class Decomposer {
                 this.height = image.height;
             }
             return this.slicer.slice(image).then(([hashes, partialChipMap]) => {
-                this.hashesMap.set(pattern.toIndex(parts, this.patternSet), hashes);
+                this.hashesMap.set(pattern.toIndexIncludingNone(parts, this.patternSet), hashes);
                 partialChipMap.forEach((v, i) => {
                     const stored = this.chipMap.get(i);
                     if (!stored) {
@@ -70,7 +70,7 @@ class Decomposer {
         const differ = new Differ(tlieSize);
         const patternSet = this.patternSet;
         const areaMap = this.areaMap;
-        return this.render(patternSet.map(() => 0)).then(baseImage => {
+        return this.render(patternSet.map(() => -1)).then(baseImage => {
             // Add the empty map to simplify latar processing.
             this.areaMapLength =
                 ((baseImage.width + tlieSize - 1) / tlieSize | 0)
@@ -80,12 +80,12 @@ class Decomposer {
             const promises: Promise<AreaMap>[] = [];
             patternSet.forEach((partsGroup, groupIndex) => {
                 const length = partsGroup.length;
-                for (let i = 1; i < length; ++i) {
-                    const patternParts = patternSet.map((_, j) => j !== groupIndex ? 0 : i);
+                for (let i = 0; i < length; ++i) {
+                    const patternParts = patternSet.map((_, j) => j !== groupIndex ? -1 : i);
                     promises.push(
                         this.render(patternParts)
                             .then(otherImage => differ.generate(baseImage, otherImage))
-                            .then(diff => areaMap.set(pattern.toIndex(patternParts, patternSet), diff.buffer.buffer))
+                            .then(diff => areaMap.set(pattern.toIndexIncludingNone(patternParts, patternSet), diff.buffer.buffer))
                     );
                 }
             });
@@ -95,33 +95,28 @@ class Decomposer {
 
     // TODO: This may take a very long time, so it need move to the worker.
     // For that, I'm already using ArrayBuffer instead of TypedArray in the everywhere.
-    private completeHashesMap(): Promise<void> {
+    private buildHashes(): Promise<Hashes[]> {
         const areaMap = this.areaMap;
         const patternSet = this.patternSet;
         const hashesMap = this.hashesMap;
         const patternLength = pattern.number(patternSet);
+        const patternHashes: Hashes[] = new Array(patternLength);
         let patternIndex = 0;
-        let skipped = 0, byCache = 0, generated = 0;
+        let byCache = 0, generated = 0;
         let retried = false;
-        return new Promise<void>(resolve => {
+        return new Promise<Hashes[]>(resolve => {
             const processNextPattern = () => {
                 if (patternIndex >= patternLength) {
                     // report statistics
-                    // console.log(`skipped: ${skipped} / generatedByCache: ${byCache} / rendered: ${generated}`);
-                    resolve();
+                    // console.log(`generatedByCache: ${byCache} / rendered: ${generated}`);
+                    this.hashesMap.clear();
+                    this.areaMap.clear();
+                    resolve(patternHashes);
                     return;
                 }
-                if (hashesMap.has(patternIndex)) {
-                    ++patternIndex;
-                    retried ? ++generated : ++skipped;
-                    retried = false;
-                    Promise.resolve().then(processNextPattern);
-                    return;
-                }
-
                 const patternParts = pattern.fromIndex(patternIndex, patternSet);
                 const patternAreaMap = patternParts.map((itemIndex, groupIndex) => {
-                    const index = pattern.toIndex(patternParts.map((_, i) => groupIndex === i ? itemIndex : 0), patternSet);
+                    const index = pattern.toIndexIncludingNone(patternParts.map((_, i) => groupIndex === i ? itemIndex : -1), patternSet);
                     const ab = areaMap.get(index);
                     if (!ab) {
                         throw new Error(`#${index} AreaMap not found.`);
@@ -133,8 +128,8 @@ class Decomposer {
                 const length = this.areaMapLength;
                 const hashes = new Uint32Array(length + 1 /* hash */);
                 for (let i = 0; i < length; ++i) {
-                    const sourceParts = patternAreaMap.map((area, j) => bitarray.get(area, i) ? patternParts[j] : 0);
-                    const sourceIndex = pattern.toIndex(sourceParts, patternSet);
+                    const sourceParts = patternAreaMap.map((area, j) => bitarray.get(area, i) ? patternParts[j] : -1);
+                    const sourceIndex = pattern.toIndexIncludingNone(sourceParts, patternSet);
                     const refHashes = hashesMap.get(sourceIndex);
                     if (refHashes) {
                         hashes[i + 1] = new Uint32Array(refHashes)[i + 1];
@@ -153,8 +148,7 @@ class Decomposer {
                     return;
                 }
                 hashes[0] = difference.calcHash(new Uint32Array(hashes.buffer, 4));
-                hashesMap.set(patternIndex, hashes.buffer);
-                ++patternIndex;
+                patternHashes[patternIndex++] = hashes.buffer;
                 retried ? ++generated : ++byCache;
                 retried = false;
                 Promise.resolve().then(processNextPattern);
@@ -170,7 +164,7 @@ export function decompose(tileSize: number, patternSet: pattern.Set, render: Ren
 
 export class DecomposedImage {
     get length(): number {
-        return this.hashesMap.size;
+        return this.hashes.length;
     }
 
     get memory(): number {
@@ -180,7 +174,7 @@ export class DecomposedImage {
             + tileSize * tileSize * 4 /* chip(RGBA) */
             + 8 /* map key */
         );
-        const hashSize = this.hashesMap.size * (
+        const hashSize = this.hashes.length * (
             ((this.width + tileSize - 1) / tileSize | 0)
             * ((this.height + tileSize - 1) / tileSize | 0)
             * 4 /* Uint32 */ + 4 /* hash */ + 8 /* map key */
@@ -192,7 +186,7 @@ export class DecomposedImage {
         public readonly width: number,
         public readonly height: number,
         public readonly tileSize: number,
-        public readonly hashesMap: HashesMap,
+        public readonly hashes: Hashes[],
         public readonly chipMap: ChipMap,
     ) {
         if (width <= 0 || height <= 0) {
@@ -202,10 +196,7 @@ export class DecomposedImage {
 
     // useful for debugging
     render(patternIndex: pattern.Index): HTMLCanvasElement {
-        const hashesBuffer = this.hashesMap.get(patternIndex);
-        if (!hashesBuffer) {
-            throw new Error(`patternIndex: #${patternIndex} is out of range`);
-        }
+        const hashesBuffer = this.hashes[patternIndex];
         const hashes = new Uint32Array(hashesBuffer, 4);
         const width = this.width, height = this.height, tileSize = this.tileSize;
         const canvas = document.createElement('canvas');
@@ -262,16 +253,16 @@ export class DecomposedImage {
     }
 
     getPatternIndices(): Uint32Array {
-        const hashesMap = this.hashesMap;
-        const length = hashesMap.size;
+        const hashes = this.hashes;
+        const length = hashes.length;
         const a = new Uint32Array(length);
         for (let i = 0; i < length; ++i) {
             a[i] = i;
         }
-        const comparer = difference.getComparer(new Uint32Array(hashesMap.get(0)!)[0]);
+        const comparer = difference.getComparer(new Uint32Array(hashes[0])[0]);
         a.sort((a, b) => {
-            const ha = new Uint32Array(hashesMap.get(a)!)[0];
-            const hb = new Uint32Array(hashesMap.get(b)!)[0];
+            const ha = new Uint32Array(hashes[a])[0];
+            const hb = new Uint32Array(hashes[b])[0];
             const r = comparer(ha, hb);
             if (r !== 0) {
                 return r;

@@ -1,10 +1,9 @@
-// * The first item is must be 'none' on each list.
 // Example:
 // [
-//   ['none', 'wear1', 'wear2'],
-//   ['none', 'normal', 'good', 'angry'],
-//   ['none', 'normal', 'good', 'sad'],
-//   ['none', 'normal', 'good', 'hungry'],
+//   ['wear1', 'wear2'],
+//   ['normal', 'good', 'angry'],
+//   ['normal', 'good', 'sad'],
+//   ['normal', 'good', 'hungry'],
 // ]
 export type Set = string[][];
 
@@ -12,13 +11,15 @@ export type Set = string[][];
 // ['wear', 'eyebrows', 'eyes', 'mouths']
 export type Caption = string[];
 
+// if passed with -1, it will be selected 'none' in that part.
 // Example:
-// [0, 0, 0, 0] = none + none + none + none
-// [1, 1, 3, 3] = wear1 + normal + sad + hungry
+// [-1, -1, -1, -1] = none + none + none + none
+// [0, 0, 0, 0] = wear1 + normal + normal + normal
+// [1, 1, 2, 2] = wear1 + good + sad + hungry
 export type Pattern = number[];
 
 // Example:
-// 0 = none + none + none + none
+// 0 = wear1 + normal + normal + normal
 export type Index = number;
 
 export function number(src: Set): number {
@@ -60,6 +61,36 @@ export function fromIndex(index: Index, src: Set): Pattern {
         len = src[g].length;
         tmp = index / len | 0;
         r[g] = index - (tmp * len);
+        index = tmp;
+    }
+    return r;
+}
+
+export function toIndexIncludingNone(pattern: Pattern, src: Set): Index {
+    const groupLength = src.length;
+    let r = 0, n = 1;
+    for (let g = groupLength - 1, len: number, i: number; g >= 0; --g) {
+        len = src[g].length + 1;
+        i = pattern[g] + 1;
+        if (i >= len) {
+            throw new Error('parts index out of range');
+        }
+        r += i * n;
+        n *= len;
+    }
+    return r;
+}
+
+export function fromIndexIncludingNone(index: Index, src: Set): Pattern {
+    if (index >= number(src)) {
+        throw new Error('pattern index out of range');
+    }
+    const groupLength = src.length;
+    let r: Pattern = new Array(groupLength);
+    for (let g = groupLength - 1, len: number, tmp: number; g >= 0; --g) {
+        len = src[g].length + 1;
+        tmp = index / len | 0;
+        r[g] = index - (tmp * len) - 1;
         index = tmp;
     }
     return r;

@@ -61,10 +61,10 @@ export function generate(src: DecomposedImage, patternSet: pattern.Set): Promise
     const patternStreamer = new LZ4Streamer(
         (src.width * src.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024 // need more intelligent suggest(numTilesPerPattern * numPatterns?)
     );
-    const patternMap = new DataView(new ArrayBuffer(src.hashesMap.size * 4));
+    const patternMap = new DataView(new ArrayBuffer(src.hashes.length * 4));
     src.getPatternIndices().forEach((v, i) => {
         patternMap.setUint32(v * 4, i, true);
-        const hashes = new Uint32Array(src.hashesMap.get(v)!, 4);
+        const hashes = new Uint32Array(src.hashes[v], 4);
         const indices = new Uint32Array(hashes.length);
         hashes.forEach((hash, i) => indices[i] = chipsMap.get(hash)! + 1);
         patternStreamer.addInt32Array(indices);
