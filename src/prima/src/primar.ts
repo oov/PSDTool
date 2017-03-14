@@ -64,16 +64,16 @@ function buildPattern(image: DecomposedImage, chipsMap: Map<number, number>): Pr
     const patternIndices = image.getPatternIndices();
     const patternMap = new DataView(new ArrayBuffer(numPatterns * 4));
     return new Promise(resolve => {
-        let i = 0;
+        let patternIndex = 0;
         const next = () => {
-            if (i >= numPatterns) {
-                return resolve([patternMap.buffer, streamer]);
+            if (patternIndex >= numPatterns) {
+                return image.abstore.clean().then(() => resolve([patternMap.buffer, streamer]));
             }
-            patternMap.setUint32(patternIndices[i] * 4, i, true);
-            image.popPatternHashes(patternIndices[i]).then(hashes => {
+            patternMap.setUint32(patternIndices[patternIndex] * 4, patternIndex, true);
+            image.getPatternHashes(patternIndices[patternIndex]).then(hashes => {
                 const indices = new Uint32Array(hashes.length);
                 hashes.forEach((hash, i) => indices[i] = chipsMap.get(hash)! + 1);
-                ++i;
+                ++patternIndex;
                 streamer.addInt32Array(indices).then(next);
             });
         };
