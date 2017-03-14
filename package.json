@@ -18,6 +18,7 @@
     "superstatic": "^4.0.3",
     "ts-loader": "^0.8.2",
     "typescript": "^2.2.1",
+    "uglify-loader": "^2.0.0",
     "webpack": "^1.13.2"
   },
   "scripts": {

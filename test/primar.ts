@@ -8,7 +8,7 @@ describe('primar', function () {
     this.timeout(0);
     it('should equal', () => {
         const m = new Mock();
-        return decomposer.decompose(16, m.parts, pattern => m.render(pattern)).then(p => {
+        return decomposer.decompose(16, m.parts, pattern => m.render(pattern), pattern => m.renderSolo(pattern)).then(p => {
             return primar.generate(p, m.parts).then(b => {
                 const a = document.createElement('a');
                 a.href = window.URL.createObjectURL(b);

@@ -22,58 +22,46 @@ function getImageData(image: SourceImage, width: number, height: number): ImageD
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-export default class Differ {
-    private worker = new PromiseWorker(Differ.createWorkerURL());
+export default class Regioner {
+    private worker = new PromiseWorker(Regioner.createWorkerURL());
     constructor(private readonly tileSize: number) {
     }
 
-    generate(baseImage: SourceImage, otherImage: SourceImage): Promise<BitArray> {
+    generate(image: SourceImage): Promise<BitArray> {
         const tileSize = this.tileSize;
         // it makes easier on edge processing 
-        const width = ((baseImage.width + tileSize - 1) / tileSize | 0) * tileSize;
-        const height = ((baseImage.height + tileSize - 1) / tileSize | 0) * tileSize;
-        const base = getImageData(baseImage, width, height);
-        const other = getImageData(otherImage, width, height);
+        const width = ((image.width + tileSize - 1) / tileSize | 0) * tileSize;
+        const height = ((image.height + tileSize - 1) / tileSize | 0) * tileSize;
+        const imageData = getImageData(image, width, height);
         return this.worker.postMessage({
-            base: base.data.buffer,
-            other: other.data.buffer,
+            image: imageData.data.buffer,
             width,
             height,
             tileSize,
-        }, [base.data.buffer, other.data.buffer]).then(e => new BitArray(e.data.buffer, e.data.length));
+        }, [imageData.data.buffer]).then(data => new BitArray(data.buffer, data.length));
     }
     get tasks(): number { return this.worker.waits; }
 
-    private static _calcDiff(
-        baseBuffer: ArrayBuffer,
-        otherBuffer: ArrayBuffer,
+    private static _findRegion(
+        imageBuffer: ArrayBuffer,
         width: number,
         height: number,
         tileSize: number,
     ): [ArrayBuffer, number] {
-        const lbuf = new Uint8Array(baseBuffer);
-        const rbuf = new Uint8Array(otherBuffer);
-
+        const buf = new Uint8Array(imageBuffer);
         const blockWidth = width / tileSize | 0;
         const blockHeight = height / tileSize | 0;
         const blockLength = blockWidth * blockHeight;
         const result = new Uint32Array((blockLength + 31) >>> 5);
+        let index: number, bufIndex: number, bitIndex: number;
         for (let by = 0; by < blockHeight; ++by) {
             const lry = by * tileSize;
             for (let bx = 0; bx < blockWidth; ++bx) {
                 block:
                 for (let y = 0; y < tileSize; ++y) {
                     let lrx = ((lry + y) * width + bx * tileSize) * 4;
-                    let la: number, ra: number, index: number, bufIndex: number, bitIndex: number;
                     for (let x = 0; x < tileSize; ++x, lrx += 4) {
-                        la = lbuf[lrx + 3];
-                        ra = rbuf[lrx + 3];
-                        if (
-                            la !== ra
-                            || lbuf[lrx + 0] * la !== rbuf[lrx + 0] * ra
-                            || lbuf[lrx + 1] * la !== rbuf[lrx + 1] * ra
-                            || lbuf[lrx + 2] * la !== rbuf[lrx + 2] * ra
-                        ) {
+                        if (buf[lrx + 3] > 0) {
                             index = by * blockWidth + bx;
                             bufIndex = index >>> 5;
                             bitIndex = index - (bufIndex << 5);
@@ -89,17 +77,17 @@ export default class Differ {
 
     private static workerURL: string;
     private static createWorkerURL(): string {
-        if (Differ.workerURL) {
-            return Differ.workerURL;
+        if (Regioner.workerURL) {
+            return Regioner.workerURL;
         }
-        Differ.workerURL = URL.createObjectURL(new Blob([`
+        Regioner.workerURL = URL.createObjectURL(new Blob([`
 'use strict';
-var calcDiff = ${Differ._calcDiff.toString()};
+var findRegion = ${Regioner._findRegion.toString()};
 onmessage = function(e){
-    var d = e.data;
-    var ret = calcDiff(d.base, d.other, d.width, d.height, d.tileSize);
+    var d = e.data[1];
+    var ret = findRegion(d.image, d.width, d.height, d.tileSize);
     postMessage({buffer: ret[0], length: ret[1]}, [ret[0]]);
 };`], { type: 'text/javascript' }));
-        return Differ.workerURL;
+        return Regioner.workerURL;
     }
 }

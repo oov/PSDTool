@@ -43,9 +43,7 @@ export class Slicer {
             width,
             height,
             tileSize
-        }, [imageData.data.buffer]).then(e => {
-            return [e.data.hashes, e.data.map];
-        });
+        }, [imageData.data.buffer]);
     }
     get tasks(): number { return this.worker.waits; }
 
@@ -114,9 +112,9 @@ var crc32 = ${crc32.crc32.toString()};
 var calcHash = ${difference.calcHash.toString()};
 var slice = ${Slicer._slice.toString()};
 onmessage = function(e){
-    var d = e.data;
+    var d = e.data[1];
     var ret = slice(d.imageData, d.width, d.height, d.tileSize, crc32, crcTable, calcHash);
-    postMessage({hashes: ret[0], map: ret[1]}, ret[2]);
+    postMessage([ret[0], ret[1]], ret[2]);
 };`], { type: 'text/javascript' }));
         return Slicer.workerURL;
     }

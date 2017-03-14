@@ -1,7 +1,7 @@
 import { ThrottlePromiseWorker } from './promise';
 
 declare var require: (name: string) => string;
-const rawLZ4Definition = require('raw-loader!./lz4/lz4.js');
+const rawLZ4Definition = require('raw-loader!uglify-loader!./lz4/src/lz4');
 
 function copy(dest: Uint8Array, src: Uint8Array, di: number, si: number, len: number) {
     for (let i = 0; i < len; ++i) {
@@ -28,13 +28,7 @@ class CompressWorker {
     get tasks(): number { return this.worker.waits; }
 
     public compressHC(buffer: ArrayBuffer): Promise<[ArrayBuffer, boolean]> {
-        return this.worker.postMessage({ buffer }, [buffer]).then(e => {
-            if (e.data.compressed) {
-                return [e.data.compressed, true];
-            } else {
-                return [e.data.original, false];
-            }
-        });
+        return this.worker.postMessage({ buffer }, [buffer]);
     }
 
     private static _compress(src: ArrayBuffer, compBuffer: Uint8Array | undefined, LZ4: any): [ArrayBuffer | undefined, Uint8Array] {
@@ -56,15 +50,15 @@ class CompressWorker {
         }
         CompressWorker.workerURL = URL.createObjectURL(new Blob([`
 'use strict';
-${rawLZ4Definition}
+var LZ4 = (function(exports){${rawLZ4Definition}return exports;})({});
 var compBuffer = undefined;
 var compress = ${CompressWorker._compress.toString()};
 onmessage = function(e){
-    var r = compress(e.data.buffer, compBuffer, LZ4);
+    var r = compress(e.data[1].buffer, compBuffer, LZ4);
     if (r[0]) {
-        postMessage({ compressed: r[0] }, [r[0]]);
+        postMessage([r[0], true], [r[0]]);
     } else {
-        postMessage({ original: e.data.buffer }, [e.data.buffer]);
+        postMessage([e.data[1].buffer, false], [e.data[1].buffer]);
     }
     compBuffer = r[1];
 };`], { type: 'text/javascript' }));
