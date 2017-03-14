@@ -112,15 +112,17 @@ class Decomposer {
         let byCache = 0, generated = 0;
         let retried = false;
         return ArrayBufferStore.create('prima-hashes', true).then(abstore => {
+            const writer = abstore.bulkWriter(400);
             return new Promise<[ArrayBufferStore, Uint32Array]>(resolve => {
                 const processNextPattern = () => {
                     if (patternIndex >= patternLength) {
                         // report statistics
                         // console.log(`generatedByCache: ${byCache} / rendered: ${generated}`);
                         this.hashesMap.clear();
-                        resolve([abstore, patternDiffHashes]);
+                        writer.flush().then(() => resolve([abstore, patternDiffHashes]));
                         return;
                     }
+
                     const parts = pattern.fromIndex(patternIndex, patternSet);
                     const patternAreaMap = parts.map((itemIndex, groupIndex) => {
                         const index = pattern.toIndexIncludingNone(parts.map((_, i) => groupIndex === i ? itemIndex : -1), patternSet);
@@ -158,7 +160,7 @@ class Decomposer {
                     patternDiffHashes[patternIndex] = hashes[0];
                     retried ? ++generated : ++byCache;
                     retried = false;
-                    abstore.set(patternIndex, hashes.buffer).then(processNextPattern);
+                    writer.set(patternIndex, hashes.buffer).then(processNextPattern);
                     ++patternIndex;
                 };
                 processNextPattern();
@@ -197,7 +199,7 @@ export class DecomposedImage {
         public readonly tileSize: number,
         public readonly chipMap: ChipMap,
         public readonly patternDiffHashes: Uint32Array,
-        private readonly abstore: ArrayBufferStore,
+        public readonly abstore: ArrayBufferStore,
     ) {
         if (width <= 0 || height <= 0) {
             throw new Error(`invalid image size: ${width}x${height}`);

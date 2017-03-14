@@ -1,5 +1,7 @@
-export default class ArrayBufferStore {
-    private static deleteDatabase(databaseName: string): Promise<void> {
+
+class DB {
+    private static readonly storeName = 'file';
+    static deleteDatabase(databaseName: string): Promise<void> {
         return new Promise<void>(resolve => {
             const req = indexedDB.deleteDatabase(databaseName);
             req.onerror = e => resolve();
@@ -7,7 +9,7 @@ export default class ArrayBufferStore {
         });
     }
 
-    private static openDatabase(databaseName: string): Promise<IDBDatabase> {
+    static openDatabase(databaseName: string): Promise<IDBDatabase> {
         return new Promise((resolve, reject) => {
             const req = indexedDB.open(databaseName, 1);
             req.onerror = e => reject(e);
@@ -23,28 +25,50 @@ export default class ArrayBufferStore {
                 }
                 const db = req.result;
                 try {
-                    db.deleteObjectStore('file');
+                    db.deleteObjectStore(this.storeName);
                 } catch (e) {
                     //
                 }
-                db.createObjectStore('file');
+                db.createObjectStore(this.storeName);
             };
         });
     }
 
-    static create(databaseName: string, newDB: boolean): Promise<ArrayBufferStore> {
-        return (newDB ? ArrayBufferStore.deleteDatabase(databaseName) : Promise.resolve())
-            .then(() => ArrayBufferStore.openDatabase(databaseName))
-            .then(db => new ArrayBufferStore(db));
+    static transactionReadOnly(db: IDBDatabase): IDBTransaction {
+        return db.transaction(this.storeName, 'readonly');
     }
 
-    private constructor(private readonly db: IDBDatabase) { }
+    static transactionReadWrite(db: IDBDatabase): IDBTransaction {
+        return db.transaction(this.storeName, 'readwrite');
+    }
 
-    public clean(): Promise<void> {
+    static delete(tx: IDBTransaction, name: string | number): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const tx = this.db.transaction('file', 'readwrite');
-            tx.onerror = e => reject(e);
-            const os = tx.objectStore('file');
+            const req = tx.objectStore(this.storeName).delete(name);
+            req.onsuccess = e => resolve();
+            req.onerror = e => reject(e);
+        });
+    }
+
+    static set(tx: IDBTransaction, name: string | number, ab: ArrayBuffer): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            const req = tx.objectStore(this.storeName).put(ab, name);
+            req.onsuccess = e => resolve();
+            req.onerror = e => reject(e);
+        });
+    }
+
+    static get(tx: IDBTransaction, name: string | number): Promise<ArrayBuffer> {
+        return new Promise((resolve, reject) => {
+            const req = tx.objectStore(this.storeName).get(name);
+            req.onsuccess = e => resolve(req.result);
+            req.onerror = e => reject(e);
+        });
+    }
+
+    static clean(tx: IDBTransaction): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            const os = tx.objectStore(this.storeName);
             const req: IDBRequest = (os as any).openKeyCursor();
             req.onsuccess = e => {
                 if (!(req.result instanceof IDBCursor)) {
@@ -56,62 +80,54 @@ export default class ArrayBufferStore {
             req.onerror = e => reject(e);
         });
     }
+}
 
-    private static delete(tx: IDBTransaction, name: string | number): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const req = tx.objectStore('file').delete(name);
-            req.onsuccess = e => resolve();
-            req.onerror = e => reject(e);
-        });
+class TransactionReadOnly {
+    constructor(public readonly tx: IDBTransaction) { }
+    get = (name: string | number) => DB.get(this.tx, name);
+}
+
+class TransactionReadWrite {
+    constructor(public readonly tx: IDBTransaction) { }
+    get = (name: string | number) => DB.get(this.tx, name);
+    set = (name: string | number, ab: ArrayBuffer) => DB.set(this.tx, name, ab);
+    delete = (name: string | number) => DB.delete(this.tx, name);
+    pop = (name: string | number) => this.get(name).then(ab => this.delete(name).then(() => ab));
+    clean = () => DB.clean(this.tx);
+}
+
+class BulkWriter {
+    private buffer: [string | number, ArrayBuffer][] = [];
+    constructor(private readonly abstore: ArrayBufferStore, private readonly bufferSize: number) { }
+    set(name: string | number, ab: ArrayBuffer): Promise<void> {
+        this.buffer.push([name, ab]);
+        if (this.buffer.length < this.bufferSize) {
+            return Promise.resolve();
+        }
+        return this.flush();
     }
-
-    public delete(name: string | number): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const tx = this.db.transaction('file', 'readwrite');
-            tx.onerror = e => reject(e);
-            return ArrayBufferStore.delete(tx, name).then(resolve, reject);
-        });
+    flush(): Promise<void> {
+        const tx = this.abstore.transactionReadWrite();
+        const r = Promise.all(this.buffer.map(([name, ab]) => tx.set(name, ab))).then(() => undefined);
+        this.buffer = [];
+        return r;
     }
+}
 
-    private static set(tx: IDBTransaction, name: string | number, ab: ArrayBuffer): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const req = tx.objectStore('file').put(ab, name);
-            req.onsuccess = e => resolve();
-            req.onerror = e => reject(e);
-        });
-    }
+export default class ArrayBufferStore {
+    constructor(public readonly db: IDBDatabase) { }
+    set = (name: string | number, ab: ArrayBuffer) => this.transactionReadWrite().set(name, ab);
+    delete = (name: string | number) => this.transactionReadWrite().delete(name);
+    get = (name: string | number) => this.transactionReadOnly().get(name);
+    pop = (name: string | number) => this.transactionReadWrite().pop(name);
+    clean = () => this.transactionReadWrite().clean();
+    transactionReadOnly = () => new TransactionReadOnly(DB.transactionReadOnly(this.db));
+    transactionReadWrite = () => new TransactionReadWrite(DB.transactionReadWrite(this.db));
+    bulkWriter = (bufferSize: number) => new BulkWriter(this, bufferSize);
 
-    public set(name: string | number, ab: ArrayBuffer): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const tx = this.db.transaction('file', 'readwrite');
-            tx.onerror = e => reject(e);
-            return ArrayBufferStore.set(tx, name, ab).then(resolve, reject);
-        });
-    }
-
-    private static get(tx: IDBTransaction, name: string | number): Promise<ArrayBuffer> {
-        return new Promise((resolve, reject) => {
-            const req = tx.objectStore('file').get(name);
-            req.onsuccess = e => resolve(req.result);
-            req.onerror = e => reject(e);
-        });
-    }
-
-    public get(name: string | number): Promise<ArrayBuffer> {
-        return new Promise((resolve, reject) => {
-            const tx = this.db.transaction('file', 'readonly');
-            tx.onerror = e => reject(e);
-            return ArrayBufferStore.get(tx, name).then(resolve, reject);
-        });
-    }
-
-    public pop(name: string | number): Promise<ArrayBuffer> {
-        return new Promise<ArrayBuffer>((resolve, reject) => {
-            const tx = this.db.transaction('file', 'readwrite');
-            tx.onerror = e => reject(e);
-            ArrayBufferStore.get(tx, name)
-                .then(ab => ArrayBufferStore.delete(tx, name).then(() => ab))
-                .then(resolve, reject);
-        });
+    static create(databaseName: string, newDB: boolean): Promise<ArrayBufferStore> {
+        return (newDB ? DB.deleteDatabase(databaseName) : Promise.resolve())
+            .then(() => DB.openDatabase(databaseName))
+            .then(db => new ArrayBufferStore(db));
     }
 }
