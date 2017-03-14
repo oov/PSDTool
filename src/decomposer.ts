@@ -38,11 +38,12 @@ class Decomposer {
         tileSize: number,
         patternSet: pattern.Set,
         renderFunc: RenderFunc,
-        renderSoloFunc: RenderFunc
+        renderSoloFunc: RenderFunc,
+        progress: (curPhase: number, cur: number, total: number) => Promise<void>,
     ): Promise<DecomposedImage> {
         const d = new Decomposer(tileSize, patternSet, renderFunc, renderSoloFunc);
-        return d.buildAreaMap()
-            .then(areaMap => d.buildHashes(areaMap))
+        return d.buildAreaMap((cur, total) => progress(0, cur, total))
+            .then(areaMap => d.buildHashes(areaMap, (cur, total) => progress(1, cur, total)))
             .then(([abstore, hashes]) => new DecomposedImage(d.width, d.height, d.tileSize, d.chipMap, hashes, abstore));
     }
 
@@ -71,7 +72,12 @@ class Decomposer {
         return this.renderSoloFunc(parts);
     }
 
-    private buildAreaMap(): Promise<AreaMap> {
+    private buildAreaMap(
+        progress: (cur: number, total: number) => Promise<void>,
+    ): Promise<AreaMap> {
+        const numPatterns = this.patternSet.map(v => v.length).reduce((a, b) => a + b);
+        let processed = 0;
+
         return this.render(this.patternSet.map(() => -1)).then(image => {
             this.width = image.width;
             this.height = image.height;
@@ -86,7 +92,7 @@ class Decomposer {
             areaMap.set(0, new bitarray.BitArray(this.numTiles).buffer.buffer);
 
             const patternSet = this.patternSet;
-            const promises: Promise<AreaMap>[] = [];
+            const promises: Promise<void>[] = [];
             patternSet.forEach((partsGroup, groupIndex) => {
                 for (let i = 0; i < partsGroup.length; ++i) {
                     const patternParts = patternSet.map((_, j) => j !== groupIndex ? -1 : i);
@@ -94,6 +100,7 @@ class Decomposer {
                         this.renderSolo(patternParts)
                             .then(image => regioner.generate(image))
                             .then(diff => areaMap.set(pattern.toIndexIncludingNone(patternParts, patternSet), diff.buffer.buffer))
+                            .then(() => progress(++processed, numPatterns))
                     );
                 }
             });
@@ -103,7 +110,10 @@ class Decomposer {
 
     // TODO: This may take a very long time, so it need move to the worker.
     // For that, I'm already using ArrayBuffer instead of TypedArray in the everywhere.
-    private buildHashes(areaMap: AreaMap): Promise<[ArrayBufferStore, Uint32Array]> {
+    private buildHashes(
+        areaMap: AreaMap,
+        progress: (cur: number, total: number) => Promise<void>,
+    ): Promise<[ArrayBufferStore, Uint32Array]> {
         const patternSet = this.patternSet;
         const hashesMap = this.hashesMap;
         const patternLength = pattern.number(patternSet);
@@ -112,7 +122,7 @@ class Decomposer {
         let byCache = 0, generated = 0;
         let retried = false;
         return ArrayBufferStore.create('prima-hashes', true).then(abstore => {
-            const writer = abstore.bulkWriter(400);
+            const writer = abstore.bulkWriter(100 * 1024 * 1024 / ((this.numTiles + 1) * 4) | 0);
             return new Promise<[ArrayBufferStore, Uint32Array]>(resolve => {
                 const processNextPattern = () => {
                     if (patternIndex >= patternLength) {
@@ -122,7 +132,6 @@ class Decomposer {
                         writer.flush().then(() => resolve([abstore, patternDiffHashes]));
                         return;
                     }
-
                     const parts = pattern.fromIndex(patternIndex, patternSet);
                     const patternAreaMap = parts.map((itemIndex, groupIndex) => {
                         const index = pattern.toIndexIncludingNone(parts.map((_, i) => groupIndex === i ? itemIndex : -1), patternSet);
@@ -160,8 +169,7 @@ class Decomposer {
                     patternDiffHashes[patternIndex] = hashes[0];
                     retried ? ++generated : ++byCache;
                     retried = false;
-                    writer.set(patternIndex, hashes.buffer).then(processNextPattern);
-                    ++patternIndex;
+                    writer.set(patternIndex, hashes.buffer).then(() => progress(++patternIndex, patternLength)).then(processNextPattern);
                 };
                 processNextPattern();
             });
@@ -169,8 +177,14 @@ class Decomposer {
     }
 }
 
-export function decompose(tileSize: number, patternSet: pattern.Set, render: RenderFunc, renderSolo: RenderFunc): Promise<DecomposedImage> {
-    return Decomposer.decompose(tileSize, patternSet, render, renderSolo);
+export function decompose(
+    tileSize: number,
+    patternSet: pattern.Set,
+    render: RenderFunc,
+    renderSolo: RenderFunc,
+    progress: (phase: number, cur: number, total: number) => Promise<void>,
+): Promise<DecomposedImage> {
+    return Decomposer.decompose(tileSize, patternSet, render, renderSolo, progress);
 }
 
 export class DecomposedImage {

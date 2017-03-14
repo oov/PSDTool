@@ -56,7 +56,11 @@ function applySubFilter(buf: Uint8Array): Uint8Array {
     return buf;
 }
 
-function buildPattern(image: DecomposedImage, chipsMap: Map<number, number>): Promise<[ArrayBuffer, LZ4Streamer]> {
+function buildPattern(
+    image: DecomposedImage,
+    chipsMap: Map<number, number>,
+    progress: (cur: number, total: number) => Promise<void>,
+): Promise<[ArrayBuffer, LZ4Streamer]> {
     const streamer = new LZ4Streamer(
         (image.width * image.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024 // need more intelligent suggest(numTilesPerPattern * numPatterns?)
     );
@@ -73,17 +77,20 @@ function buildPattern(image: DecomposedImage, chipsMap: Map<number, number>): Pr
             image.getPatternHashes(patternIndices[patternIndex]).then(hashes => {
                 const indices = new Uint32Array(hashes.length);
                 hashes.forEach((hash, i) => indices[i] = chipsMap.get(hash)! + 1);
-                ++patternIndex;
-                streamer.addInt32Array(indices).then(next);
+                streamer.addInt32Array(indices).then(() => progress(++patternIndex, numPatterns)).then(next);
             });
         };
         next();
     });
 }
 
-export function generate(src: DecomposedImage, patternSet: pattern.Set): Promise<Blob> {
+export function generate(
+    src: DecomposedImage,
+    patternSet: pattern.Set,
+    progress: (cur: number, total: number) => Promise<void>,
+): Promise<Blob> {
     const [chips, chipsMap] = src.getChipIndices();
-    return buildPattern(src, chipsMap).then(([patternMap, patternStreamer]) => {
+    return buildPattern(src, chipsMap, progress).then(([patternMap, patternStreamer]) => {
         return Promise.all([
             Promise.resolve().then((): [ArrayBuffer[], number] => {
                 const v = new DataView(new ArrayBuffer(18));

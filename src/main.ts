@@ -8,11 +8,13 @@ export function generate(
     patternSet: pattern.Set,
     render: (patternParts: number[]) => Promise<HTMLImageElement | HTMLCanvasElement>,
     renderSolo: (patternParts: number[]) => Promise<HTMLImageElement | HTMLCanvasElement>,
+    progress: (phase: number, cur: number, total: number) => Promise<void>,
 ): Promise<Blob> {
     return decomposer.decompose(
         tileSize,
         patternSet,
         pattern => render(pattern),
         pattern => renderSolo(pattern),
-    ).then(image => primar.generate(image, patternSet));
+        progress,
+    ).then(image => primar.generate(image, patternSet, (cur, total) => progress(2, cur, total)));
 }
