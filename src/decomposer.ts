@@ -178,9 +178,10 @@ class Decomposer {
                         ++patternIndex;
                         const n = Date.now();
                         if (n - lastReportTime > 100) {
-                            progress(patternIndex, patternLength);
                             lastReportTime = n;
+                            return progress(patternIndex, patternLength);
                         }
+                        return Promise.resolve();
                     }).then(processNextPattern);
                 };
                 processNextPattern();
