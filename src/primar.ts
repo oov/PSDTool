@@ -80,9 +80,10 @@ function buildPattern(
                 const indices = new Uint32Array(hashes.length);
                 hashes.forEach((hash, i) => indices[i] = chipsMap.get(hash)! + 1);
                 streamer.addInt32Array(indices).then(() => {
+                    ++patternIndex;
                     const n = Date.now();
                     if (n - lastReportTime > 100) {
-                        progress(++patternIndex, numPatterns);
+                        progress(patternIndex, numPatterns);
                         lastReportTime = n;
                     }
                 }).then(next);

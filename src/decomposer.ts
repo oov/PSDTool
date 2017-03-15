@@ -175,9 +175,10 @@ class Decomposer {
                     retried ? ++generated : ++byCache;
                     retried = false;
                     writer.set(patternIndex, hashes.buffer).then(() => {
+                        ++patternIndex;
                         const n = Date.now();
                         if (n - lastReportTime > 100) {
-                            progress(++patternIndex, patternLength);
+                            progress(patternIndex, patternLength);
                             lastReportTime = n;
                         }
                     }).then(processNextPattern);
