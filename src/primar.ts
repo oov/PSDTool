@@ -61,13 +61,15 @@ function buildPattern(
     chipsMap: Map<number, number>,
     progress: (cur: number, total: number) => Promise<void>,
 ): Promise<[ArrayBuffer, LZ4Streamer]> {
-    const streamer = new LZ4Streamer(
-        (image.width * image.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024 // need more intelligent suggest(numTilesPerPattern * numPatterns?)
-    );
-    const numPatterns = image.patternDiffHashes.length;
-    const patternIndices = image.getPatternIndices();
-    const patternMap = new DataView(new ArrayBuffer(numPatterns * 4));
     return new Promise(resolve => {
+        const streamer = new LZ4Streamer(
+            // need more intelligent suggest(numTilesPerPattern * numPatterns?)
+            (image.width * image.height < 4096 * 4096 ? 1 : 4) * 1024 * 1024
+        );
+        const numPatterns = image.patternDiffHashes.length;
+        const patternIndices = image.getPatternIndices();
+        const patternMap = new DataView(new ArrayBuffer(numPatterns * 4));
+        let lastReportTime = 0;
         let patternIndex = 0;
         const next = () => {
             if (patternIndex >= numPatterns) {
@@ -77,7 +79,13 @@ function buildPattern(
             image.getPatternHashes(patternIndices[patternIndex]).then(hashes => {
                 const indices = new Uint32Array(hashes.length);
                 hashes.forEach((hash, i) => indices[i] = chipsMap.get(hash)! + 1);
-                streamer.addInt32Array(indices).then(() => progress(++patternIndex, numPatterns)).then(next);
+                streamer.addInt32Array(indices).then(() => {
+                    const n = Date.now();
+                    if (n - lastReportTime > 100) {
+                        progress(++patternIndex, numPatterns);
+                        lastReportTime = n;
+                    }
+                }).then(next);
             });
         };
         next();
