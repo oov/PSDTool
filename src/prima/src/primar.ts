@@ -83,9 +83,10 @@ function buildPattern(
                     ++patternIndex;
                     const n = Date.now();
                     if (n - lastReportTime > 100) {
-                        progress(patternIndex, numPatterns);
                         lastReportTime = n;
+                        return progress(patternIndex, numPatterns);
                     }
+                    return Promise.resolve();
                 }).then(next);
             });
         };
