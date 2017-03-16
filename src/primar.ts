@@ -82,7 +82,7 @@ function buildPattern(
                 streamer.addInt32Array(indices).then(() => {
                     ++patternIndex;
                     const n = Date.now();
-                    if (n - lastReportTime > 100) {
+                    if (n - lastReportTime > 400) {
                         lastReportTime = n;
                         return progress(patternIndex, numPatterns);
                     }
