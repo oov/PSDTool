@@ -1,5 +1,5 @@
 import Regioner from './regioner';
-import { Slicer, Hashes, ChipMap } from './slicer';
+import { Slicer, ChipMap } from './slicer';
 import * as bitarray from './bitarray';
 import * as pattern from './pattern';
 import * as crc32 from './crc32';
@@ -10,7 +10,7 @@ type RenderedImage = HTMLImageElement | HTMLCanvasElement;
 
 type RenderFunc = (pattern: pattern.Pattern) => Promise<RenderedImage>;
 
-type HashesMap = Map<pattern.Index, Hashes>;
+type HashesMap = Map<pattern.Index, Map<number, crc32.Hash>>;
 
 type ChipIndexMap = Map<crc32.Hash, number>;
 
@@ -47,10 +47,19 @@ class Decomposer {
             .then(([abstore, hashes]) => new DecomposedImage(d.width, d.height, d.tileSize, d.chipMap, hashes, abstore));
     }
 
-    private render(parts: pattern.Pattern): Promise<RenderedImage> {
-        return this.renderFunc(parts).then(image => {
-            return this.slicer.slice(image).then(([hashes, partialChipMap]) => {
-                this.hashesMap.set(pattern.toIndexIncludingNone(parts, this.patternSet), hashes);
+    private render(index: pattern.Index, parts: pattern.Pattern, indices: number[]): Promise<void> {
+        return this.renderFunc(parts)
+            .then(image => this.slicer.slice(image))
+            .then(([hashes, partialChipMap]) => {
+                const h = new Uint32Array(hashes, 4);
+                let s = this.hashesMap.get(index);
+                if (!s) {
+                    s = new Map<number, number>();
+                    this.hashesMap.set(index, s);
+                }
+                for (const i of indices) {
+                    s.set(i, h[i]);
+                }
                 partialChipMap.forEach((v, i) => {
                     const stored = this.chipMap.get(i);
                     if (!stored) {
@@ -63,9 +72,7 @@ class Decomposer {
                         d[0] = s[0];
                     }
                 });
-                return image;
             });
-        });
     }
 
     private renderSolo(parts: pattern.Pattern): Promise<RenderedImage> {
@@ -78,7 +85,7 @@ class Decomposer {
         const numPatterns = this.patternSet.map(v => v.length).reduce((a, b) => a + b);
         let processed = 0;
 
-        return this.render(this.patternSet.map(() => -1)).then(image => {
+        return this.renderSolo(this.patternSet.map(() => -1)).then(image => {
             this.width = image.width;
             this.height = image.height;
             const tileSize = this.tileSize;
@@ -144,7 +151,7 @@ class Decomposer {
                     });
 
                     const numTiles = this.numTiles;
-                    const querying = new Map<number, Promise<RenderedImage>>();
+                    const requiredTiles = new Map<number, [pattern.Pattern, number[]]>();
                     const hashes = new Uint32Array(numTiles + 1 /* hash */);
                     const partsLength = patternAreaMap.length;
                     for (let i = 0; i < numTiles; ++i) {
@@ -155,17 +162,22 @@ class Decomposer {
                         const sourceIndex = pattern.toIndexIncludingNone(sourceParts, patternSet);
                         const refHashes = hashesMap.get(sourceIndex);
                         if (refHashes) {
-                            hashes[i + 1] = new Uint32Array(refHashes)[i + 1];
+                            const h = refHashes.get(i);
+                            if (h !== undefined) {
+                                hashes[i + 1] = h;
+                                continue;
+                            }
+                        }
+                        const req = requiredTiles.get(sourceIndex);
+                        if (req) {
+                            req[1].push(i);
                             continue;
                         }
-                        if (querying.has(sourceIndex)) {
-                            continue;
-                        }
-                        querying.set(sourceIndex, this.render(sourceParts));
+                        requiredTiles.set(sourceIndex, [sourceParts, [i]]);
                     }
-                    if (querying.size > 0) {
-                        const promises: Promise<RenderedImage>[] = [];
-                        querying.forEach(v => promises.push(v));
+                    if (requiredTiles.size > 0) {
+                        const promises: Promise<void>[] = [];
+                        requiredTiles.forEach(([parts, indices], pIndex) => promises.push(this.render(pIndex, parts, indices)));
                         retried = true;
                         Promise.all(promises).then(processNextPattern);
                         return;
@@ -177,7 +189,7 @@ class Decomposer {
                     writer.set(patternIndex, hashes.buffer).then(() => {
                         ++patternIndex;
                         const n = Date.now();
-                        if (n - lastReportTime > 100) {
+                        if (n - lastReportTime > 400) {
                             lastReportTime = n;
                             return progress(patternIndex, patternLength);
                         }
