@@ -93,6 +93,10 @@ func (r *root) buildLayer(l *layer) error {
 	if l.psdLayer.Folder() {
 		l.BlendMode = l.psdLayer.SectionDividerSetting.BlendMode.String()
 	} else {
+		if l.psdLayer.BlendMode == psd.BlendModePassThrough {
+			log.Printf("NOTICE: In '%s' layer, blend mode 'pass-through' which is unsupported mode in image layer has been replaced by 'normal'.", l.Name)
+			l.psdLayer.BlendMode = psd.BlendModeNormal
+		}
 		l.BlendMode = l.psdLayer.BlendMode.String()
 	}
 	l.Opacity = int(l.psdLayer.Opacity)
