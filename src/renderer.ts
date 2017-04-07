@@ -251,7 +251,7 @@ export class Renderer {
         }
     }
 
-    public render(scale: number, autoTrim: boolean, flip: FlipType, useOldResizer: boolean,
+    public render(scale: number, autoTrim: boolean, flip: FlipType,
         callback: (progress: number, canvas: HTMLCanvasElement) => void): void {
         let s = Date.now();
 
@@ -279,7 +279,7 @@ export class Renderer {
         console.log('rendering: ' + (Date.now() - s));
 
         s = Date.now();
-        this.downScale(bb, scale, useOldResizer, (progress, c) => {
+        this.downScale(bb, scale, (progress, c) => {
             console.log('scaling: ' + (Date.now() - s) + '(phase:' + progress + ')');
             const w = autoTrim ? this.psd.Width : this.psd.CanvasWidth;
             const h = autoTrim ? this.psd.Height : this.psd.CanvasHeight;
@@ -319,14 +319,13 @@ export class Renderer {
     private downScale(
         src: HTMLCanvasElement,
         scale: number,
-        useOldResizer: boolean,
         callback: (progress: number, image: HTMLCanvasElement) => void
     ): void {
         if (scale === 1) {
             callback(1, src);
             return;
         }
-        const ds = new downscaler.DownScaler(src, scale, useOldResizer);
+        const ds = new downscaler.DownScaler(src, scale);
         callback(0, ds.fast());
         setTimeout((): void => ds.beautifulWorker(canvas => callback(1, canvas)), 0);
     }

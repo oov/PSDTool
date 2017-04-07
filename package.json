@@ -33,7 +33,7 @@
   "scripts": {
     "test": "karma start",
     "start": "superstatic --port 10080 --debug true",
-    "build": "webpack --optimize-minimize && cp src/lz4/lz4.js js/lz4.js && cp src/downscaler/downscaler.js js/downscaler.js",
+    "build": "webpack --optimize-minimize",
     "watch": "webpack --progress --colors --watch"
   },
   "repository": {

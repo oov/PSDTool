@@ -40,7 +40,7 @@ function renderPSD(uri: string): Promise<HTMLCanvasElement> {
     return new Promise((resolve, reject) => {
         loadPSD(uri).then(psd => {
             const r = new renderer.Renderer(psd);
-            r.render(1, false, renderer.FlipType.NoFlip, false, (p, c) => {
+            r.render(1, false, renderer.FlipType.NoFlip, (p, c) => {
                 if (p === 1) {
                     resolve(c);
                 }
