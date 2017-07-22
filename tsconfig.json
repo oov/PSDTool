@@ -30,6 +30,7 @@
     "include": [
         "./src/**/*.ts",
         "./test/**/*.ts",
+        "node_modules/prima/*.ts",
         "node_modules/@types/**/*.ts"
     ],
     "exclude": []

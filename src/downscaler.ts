@@ -1,6 +1,4 @@
 declare var require: (name: string) => string;
-const downScalerDefinition = require('raw-loader!uglify-loader!./downscaler/src/downscaler');
-
 export class DownScaler {
     get destWidth(): number { return 0 | Math.max(1, this.src.width * this.scale); }
     get destHeight(): number { return 0 | Math.max(1, this.src.height * this.scale); }
@@ -52,6 +50,7 @@ export class DownScaler {
             }
             ctx.putImageData(destImageData, 0, 0);
             callback(this.dest);
+            w.terminate();
         };
         const srcCtx = this.src.getContext('2d');
         if (!srcCtx) {
@@ -87,7 +86,7 @@ export class DownScaler {
         }
         const sourceCode = `
 'use strict';
-var DownScaler = (function(exports){${downScalerDefinition}return exports;})({});
+${require('raw-loader!uglify-loader!downscaler/downscaler.js')}
 onmessage = function(e) {
     var d = e.data;
     DownScaler.scale({

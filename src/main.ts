@@ -6,7 +6,7 @@ import * as favorite from './favorite';
 import * as layertree from './layertree';
 import * as tileder from './tileder';
 import * as zipper from './zipper';
-import { generate as generatePrima } from './prima/src/main';
+import primaGenerate from 'prima';
 
 function getElementById(doc: Document, id: string): HTMLElement {
     const elem = doc.getElementById(id);
@@ -367,7 +367,7 @@ export class Main {
                 main.style.display = 'block';
                 Mousetrap.unpause();
                 this.resized();
-            }, e => {
+            }, (e: any) => {
                 prog.close();
                 fileOpenUi.style.display = 'block';
                 errorReportUi.style.display = 'block';
@@ -378,60 +378,60 @@ export class Main {
             });
     }
 
-    private parse(progress: (progress: number) => void, obj: { buffer: ArrayBuffer | Blob, name: string }) {
-        const deferred = m.deferred();
-        PSD.parseWorker(
-            obj.buffer,
-            progress,
-            psd => {
-                try {
-                    this.psdRoot = psd;
-                    this.loadLayerTree(psd);
-                    this.filterDialog.load(psd);
-                    this.loadRenderer(psd);
+    private parse(progress: (progress: number) => void, obj: { buffer: ArrayBuffer | Blob, name: string }): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            PSD.parseWorker(
+                obj.buffer,
+                progress,
+                psd => {
+                    try {
+                        this.psdRoot = psd;
+                        this.loadLayerTree(psd);
+                        this.filterDialog.load(psd);
+                        this.loadRenderer(psd);
 
-                    this.maxPixels.value = (this.optionAutoTrim.checked ? this.renderer.Height : this.renderer.CanvasHeight).toString();
-                    this.seqDlPrefix.value = obj.name;
-                    this.seqDlNum.value = '0';
+                        this.maxPixels.value = (this.optionAutoTrim.checked ? this.renderer.Height : this.renderer.CanvasHeight).toString();
+                        this.seqDlPrefix.value = obj.name;
+                        this.seqDlNum.value = '0';
 
-                    const readmeButtons = document.querySelectorAll('.psdtool-show-readme');
-                    for (let i = 0, elem: Element; i < readmeButtons.length; ++i) {
-                        elem = readmeButtons[i];
-                        if (elem instanceof HTMLElement) {
-                            if (psd.Readme !== '') {
-                                elem.classList.remove('hidden');
-                            } else {
-                                elem.classList.add('hidden');
+                        const readmeButtons = document.querySelectorAll('.psdtool-show-readme');
+                        for (let i = 0, elem: Element; i < readmeButtons.length; ++i) {
+                            elem = readmeButtons[i];
+                            if (elem instanceof HTMLElement) {
+                                if (psd.Readme !== '') {
+                                    elem.classList.remove('hidden');
+                                } else {
+                                    elem.classList.add('hidden');
+                                }
                             }
                         }
-                    }
-                    getElementById(document, 'readme').textContent = psd.Readme;
+                        getElementById(document, 'readme').textContent = psd.Readme;
 
-                    //  TODO: error handling
-                    this.favorite.psdHash = psd.Hash;
-                    if (this.droppedPFV) {
-                        const fr = new FileReader();
-                        fr.onload = () => {
-                            this.favorite.loadFromArrayBuffer(fr.result);
-                        };
-                        fr.readAsArrayBuffer(this.droppedPFV);
-                    } else {
-                        const pfvData = this.favorite.getPFVFromLocalStorage(psd.Hash);
-                        if (pfvData && pfvData.time / 1000 > psd.PFVModDate) {
-                            this.favorite.loadFromString(pfvData.data, pfvData.id);
-                        } else if (psd.PFV) {
-                            this.favorite.loadFromString(psd.PFV);
+                        //  TODO: error handling
+                        this.favorite.psdHash = psd.Hash;
+                        if (this.droppedPFV) {
+                            const fr = new FileReader();
+                            fr.onload = () => {
+                                this.favorite.loadFromArrayBuffer(fr.result);
+                            };
+                            fr.readAsArrayBuffer(this.droppedPFV);
+                        } else {
+                            const pfvData = this.favorite.getPFVFromLocalStorage(psd.Hash);
+                            if (pfvData && pfvData.time / 1000 > psd.PFVModDate) {
+                                this.favorite.loadFromString(pfvData.data, pfvData.id);
+                            } else if (psd.PFV) {
+                                this.favorite.loadFromString(psd.PFV);
+                            }
                         }
+                        this.redraw();
+                        resolve();
+                    } catch (e) {
+                        reject(e);
                     }
-                    this.redraw();
-                    deferred.resolve(true);
-                } catch (e) {
-                    deferred.reject(e);
-                }
-            },
-            error => deferred.reject(error)
-        );
-        return deferred.promise;
+                },
+                error => reject(error)
+            );
+        });
     }
 
     private pfvOnDrop(files: FileList): void {
@@ -1234,7 +1234,7 @@ export class Main {
                 renderSolo: (pattern: number[]) => render('', pattern, root.selects),
             };
         });
-        generatePrima(
+        primaGenerate(
             16,
             patterns[0].captions,
             patterns[0].selects,
@@ -1745,109 +1745,104 @@ export class Main {
         });
     }
 
-    private static loadAsBlobCrossDomain(progress: (progress: number) => void, url: string) {
-        const deferred = m.deferred();
-        if (location.protocol === 'https:' && url.substring(0, 5) === 'http:') {
-            setTimeout((): void => deferred.reject(new Error('cannot access to the insecure content from HTTPS.')), 0);
-            return deferred.promise;
-        }
-        const ifr = document.createElement('iframe');
-        let port: MessagePort | undefined;
-        let timer = setTimeout(() => {
-            if (port) {
-                port.onmessage = undefined as any;
+    private static loadAsBlobCrossDomain(progress: (progress: number) => void, url: string): Promise<{ buffer: ArrayBuffer | Blob, name: string }> {
+        return new Promise<{ buffer: ArrayBuffer, name: string }>((resolve, reject) => {
+            if (location.protocol === 'https:' && url.substring(0, 5) === 'http:') {
+                return reject(new Error('cannot access to the insecure content from HTTPS.'));
             }
-            document.body.removeChild(ifr);
-            deferred.reject(new Error('something went wrong'));
-        }, 20000);
-        ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-        ifr.onload = e => {
-            const msgCh = new MessageChannel();
-            port = msgCh.port1;
-            port.onmessage = e => {
-                if (timer) {
-                    clearTimeout(timer);
-                    timer = 0;
+            const ifr = document.createElement('iframe');
+            let port: MessagePort | undefined;
+            let timer = setTimeout(() => {
+                if (port) {
+                    port.onmessage = undefined as any;
                 }
-                if (!e.data || !e.data.type) {
-                    return;
-                }
-                switch (e.data.type) {
-                    case 'complete':
-                        document.body.removeChild(ifr);
-                        if (!e.data.data) {
-                            deferred.reject(new Error('something went wrong'));
+                document.body.removeChild(ifr);
+                return reject(new Error('something went wrong'));
+            }, 20000);
+            ifr.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+            ifr.onload = e => {
+                const msgCh = new MessageChannel();
+                port = msgCh.port1;
+                port.onmessage = e => {
+                    if (timer) {
+                        clearTimeout(timer);
+                        timer = 0;
+                    }
+                    if (!e.data || !e.data.type) {
+                        return;
+                    }
+                    switch (e.data.type) {
+                        case 'complete':
+                            document.body.removeChild(ifr);
+                            if (!e.data.data) {
+                                reject(new Error('something went wrong'));
+                                return;
+                            }
+                            progress(1);
+                            resolve({
+                                buffer: e.data.data,
+                                name: e.data.name ? e.data.name : Main.extractFilePrefixFromUrl(url)
+                            });
                             return;
-                        }
-                        progress(1);
-                        deferred.resolve({
-                            buffer: e.data.data,
-                            name: e.data.name ? e.data.name : Main.extractFilePrefixFromUrl(url)
-                        });
-                        return;
-                    case 'error':
-                        document.body.removeChild(ifr);
-                        deferred.reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
-                        return;
-                    case 'progress':
-                        if (('loaded' in e.data) && ('total' in e.data)) {
-                            progress(e.data.loaded / e.data.total);
-                        }
-                        return;
-                }
+                        case 'error':
+                            document.body.removeChild(ifr);
+                            reject(new Error(e.data.message ? e.data.message : 'could not receive data'));
+                            return;
+                        case 'progress':
+                            if (('loaded' in e.data) && ('total' in e.data)) {
+                                progress(e.data.loaded / e.data.total);
+                            }
+                            return;
+                    }
+                };
+                ifr.contentWindow.postMessage(
+                    location.protocol,
+                    url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]);
             };
-            ifr.contentWindow.postMessage(
-                location.protocol,
-                url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]);
-        };
-        ifr.src = url;
-        ifr.style.display = 'none';
-        document.body.appendChild(ifr);
-        return deferred.promise;
+            ifr.src = url;
+            ifr.style.display = 'none';
+            document.body.appendChild(ifr);
+        });
     }
 
-    private static loadAsBlobFromString(progress: (progress: number) => void, url: string) {
+    private static loadAsBlobFromString(progress: (progress: number) => void, url: string): Promise<{ buffer: ArrayBuffer | Blob, name: string }> {
         if (url.substring(0, 3) === 'xd:') {
             return this.loadAsBlobCrossDomain(progress, url.substring(3));
         }
-        const deferred = m.deferred();
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url);
-        xhr.responseType = 'blob';
-        xhr.onload = e => {
-            progress(1);
-            if (xhr.status === 200) {
-                deferred.resolve({
-                    buffer: xhr.response,
-                    name: Main.extractFilePrefixFromUrl(url)
-                });
-                return;
-            }
-            deferred.reject(new Error(xhr.status + ' ' + xhr.statusText));
-        };
-        xhr.onerror = e => {
-            console.error(e);
-            deferred.reject(new Error('could not receive data'));
-        };
-        xhr.onprogress = e => progress(e.loaded / e.total);
-        xhr.send(null);
-        return deferred.promise;
+        return new Promise<{ buffer: ArrayBuffer, name: string }>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.responseType = 'blob';
+            xhr.onload = e => {
+                progress(1);
+                if (xhr.status === 200) {
+                    resolve({
+                        buffer: xhr.response,
+                        name: Main.extractFilePrefixFromUrl(url)
+                    });
+                    return;
+                }
+                reject(new Error(xhr.status + ' ' + xhr.statusText));
+            };
+            xhr.onerror = e => {
+                console.error(e);
+                reject(new Error('could not receive data'));
+            };
+            xhr.onprogress = e => progress(e.loaded / e.total);
+            xhr.send(null);
+        });
     }
 
-    private static loadAsBlob(progress: (progress: number) => void, file_or_url: File | string) {
-        if (file_or_url instanceof File) {
-            const file = file_or_url;
-            const deferred = m.deferred();
-            setTimeout(() => {
-                deferred.resolve({
-                    buffer: file,
-                    name: file.name.replace(/\..*$/i, '') + '_'
-                });
-            }, 0);
-            return deferred.promise;
-        } else {
+    private static loadAsBlob(progress: (progress: number) => void, file_or_url: File | string): Promise<{ buffer: ArrayBuffer | Blob, name: string }> {
+        if (!(file_or_url instanceof File)) {
             return this.loadAsBlobFromString(progress, file_or_url);
         }
+        return new Promise<{ buffer: ArrayBuffer | Blob, name: string }>(resolve => {
+            resolve({
+                buffer: file_or_url,
+                name: file_or_url.name.replace(/\..*$/i, '') + '_'
+            });
+        });
     }
 }
 

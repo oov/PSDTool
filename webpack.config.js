@@ -4,7 +4,7 @@ module.exports = {
         filename: './js/index.js',
     },
     resolve: {
-        extensions: ['', '.webpack.js', '.web.js', '.ts', '.tsx', '.js']
+        extensions: ['.webpack.js', '.web.js', '.ts', '.tsx', '.js']
     },
     module: {
         loaders: [
