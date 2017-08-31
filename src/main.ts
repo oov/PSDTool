@@ -53,7 +53,9 @@ class ProgressDialog {
 class FilterDialog {
     public onUpdate: (id: string, type: string, data: string) => void;
 
-    private root: layertree.Filter;
+    private root_: layertree.Filter;
+    get root(): layertree.Filter { return this.root_; }
+
     private node: favorite.Node;
     private useFilter: HTMLInputElement;
     private treeRoot: HTMLUListElement;
@@ -128,10 +130,10 @@ class FilterDialog {
             const filters = this.favorite.getAncestorFilters(this.node);
             if (this.node.type === 'filter') {
                 this.useFilter.checked = true;
-                this.root.deserialize(this.node.data ? this.node.data.value : '', filters);
+                this.root_.deserialize(this.node.data ? this.node.data.value : '', filters);
             } else {
                 this.useFilter.checked = false;
-                this.root.deserialize('', filters);
+                this.root_.deserialize('', filters);
             }
             this.updateClass();
         });
@@ -141,7 +143,7 @@ class FilterDialog {
         if (!this.treeRoot) {
             this.init();
         }
-        this.root = new layertree.Filter(this.treeRoot, psd);
+        this.root_ = new layertree.Filter(this.treeRoot, psd);
     }
 
     private updateClass(): void {
@@ -175,7 +177,7 @@ class FilterDialog {
 
     private update(): void {
         if (this.useFilter.checked) {
-            const s = this.root.serialize();
+            const s = this.root_.serialize();
             if (s) {
                 if (this.onUpdate) {
                     this.onUpdate(this.node.id || '', 'filter', s);
@@ -453,6 +455,34 @@ export class Main {
         }
     }
 
+    private addGroupToFavorite(n: layertree.Node): string[] {
+        const old = this.layerRoot.serialize(true);
+        const created: string[] = [];
+        const radioMode = n.isRadio;
+        const sibs = n.parent.children;
+        if (!radioMode) {
+            for (let i = 0; i < sibs.length; ++i) {
+                sibs[i].checked = false;
+            }
+        }
+        for (let i = 0; i < sibs.length; ++i) {
+            n = sibs[i];
+            if (n.li.classList.contains('psdtool-item-flip-x') ||
+                n.li.classList.contains('psdtool-item-flip-y') ||
+                n.li.classList.contains('psdtool-item-flip-xy') ||
+                (radioMode && !n.isRadio)
+            ) {
+                continue;
+            }
+            n.checked = true;
+            this.favorite.addItem(this.layerRoot.serialize(false), n.displayName, false);
+            n.checked = false;
+            created.push(n.displayName);
+        }
+        this.layerRoot.deserialize(old);
+        return created;
+    }
+
     private initFavoriteUI(): void {
         const favoriteTree = getElementById(document, 'favorite-tree');
         this.favorite = new favorite.Favorite(favoriteTree, favoriteTree.getAttribute('data-root-name') || 'My Favorites');
@@ -569,31 +599,58 @@ export class Main {
 
         Mousetrap.bind('shift+mod+g', e => {
             const target = e.target;
-            if (target instanceof HTMLElement && target.classList.contains('psdtool-layer-visible')) {
+            if (target instanceof HTMLInputElement && target.classList.contains('psdtool-layer-visible')) {
                 e.preventDefault();
-                if (!target.classList.contains('psdtool-layer-radio')) {
-                    return;
-                }
-                if (target instanceof HTMLInputElement) {
-                    const old = this.layerRoot.serialize(true);
-                    const created: string[] = [];
-                    let n: layertree.Node;
-                    const elems = document.querySelectorAll(`input[name="${target.name}"].psdtool-layer-radio`);
-                    for (let i = 0; i < elems.length; ++i) {
-                        n = this.layerRoot.nodes[parseInt(elems[i].getAttribute('data-seq') || '0', 10)];
-                        if (n.li.classList.contains('psdtool-item-flip-x') ||
-                            n.li.classList.contains('psdtool-item-flip-y') ||
-                            n.li.classList.contains('psdtool-item-flip-xy')) {
-                            continue;
-                        }
-                        n.checked = true;
-                        this.favorite.addItem(this.layerRoot.serialize(false), n.displayName, false);
-                        created.push(n.displayName);
+                const n = this.layerRoot.nodes[parseInt(target.getAttribute('data-seq') || '0', 10)];
+                const created = this.addGroupToFavorite(n);
+                alert(created.length + ' favorite item(s) has been added.\n\n' + created.join('\n'));
+            }
+        });
+        Mousetrap.bind('shift+mod+alt+g', e => {
+            const target = e.target;
+            if (target instanceof HTMLInputElement && target.classList.contains('psdtool-layer-visible')) {
+                e.preventDefault();
+                const n = this.layerRoot.nodes[parseInt(target.getAttribute('data-seq') || '0', 10)];
+                const radioMode = n.isRadio;
+                const text = n.parent.displayName;
+                const filterTree = this.filterDialog.root;
+                const backup = filterTree.serialize();
+                for (let key in filterTree.nodes) {
+                    if (!filterTree.nodes.hasOwnProperty(key)) {
+                        continue;
                     }
-                    this.layerRoot.deserialize(old);
-                    this.redraw();
-                    alert(created.length + ' favorite item(s) has been added.\n\n' + created.join('\n'));
+                    filterTree.nodes[key].checked = false;
                 }
+                const fn = filterTree.nodes[parseInt(target.getAttribute('data-seq') || '0', 10)];
+                // ancestors
+                let p = fn;
+                while (p !== p.parent) {
+                    p.checked = true;
+                    p = p.parent;
+                }
+                // siblings
+                const checkAll = (node: layertree.Node): void => {
+                    node.checked = true;
+                    for (let i = 0; i < node.children.length; ++i) {
+                        checkAll(node.children[i]);
+                    }
+                };
+                const sibs = n.parent.children;
+                const fsibs = fn.parent.children;
+                for (let i = 0; i < fsibs.length; ++i) {
+                    if (radioMode && !sibs[i].isRadio) {
+                        continue;
+                    }
+                    checkAll(fsibs[i]);
+                }
+
+                const filterSetting = filterTree.serialize();
+                filterTree.deserialize(backup, []);
+                const oldSelected = this.favorite.selected;
+                this.favorite.addFilter(filterSetting, text, false);
+                const created = this.addGroupToFavorite(n);
+                this.favorite.selected = oldSelected;
+                alert('add "' + text + '" folder and ' + created.length + ' favorite item(s) has been inserted.\n\n' + created.join('\n'));
             }
         });
 
@@ -1580,6 +1637,15 @@ export class Main {
             const target = e.target;
             if (target instanceof HTMLInputElement && target.classList.contains('psdtool-layer-visible')) {
                 const n = this.layerRoot.nodes[parseInt(target.getAttribute('data-seq') || '0', 10)];
+                if ((e.ctrlKey && !e.metaKey) || (!e.ctrlKey && e.metaKey)) {
+                    const sibs = n.parent.children;
+                    for (let i = 0; i < sibs.length; ++i) {
+                        if (sibs[i] === n) {
+                            continue;
+                        }
+                        sibs[i].checked = false;
+                    }
+                }
                 if (target.checked) {
                     this.lastCheckedNode = n;
                 }

@@ -36,6 +36,7 @@ export class Node {
     get internalName(): string { return this.internalName_; }
     get fullPath(): string { return this.fullPath_; }
     get isRoot(): boolean { return this === this.parent; }
+    get isRadio(): boolean { return this.input.type === 'radio'; }
     public li: HTMLLIElement;
     public children: Node[] = [];
     public clip: Node[];
@@ -679,7 +680,7 @@ export class LayerTree {
 
 export class Filter {
     private root: Node = new Node(document.createElement('input'), document.createTextNode(''), '', [], 0);
-    private nodes: { [seqId: number]: Node } = {};
+    public readonly nodes: { [seqId: number]: Node } = {};
     constructor(treeRoot: HTMLUListElement, psdRoot: psd.Root) {
         const path: string[] = [];
         let r = (ul: HTMLUListElement, n: Node, l: psd.Layer[]): void => {

@@ -173,13 +173,16 @@
 		<p>
 			レイヤーツリー画面ではチェックボックスやラジオボタンの切り替えで、シンプルビュー画面ではセレクトボックスやスライダーによる切り替えによって、画像のレイヤー表示構成を変更することができます。
 		</p>
+		<p>
+			また、Ctrl(Command) キーを押しながらチェックボックスをクリックすると、同じ階層にある他のレイヤーのチェックをすべて外すことができます。
+		</p>
 
 		<h3 id="feature-favview">お気に入り編集画面</h3>
 		<p>タブで「お気に入り」を選ぶとレイヤー表示構成の保存や読み込みができるお気に入り編集画面が表示されます。</p>
 		<p><img src="img/fav.png" width="350" height="263" class="psdtool-thumb" alt="お気に入り編集画面のスクリーンショット"></p>
-		<p>作成したお気に入りはシングルクリックでプレビュー、ダブルクリックでレイヤー一覧に読み込むことができます。その他、Shift や Ctrl(Option) を押しながらクリックで複数選択や、ドラッグで項目の入れ替え、Ctrl(Option) を押しながらドラッグでコピーなどもできます。</p>
+		<p>作成したお気に入りはシングルクリックでプレビュー、ダブルクリックでレイヤー一覧に読み込むことができます。その他、Shift や Ctrl(Command) を押しながらクリックで複数選択や、ドラッグで項目の入れ替え、Ctrl(Command) を押しながらドラッグでコピーなどもできます。</p>
 		<dl>
-			<dt><span class="glyphicon glyphicon-star"></span> 現在のレイヤー表示をお気に入りに追加（Ctrl + B / Option + B）</dt>
+			<dt><span class="glyphicon glyphicon-star"></span> 現在のレイヤー表示をお気に入りに追加（Ctrl + B / Command + B）</dt>
 			<dd>
 				<p>
 					現在レイヤータブで選択している構成をお気に入りに追加します。
@@ -188,7 +191,7 @@
 					ショートカットキーを使用するとレイヤータブを表示していてもお気に入りに追加することができます。
 				</p>
 			</dd>
-			<dt><span class="glyphicon glyphicon-folder-open"></span> 新規フォルダー（Ctrl + D / Option + D）</dt>
+			<dt><span class="glyphicon glyphicon-folder-open"></span> 新規フォルダー（Ctrl + D / Command + D）</dt>
 			<dd>
 				<p>
 					項目の整理に利用可能なフォルダーを追加します。
@@ -376,10 +379,16 @@
 					</dd>
 				</dl>
 			</dd>
-			<dt id="generate-items-from-radios">ラジオグループからお気に入りを自動生成（Shift + Ctrl + G / Shift + Option + G）</dt>
+			<dt id="generate-items-from-group">グループからお気に入りを自動生成（Shift + Ctrl + G / Shift + Command + G）</dt>
 			<dd>
 				<p>
-					これはレイヤー一覧でラジオボタンをクリックした後にショートカットキーを押すことで使用可能な機能で、ラジオボタンで選択可能な項目の全てのパターンでお気に入りを自動生成します。
+					これはレイヤー一覧でラジオボタンやチェックボックスをクリックした後にショートカットキーを押すことで使用可能な機能です。現在フォーカスがある項目の階層をグループとして、それぞれを単独で選択した全てのパターンでお気に入りを自動生成します。
+				</p>
+			</dd>
+			<dt id="generate-items-from-group-folder">グループからフィルター適用済みフォルダーを自動生成（Shift + Ctrl + Alt + G / Shift + Command + Option + G）</dt>
+			<dd>
+				<p>
+					「グループからお気に入りを自動生成」とほとんど同じですが、生成した項目を入れるためのフィルター付きフォルダーも自動生成します。
 				</p>
 			</dd>
 		</dl>
@@ -440,7 +449,7 @@
 		<p>
 			<iframe width="853" height="480" class="embed-responsive-item" src="https://www.youtube-nocookie.com/embed/F1qPRdpZHd4?rel=0&amp;showinfo=0" frameborder="0" allowfullscreen></iframe>
 		</p>
-		<p>実際にシンプルビュー用のお気に入りデータを作成する例です。お気に入りデータの登録には<a href="#generate-items-from-radios">ラジオグループからお気に入りを自動生成</a>を使用していますが、使用しなくてもデータの作成は可能です。</p>
+		<p>実際にシンプルビュー用のお気に入りデータを作成する例です。</p>
 
 		<h2 id="supported-filetype">読み込める PSD ファイル</h2>
 		<p>PSDTool は「最大公約数的な PSD ファイル読み込みツール」というのを目標に開発しているため、Photoshop 以外のソフトでも頻繁に使われるであろう機能を優先的に実装しています。</p>
@@ -624,6 +633,10 @@ root-name/お気に入り
 
 		<h2 id="changes">変更履歴</h2>
 		<dl>
+			<dt>2017-08-31</dt>
+			<dd>排他チェック機能を追加</dd>
+			<dd>Ctrl(Command) キーを押しながらチェックボックスをクリックすると、同じ階層のチェックを外しながらチェックを入れることができます。以前から使える Shift + Ctrl(Command) + G による「ラジオグループからお気に入りを自動生成」機能も、今回からチェックボックスの時は同じ階層をグループとみなすことで使えるようになります。</dd>
+			<dd>「グループからフィルター適用済みフォルダーを自動生成」のショートカットキーを追加</dd>
 			<dt>2017-07-23</dt>
 			<dd>ソースコードの整理</dd>
 			<dd>縮小時に暗い色が劣化することがあったのを修正</dd>

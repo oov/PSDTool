@@ -445,6 +445,14 @@ export class Favorite {
         return this.jst.create_node(parent, node, idx !== -1 ? idx + 1 : 'last');
     }
 
+    get selected(): any {
+        const selected = this.jst.get_top_selected();
+        if (!selected.length) {
+            return;
+        }
+        return selected;
+    }
+    set selected(id: any) { this.selectNode(id); }
     private selectNode(id: string, edit?: boolean): void {
         this.clearSelection();
         this.jst.select_node(id, true);
