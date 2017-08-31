@@ -460,17 +460,20 @@ export class Main {
         const created: string[] = [];
         const radioMode = n.isRadio;
         const sibs = n.parent.children;
-        if (!radioMode) {
-            for (let i = 0; i < sibs.length; ++i) {
-                sibs[i].checked = false;
+        for (let i = 0; i < sibs.length; ++i) {
+            const n = sibs[i];
+            if ((radioMode && !n.isRadio) || (!radioMode && n.isRadio)) {
+                continue;
             }
+            n.checked = false;
         }
         for (let i = 0; i < sibs.length; ++i) {
-            n = sibs[i];
+            const n = sibs[i];
             if (n.li.classList.contains('psdtool-item-flip-x') ||
                 n.li.classList.contains('psdtool-item-flip-y') ||
                 n.li.classList.contains('psdtool-item-flip-xy') ||
-                (radioMode && !n.isRadio)
+                (radioMode && !n.isRadio) ||
+                (!radioMode && n.isRadio)
             ) {
                 continue;
             }
@@ -638,7 +641,7 @@ export class Main {
                 const sibs = n.parent.children;
                 const fsibs = fn.parent.children;
                 for (let i = 0; i < fsibs.length; ++i) {
-                    if (radioMode && !sibs[i].isRadio) {
+                    if ((radioMode && !sibs[i].isRadio) || (!radioMode && sibs[i].isRadio)) {
                         continue;
                     }
                     checkAll(fsibs[i]);
@@ -1637,10 +1640,10 @@ export class Main {
             const target = e.target;
             if (target instanceof HTMLInputElement && target.classList.contains('psdtool-layer-visible')) {
                 const n = this.layerRoot.nodes[parseInt(target.getAttribute('data-seq') || '0', 10)];
-                if ((e.ctrlKey && !e.metaKey) || (!e.ctrlKey && e.metaKey)) {
+                if (!n.isRadio && ((e.ctrlKey && !e.metaKey) || (!e.ctrlKey && e.metaKey))) {
                     const sibs = n.parent.children;
                     for (let i = 0; i < sibs.length; ++i) {
-                        if (sibs[i] === n) {
+                        if (sibs[i].isRadio || sibs[i] === n) {
                             continue;
                         }
                         sibs[i].checked = false;
