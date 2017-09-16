@@ -49,6 +49,13 @@
 				</ol>
 			</li>
 			<li><a href="#pfv-spec">PFV ファイルについて</a></li>
+			<li>
+				<a href="#faq">よくある質問</a>
+				<ol>
+					<li><a href="#faq-zip-mojibake">ZIP ファイルを解凍したら、ファイル名が文字化けしている</a></li>
+					<li><a href="#faq-layer-check">レイヤーのチェックが外せない / レイヤーの変なところがラジオボタンになっている</a></li>
+				</ol>
+			</li>
 			<li><a href="#changes">変更履歴</a></li>
 			<li><a href="#credits">クレジット</a></li>
 		</ol>
@@ -631,8 +638,31 @@ root-name/お気に入り
 			<br>レイヤー名自体に <code>\</code> が含まれている場合はエンコードによって <code>%5c</code> になっているため、<code>\</code> の存在はデコード処理の前にチェックすることで見つけることができます。
 		</p>
 
+		<h2 id="faq">よくある質問</h2>
+		<dl>
+			<dt id="faq-zip-mojibake">ZIP ファイルを解凍したら、ファイル名が文字化けしている</dt>
+			<dd>
+				<p>お使いの ZIP ファイル解凍ソフトが古い仕様にしか対応していないのが原因です。</p>
+				<p>
+					Windows7 では <a href="https://support.microsoft.com/ja-jp/help/2704299/japanese-characters-in-file-names-are-displayed-as-garbled-text-after">KB2704299</a> が適用された環境で、Windows8 以降ならそのままで、標準で使用可能な「圧縮フォルダ」で正常に解凍できます。<br>
+					フリーウェアでは <a href="https://sevenzip.osdn.jp/">7-zip</a> や <a href="http://www.peazip.org/">PeaZip</a>、<a href="https://www.ponsoftware.com/">Explzh</a> などで解凍できます。
+				</p>
+			</dd>
+			<dt id="faq-layer-check">レイヤーのチェックが外せない / レイヤーの変なところがラジオボタンになっている</dt>
+			<dd>
+				<p>
+					明らかにおかしい場合は誤って<a href="#original-feature">独自拡張機能</a>が適用されているかもしれません。
+				</p>
+				<p>
+					画像を開く前に<a href="#feature-options">オプションから「独自拡張機能を無効化」</a>を選ぶと誤判定を回避することができます。
+				</p>
+			</dd>
+		</dl>
+
 		<h2 id="changes">変更履歴</h2>
 		<dl>
+			<dt>2017-09-16</dt>
+			<dd>ドキュメントに「よくある質問」の項目を追加</dd>
 			<dt>2017-09-01</dt>
 			<dd>ラジオとチェックが同じ階層に混在している時の振る舞いを明確にした</dd>
 			<dt>2017-08-31</dt>
