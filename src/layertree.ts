@@ -217,7 +217,8 @@ export class LayerTree {
         const name = document.createElement('label');
         const input = document.createElement('input');
         let layerName = l.Name;
-        if (!this.disableExtendedFeature && layerName.length > 1) {
+        // Generally '!?' does not expect any extended features.
+        if (!this.disableExtendedFeature && layerName.length > 1 && layerName !== '!?') {
             switch (layerName.charAt(0)) {
                 case '!':
                     input.className = 'psdtool-layer-visible psdtool-layer-force-visible';

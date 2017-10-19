@@ -642,9 +642,9 @@ root-name/お気に入り
 		<dl>
 			<dt id="faq-zip-mojibake">ZIP ファイルを解凍したら、ファイル名が文字化けしている</dt>
 			<dd>
-				<p>お使いの ZIP ファイル解凍ソフトが古い仕様にしか対応していないのが原因です。</p>
+				<p>お使いの ZIP ファイル解凍ソフトが近年普及している仕様（UTF-8ファイル名）に対応していないのが原因です。</p>
 				<p>
-					Windows7 では <a href="https://support.microsoft.com/ja-jp/help/2704299/japanese-characters-in-file-names-are-displayed-as-garbled-text-after">KB2704299</a> が適用された環境で、Windows8 以降ならそのままで、標準で使用可能な「圧縮フォルダ」で正常に解凍できます。<br>
+					Windows7 では <a href="https://support.microsoft.com/ja-jp/help/2704299/japanese-characters-in-file-names-are-displayed-as-garbled-text-after">KB2704299</a> が適用された環境で、Windows8 以降ならそのままで、標準で使用可能な「圧縮フォルダ」で正常に解凍できます。
 					フリーウェアでは <a href="https://sevenzip.osdn.jp/">7-zip</a> や <a href="http://www.peazip.org/">PeaZip</a>、<a href="https://www.ponsoftware.com/">Explzh</a>（家庭内や個人利用等の一般での使用のみ無償）などで解凍できます。
 				</p>
 			</dd>
@@ -656,11 +656,19 @@ root-name/お気に入り
 				<p>
 					画像を開く前に<a href="#feature-options">オプションから「独自拡張機能を無効化」</a>を選ぶと誤判定を回避することができます。
 				</p>
+				<p>
+					この問題は PSDTool で開くことを想定していない PSD ファイルで起こることがあります。<br>
+					ただし、<strong>世の中の大半の PSD ファイルは PSDTool で開くことを想定していません</strong>し、PSD ファイル側に問題があるわけでもありません。
+				</p>
 			</dd>
 		</dl>
 
 		<h2 id="changes">変更履歴</h2>
 		<dl>
+			<dt>2017-10-19</dt>
+			<dd>「独自拡張機能を無効化」の存在意義を主張</dd>
+			<dd>レイヤー名が「!?」の時に独自拡張機能が動作しないように修正</dd>
+			<dd>エクスポートダイアログ内に ZIP ファイルのファイル名が文字化けする場合のリンクを追記</dd>
 			<dt>2017-09-16</dt>
 			<dd>ドキュメントに「よくある質問」の項目を追加</dd>
 			<dt>2017-09-01</dt>
