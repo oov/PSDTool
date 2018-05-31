@@ -1643,7 +1643,7 @@ export class Main {
                 if (!n.isRadio && ((e.ctrlKey && !e.metaKey) || (!e.ctrlKey && e.metaKey))) {
                     const sibs = n.parent.children;
                     for (let i = 0; i < sibs.length; ++i) {
-                        if (sibs[i].isRadio || sibs[i] === n) {
+                        if (sibs[i].isRadio || sibs[i].isForceVisible || sibs[i] === n) {
                             continue;
                         }
                         sibs[i].checked = false;

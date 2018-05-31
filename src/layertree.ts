@@ -37,6 +37,7 @@ export class Node {
     get fullPath(): string { return this.fullPath_; }
     get isRoot(): boolean { return this === this.parent; }
     get isRadio(): boolean { return this.input.type === 'radio'; }
+    get isForceVisible(): boolean { return this.input.classList.contains('psdtool-layer-force-visible'); }
     public li: HTMLLIElement;
     public children: Node[] = [];
     public clip: Node[];
