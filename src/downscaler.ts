@@ -86,7 +86,7 @@ export class DownScaler {
         }
         const sourceCode = `
 'use strict';
-${require('raw-loader!uglify-loader!downscaler/downscaler.js')}
+${require('raw-loader!downscaler/downscaler.js')}
 onmessage = function(e) {
     var d = e.data;
     DownScaler.scale({

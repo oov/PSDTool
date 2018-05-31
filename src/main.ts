@@ -6,7 +6,6 @@ import * as favorite from './favorite';
 import * as layertree from './layertree';
 import * as tileder from './tileder';
 import * as zipper from './zipper';
-import primaGenerate from 'prima';
 
 function getElementById(doc: Document, id: string): HTMLElement {
     const elem = doc.getElementById(id);
@@ -785,10 +784,6 @@ export class Main {
         for (let i = 0; i < faviewExports.length; ++i) {
             ((elem: Element): void => {
                 elem.addEventListener('click', e => {
-                    if (elem.getAttribute('data-export-faview') === 'prima2') {
-                        this.exportFaviewPRIMA2();
-                        return;
-                    }
                     this.exportFaview(
                         elem.getAttribute('data-export-faview') === 'standard',
                         elem.getAttribute('data-structure') === 'flat'
@@ -1251,66 +1246,6 @@ export class Main {
                 );
             }
         }, e => errorHandler('cannot create a zip archive', e));
-    }
-
-    private exportFaviewPRIMA2(): void {
-        const backup = this.layerRoot.serialize(true);
-        const prog = new ProgressDialog('Exporting...', '');
-        const render = (base: string, pattern: number[], selects: favorite.FaviewSelect[]): Promise<HTMLCanvasElement> => {
-            return new Promise(resolve => {
-                this.layerRoot.deserialize(base);
-                selects.forEach((sel, i) => {
-                    const index = pattern[i];
-                    if (index === -1) {
-                        const fav = this.favorite.get(sel.valueByIndex(0));
-                        this.layerRoot.deserializePartial(undefined, '', this.favorite.getFirstFilter(fav));
-                    } else {
-                        const fav = this.favorite.get(sel.valueByIndex(index));
-                        this.layerRoot.deserializePartial(undefined, fav.data ? fav.data.value : '', this.favorite.getFirstFilter(fav));
-                    }
-                });
-                this.render((progress, canvas) => {
-                    const c = document.createElement('canvas');
-                    c.width = canvas.width;
-                    c.height = canvas.height;
-                    const ctx = c.getContext('2d');
-                    if (!(ctx instanceof CanvasRenderingContext2D)) {
-                        throw new Error('could not get canvas context');
-                    }
-                    ctx.drawImage(canvas, 0, 0);
-                    if (progress !== 1) {
-                        return;
-                    }
-                    resolve(c);
-                });
-            });
-        };
-        const patterns = this.faview.items.map(root => {
-            return {
-                name: root.name,
-                captions: root.selects.map(sel => Main.cleanForFilename(sel.caption)),
-                selects: root.selects.map(sel => sel.items.map(item => Main.cleanForFilename(item.name))),
-                render: (pattern: number[]) => render(backup, pattern, root.selects),
-                renderSolo: (pattern: number[]) => render('', pattern, root.selects),
-            };
-        });
-        primaGenerate(
-            16,
-            patterns[0].captions,
-            patterns[0].selects,
-            patterns[0].render,
-            patterns[0].renderSolo,
-            (phase, cur, total) => {
-                return new Promise<void>(resolve => {
-                    prog.update(cur / total, `Phase ${phase + 1}/3: ${cur}/${total}`);
-                    requestAnimationFrame(() => resolve());
-                });
-            },
-        ).then(b => {
-            saveAs(b, 'tiled.prima');
-            prog.close();
-            this.layerRoot.deserialize(backup);
-        });
     }
 
     private enumerateFaview(
@@ -1864,6 +1799,10 @@ export class Main {
                             return;
                     }
                 };
+                if (!ifr.contentWindow) {
+                    reject(new Error('contentWindow not found in the iframe'));
+                    return;
+                }
                 ifr.contentWindow.postMessage(
                     location.protocol,
                     url.replace(/^([^:]+:\/\/[^\/]+).*$/, '$1'), [msgCh.port2]);

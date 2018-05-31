@@ -1,4 +1,4 @@
-//go:generate gopherjs build -m -o ../../js/psd.min.js
+//go:generate env GOOS=linux gopherjs build -m -o ../../js/psd.min.js
 
 package main
 
