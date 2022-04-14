@@ -337,16 +337,38 @@ func parse(rd readerAt, progress func(progress float64), makeCanvas func(seqID i
 	default:
 		return nil, errors.New("unsupported file type")
 	}
-	psdImg, _, err := psd.Decode(psdReader, &psd.DecodeOptions{
+	var options psd.DecodeOptions
+	options = psd.DecodeOptions{
 		LayerImageLoaded: func(layer *psd.Layer, index int, total int) {
 			makeCanvas(index, layer)
 			layer.Picker = nil
 			layer.Channel = nil
+			options.SkipMergedImage = true
 		},
-		SkipMergedImage: true,
-	})
+		SkipMergedImage: false,
+	}
+	psdImg, _, err := psd.Decode(psdReader, &options)
 	if err != nil {
 		return nil, err
+	}
+	if len(psdImg.Layer) == 0 {
+		// couldn't find the layer in this image.
+		// So Add the merged image as a layer.
+		psdImg.Layer = append(psdImg.Layer, psd.Layer{
+			SeqID:               1,
+			Name:                "Layer Not Found",
+			UnicodeName:         "Layer Not Found",
+			MBCSName:            "Layer Not Found",
+			Rect:                psdImg.Config.Rect,
+			Channel:             psdImg.Channel,
+			BlendMode:           psd.BlendModeNormal,
+			Opacity:             255,
+			Flags:               0,
+			Picker:              psdImg.Picker,
+			AdditionalLayerInfo: psdImg.AdditinalLayerInfo,
+			Layer:               []psd.Layer{},
+		})
+		makeCanvas(1, &psdImg.Layer[0])
 	}
 	e := time.Now().UnixNano()
 	progress(1)
