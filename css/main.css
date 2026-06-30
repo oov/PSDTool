@@ -18,6 +18,14 @@ h1 small {
    font-size: 30%;
    letter-spacing: 0;
 }
+h1 small a.next {
+  color: #080;
+  font-weight: bold;
+  text-decoration: underline;
+}
+h1 small a.next:hover {
+  color: #0a0;
+}
 .psdtool-header {
    margin: 4rem 0;
    line-height: 5rem;
